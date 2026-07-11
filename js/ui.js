@@ -2416,29 +2416,58 @@ export const UI = {
 
         <!-- 3. Năng suất nhân sự -->
         <div class="material-stats-card">
-          <h4 class="section-title" style="margin-bottom:12px;"><i class="fas fa-user-friends"></i> Đánh Giá Năng Suất Nhân Sự</h4>
+          <h4 class="section-title" style="margin-bottom:16px;"><i class="fas fa-user-friends"></i> Đánh Giá Năng Suất Nhân Sự</h4>
           
-          <p style="font-size:0.8rem; color:var(--primary); font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Thiết kế (Thời gian duyệt của khách):</p>
-          <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
-            ${analytics.designers.map(d => `
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; padding:8px 12px; background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px;">
-                <strong>${d.name}</strong>
-                <span style="color:var(--text-secondary);">
-                  Khách ngâm duyệt: <span style="font-weight:600; color:${d.frozenCount > 1 ? 'var(--status-rejected)' : 'var(--status-approved)'}">${d.frozenCount} lần</span>
-                </span>
-              </div>
-            `).join('')}
+          <!-- Designers Grid -->
+          <div style="margin-bottom: 24px;">
+            <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-pencil-ruler"></i> Thiết kế (Thời gian duyệt của khách)
+            </p>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
+              ${analytics.designers.map(d => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px;">
+                  <div>
+                    <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${d.name}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Thiết kế & Kỹ thuật</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <span class="status-badge" style="background:${d.frozenCount > 1 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}; color:${d.frozenCount > 1 ? 'var(--status-rejected)' : 'var(--status-approved)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                      ${d.frozenCount} lần chậm duyệt
+                    </span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
           </div>
 
-          <p style="font-size:0.8rem; color:var(--primary); font-weight:600; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Sản xuất & Lắp đặt (Tỉ lệ sửa hàng lỗi):</p>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            ${analytics.teams.map(t => `
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; padding:8px 12px; background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px;">
-                <strong>${t.name}</strong>
-                <span style="color:var(--text-secondary);">
-                  Lắp đúng hạn: <strong>${t.completedOnTime}</strong> | Lỗi sản xuất: <span style="font-weight:600; color:${t.errorCount > 0 ? 'var(--status-rejected)' : 'var(--status-approved)'}">${t.errorCount} lần</span>
-                </span>
-            `).join('')}
+          <!-- Workers Grid -->
+          <div>
+            <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-hammer"></i> Sản xuất & Lắp đặt (Tỉ lệ sửa hàng lỗi)
+            </p>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
+              ${analytics.teams.map(t => {
+                const hasError = t.errorCount > 0;
+                return `
+                  <div style="display:flex; flex-direction:column; justify-content:space-between; padding:14px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${t.name}</div>
+                      <span class="status-badge" style="font-size:0.72rem; font-weight:700; background:rgba(79, 70, 229, 0.12); color:#818CF8; padding:3px 6px; border-radius:6px;">Thợ</span>
+                    </div>
+                    <div style="display:flex; gap:12px; border-top:1px solid rgba(255,255,255,0.03); padding-top:8px;">
+                      <div style="flex:1;">
+                        <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Lắp đúng hạn</span>
+                        <span style="font-size:0.85rem; font-weight:700; color:var(--status-approved);">${t.completedOnTime} việc</span>
+                      </div>
+                      <div style="flex:1; border-left:1px solid rgba(255,255,255,0.05); padding-left:12px;">
+                        <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Lỗi sản xuất</span>
+                        <span style="font-size:0.85rem; font-weight:700; color:${hasError ? 'var(--status-rejected)' : 'var(--status-approved)'};">${t.errorCount} lần</span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
         </div>
 

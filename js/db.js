@@ -767,18 +767,47 @@ export const DB = {
       });
     });
 
-    // 3. Năng suất nhân sự
-    // Designers
-    const designers = [
-      { name: 'Trần Hữu Nhật Long (3D/Kỹ thuật)', frozenCount: 1, approvedDesignCount: 5 }
-    ];
+    // 3. Năng suất nhân sự (Động theo dữ liệu thực tế)
+    // Designers (KTS)
+    const ktsUsers = db.users.filter(u => u.role === 'kts');
+    const designers = ktsUsers.map(u => {
+      let frozenCount = 0;
+      projects.forEach(p => {
+        p.history.forEach(h => {
+          if (h.action.includes('Đóng băng') && (p.subtasks.some(st => st.assignedTo === u.id) || h.action.includes(u.name))) {
+            frozenCount++;
+          }
+        });
+      });
+      return {
+        name: u.name,
+        frozenCount: frozenCount
+      };
+    });
 
     // Assembly workers / Teams
-    const teams = [
-      { name: 'Trần Nhật Cường (Thợ chính)', completedOnTime: 4, errorCount: 0 },
-      { name: 'Út Út (Thợ chính)', completedOnTime: 3, errorCount: 1 },
-      { name: 'Lâm (Thợ phụ)', completedOnTime: 2, errorCount: 0 }
-    ];
+    const workerUsers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
+    const teams = workerUsers.map(u => {
+      let completedOnTime = 0;
+      let errorCount = 0;
+      projects.forEach(p => {
+        p.subtasks.forEach(st => {
+          if (st.assignedTo === u.id) {
+            if (st.status === 'completed') {
+              completedOnTime++;
+            }
+            if (st.type === 'rework') {
+              errorCount++;
+            }
+          }
+        });
+      });
+      return {
+        name: u.name,
+        completedOnTime: completedOnTime,
+        errorCount: errorCount
+      };
+    });
 
     return {
       pipeline,
