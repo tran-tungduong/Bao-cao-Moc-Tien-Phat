@@ -740,12 +740,15 @@ export const DB = {
       if (p.isRework) totalErrors++;
       if (p.isSmallScope || p.name.includes('[PHÁT SINH]')) totalScopeChanges++;
 
-      // Analyze delay reasons from frozen projects and delayed logs
-      if (p.isFrozen) {
-        if (p.freezeReason === 'Chờ khách duyệt') {
+      // Analyze delay reasons from frozen projects and delayed logs (So khớp từ khóa tiếng Việt thông minh)
+      if (p.isFrozen && p.freezeReason) {
+        const reasonLower = p.freezeReason.toLowerCase();
+        if (reasonLower.includes('khách') || reasonLower.includes('duyệt') || reasonLower.includes('đổi ý') || reasonLower.includes('ngâm') || reasonLower.includes('chờ')) {
           delayReasons['Khách đổi ý/chậm duyệt']++;
-        } else if (p.freezeReason === 'Tắc hiện trường') {
+        } else if (reasonLower.includes('hiện trường') || reasonLower.includes('tắc') || reasonLower.includes('mặt bằng') || reasonLower.includes('chưa giao') || reasonLower.includes('vướng')) {
           delayReasons['Tắc nghẽn hiện trường']++;
+        } else if (reasonLower.includes('vật tư') || reasonLower.includes('thiếu') || reasonLower.includes('phụ kiện') || reasonLower.includes('chưa về') || reasonLower.includes('gỗ') || reasonLower.includes('ray')) {
+          delayReasons['Trễ vật tư/phụ kiện']++;
         }
       }
 
@@ -758,9 +761,9 @@ export const DB = {
 
       // Count notes
       p.dailyLogs.forEach(l => {
-        if (l.status === 'delayed') {
+        if (l.status === 'delayed' && l.note) {
           const noteText = l.note.toLowerCase();
-          if (noteText.includes('vật tư') || noteText.includes('thiếu gỗ') || noteText.includes('ray trượt')) {
+          if (noteText.includes('vật tư') || noteText.includes('thiếu') || noteText.includes('phụ kiện') || noteText.includes('chưa về') || noteText.includes('ray') || noteText.includes('gỗ') || noteText.includes('bản lề') || noteText.includes('trễ')) {
             delayReasons['Trễ vật tư/phụ kiện']++;
           }
         }

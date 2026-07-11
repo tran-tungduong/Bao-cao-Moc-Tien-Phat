@@ -1583,37 +1583,55 @@ export const UI = {
     const container = document.getElementById('manager-tab-content');
     const completedProjects = DB.getProjects().filter(p => p.isCompleted);
 
+    const headerHtml = `
+      <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div>
+          <h4 style="font-family:var(--font-title); font-size:0.95rem; font-weight:600;"><i class="fas fa-archive"></i> Kho Lưu Trữ Công Trình (${completedProjects.length})</h4>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Nơi lưu giữ thông tin các dự án nội thất đã bàn giao cho khách hàng.</p>
+        </div>
+        <div>
+          <button id="btn-import-project-backup" class="btn-primary" style="padding:8px 12px; font-size:0.78rem; font-weight:700; height:auto; background:linear-gradient(135deg, var(--primary), #9E815B); display:flex; align-items:center; gap:6px; border:none; cursor:pointer; border-radius:8px;">
+            <i class="fas fa-file-upload"></i> Khôi phục công trình (.json)
+          </button>
+          <input type="file" id="import-project-file-input" accept=".json" style="display:none;">
+        </div>
+      </div>
+    `;
+
     if (completedProjects.length === 0) {
       container.innerHTML = `
-        <div class="fade-in" style="text-align:center; padding: 40px 20px; color:var(--text-muted); background-color:var(--bg-secondary); border-radius:20px; border:1px solid var(--border-color); margin-top:20px;">
-          <i class="fas fa-archive" style="font-size:2.5rem; margin-bottom:12px; color:var(--primary);"></i>
-          <h4 style="font-family:var(--font-title); color:var(--text-primary); margin-bottom:8px; font-weight:600;">Chưa Có Công Trình Hoàn Thành</h4>
-          <p style="font-size:0.8rem; line-height:1.4;">Các công trình hoàn thành bước 9 và được sếp phê duyệt đóng hồ sơ bàn giao sẽ xuất hiện tại đây.</p>
+        <div class="fade-in" style="display:flex; flex-direction:column;">
+          ${headerHtml}
+          <div style="text-align:center; padding: 40px 20px; color:var(--text-muted); background-color:var(--bg-secondary); border-radius:20px; border:1px solid var(--border-color); margin-top:20px;">
+            <i class="fas fa-archive" style="font-size:2.5rem; margin-bottom:12px; color:var(--primary);"></i>
+            <h4 style="font-family:var(--font-title); color:var(--text-primary); margin-bottom:8px; font-weight:600;">Chưa Có Công Trình Hoàn Thành</h4>
+            <p style="font-size:0.8rem; line-height:1.4;">Các công trình hoàn thành bước 9 và được sếp phê duyệt đóng hồ sơ bàn giao sẽ xuất hiện tại đây.</p>
+          </div>
         </div>
       `;
+      this.bindImportBackupListener(user);
       return;
     }
 
     container.innerHTML = `
-      <div class="fade-in" style="display:flex; flex-direction:column; gap:16px;">
-        <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:16px;">
-          <h4 style="font-family:var(--font-title); font-size:0.95rem; font-weight:600;"><i class="fas fa-archive"></i> Kho Lưu Trữ Công Trình (${completedProjects.length})</h4>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Nơi lưu giữ thông tin các dự án nội thất đã bàn giao cho khách hàng.</p>
-        </div>
-
-        <div class="report-list">
+      <div class="fade-in" style="display:flex; flex-direction:column;">
+        ${headerHtml}
+        <div class="report-list" style="display:flex; flex-direction:column; gap:16px;">
           ${completedProjects.map(p => `
-            <div class="report-card" data-project="${p.id}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:18px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
-              <div style="flex:1;">
+            <div class="report-card" data-project="${p.id}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+              <div style="flex:1; min-width:200px;">
                 <h4 style="font-family:var(--font-title); font-size:1.05rem; font-weight:700; color:var(--text-primary);">${p.name}</h4>
                 <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Hạn gốc: ${p.originalDeadline} • Hoàn thành: ${p.completedAt ? new Date(p.completedAt).toLocaleDateString('vi-VN') : ''}</p>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                 <button class="btn-download-excel" data-project="${p.id}" style="background-color:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); color:#10B981; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải báo cáo Excel">
                   <i class="fas fa-file-excel"></i> Xuất Excel
                 </button>
+                <button class="btn-download-json" data-project="${p.id}" style="background-color:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); color:#3B82F6; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải file cứng sao lưu JSON">
+                  <i class="fas fa-file-download"></i> File Backup (JSON)
+                </button>
                 <button class="btn-completed-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
-                <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
+                <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình giải phóng bộ nhớ"><i class="fas fa-trash-alt"></i></button>
                 <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15); white-space:nowrap;">
                   <i class="fas fa-check-circle"></i> Đã Bàn Giao
                 </span>
@@ -1643,6 +1661,15 @@ export const UI = {
       });
     });
 
+    // JSON export handler
+    container.querySelectorAll('.btn-download-json').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent drawer trigger
+        const prjId = btn.getAttribute('data-project');
+        this.exportProjectToJson(prjId);
+      });
+    });
+
     // Edit project click
     container.querySelectorAll('.btn-completed-edit-project').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1660,13 +1687,16 @@ export const UI = {
         e.stopPropagation();
         const prjId = btn.getAttribute('data-id');
         const prj = DB.getProject(prjId);
-        if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình đã hoàn thành: "${prj.name}"?\nThao tác này sẽ xóa tất cả nhật ký, hình ảnh, lịch sử liên quan và không thể khôi phục!`)) {
+        if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình đã hoàn thành: "${prj.name}"?\n\nLưu ý: Hãy chắc chắn bạn đã tải "File Backup (JSON)" của công trình này về máy trước khi xóa để giải phóng dung lượng bộ nhớ. Thao tác xóa sẽ không thể khôi phục tự động!`)) {
           DB.deleteProject(prjId, user.id);
-          Toast.success('Đã xóa công trình.');
+          Toast.success('Đã xóa công trình để giải phóng bộ nhớ.');
           this.renderManagerCompleted(user);
         }
       });
     });
+
+    // Bind import triggers
+    this.bindImportBackupListener(user);
   },
 
   // 9. OPEN PROJECT DETAILS DRAWER (MANAGER VIEW)
@@ -2344,12 +2374,18 @@ export const UI = {
         
         <!-- Summary widgets -->
         <div class="stats-grid">
-          <div class="stat-mini-card">
-            <span class="stat-mini-title">Nhãn Đỏ [SỬA LỖI]</span>
+          <div class="stat-mini-card btn-summary-errors" style="cursor:pointer; border-color:var(--status-rejected); transition: transform var(--transition-fast);" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+            <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Nhãn Đỏ [SỬA LỖI]</span>
+              <i class="fas fa-search-plus" style="font-size:0.7rem; color:var(--status-rejected); opacity:0.6;"></i>
+            </span>
             <span class="stat-mini-val" style="color:var(--status-rejected);"><i class="fas fa-exclamation-triangle"></i> ${analytics.errorsCount}</span>
           </div>
-          <div class="stat-mini-card">
-            <span class="stat-mini-title">Nhãn Cam [PHÁT SINH]</span>
+          <div class="stat-mini-card btn-summary-scopes" style="cursor:pointer; border-color:var(--status-pending); transition: transform var(--transition-fast);" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+            <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Nhãn Cam [PHÁT SINH]</span>
+              <i class="fas fa-search-plus" style="font-size:0.7rem; color:var(--status-pending); opacity:0.6;"></i>
+            </span>
             <span class="stat-mini-val" style="color:var(--status-pending);"><i class="fas fa-plus-circle"></i> ${analytics.scopeCount}</span>
           </div>
         </div>
@@ -2400,17 +2436,19 @@ export const UI = {
           <h4 class="section-title" style="margin-bottom:14px;"><i class="fas fa-hourglass-half"></i> Nguyên Nhân Chậm Tiến Độ Nhiều Nhất</h4>
           <div class="material-list">
             ${Object.entries(analytics.delayReasons).map(([reason, count]) => {
-      const maxCount = Math.max(...Object.values(analytics.delayReasons), 1);
-      return `
-                <div class="material-row">
-                  <span style="width:140px; font-size:0.8rem; line-height:1.2;">${reason}</span>
-                  <div class="material-progress-container">
+              const maxCount = Math.max(...Object.values(analytics.delayReasons), 1);
+              return `
+                <div class="material-row btn-delay-reason-detail" data-reason="${reason}" style="cursor:pointer; padding:8px; border-radius:8px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.02)'" onmouseout="this.style.backgroundColor='transparent'">
+                  <span style="width:140px; font-size:0.8rem; line-height:1.2; font-weight:500;">${reason}</span>
+                  <div class="material-progress-container" style="flex:1;">
                     <div class="material-progress-bar" style="width: ${(count / maxCount * 100)}%; background-color: var(--status-rejected);"></div>
                   </div>
-                  <span style="font-weight:600; font-size:0.85rem;">${count} vụ</span>
+                  <span style="font-weight:700; font-size:0.85rem; color:var(--primary); margin-left:8px; display:flex; align-items:center; gap:4px;">
+                    ${count} vụ <i class="fas fa-search-plus" style="font-size:0.75rem; opacity:0.6;"></i>
+                  </span>
                 </div>
               `;
-    }).join('')}
+            }).join('')}
           </div>
         </div>
 
@@ -2424,19 +2462,25 @@ export const UI = {
               <i class="fas fa-pencil-ruler"></i> Thiết kế (Thời gian duyệt của khách)
             </p>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
-              ${analytics.designers.map(d => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px;">
-                  <div>
-                    <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${d.name}</div>
-                    <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Thiết kế & Kỹ thuật</div>
+              ${analytics.designers.map(d => {
+                const db = DB.load();
+                const userObj = db.users.find(u => u.name === d.name);
+                const userId = userObj ? userObj.id : '';
+                return `
+                  <div class="btn-designer-detail" data-userid="${userId}" data-name="${d.name}" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px; cursor:pointer; transition: transform var(--transition-fast);" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <div>
+                      <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${d.name}</div>
+                      <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Thiết kế & Kỹ thuật</div>
+                    </div>
+                    <div style="text-align:right; display:flex; align-items:center; gap:6px;">
+                      <span class="status-badge" style="background:${d.frozenCount > 1 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}; color:${d.frozenCount > 1 ? 'var(--status-rejected)' : 'var(--status-approved)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                        ${d.frozenCount} lần chậm duyệt
+                      </span>
+                      <i class="fas fa-search-plus" style="font-size:0.75rem; color:var(--primary); opacity:0.6;"></i>
+                    </div>
                   </div>
-                  <div style="text-align:right;">
-                    <span class="status-badge" style="background:${d.frozenCount > 1 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}; color:${d.frozenCount > 1 ? 'var(--status-rejected)' : 'var(--status-approved)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
-                      ${d.frozenCount} lần chậm duyệt
-                    </span>
-                  </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
 
@@ -2447,6 +2491,9 @@ export const UI = {
             </p>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
               ${analytics.teams.map(t => {
+                const db = DB.load();
+                const userObj = db.users.find(u => u.name === t.name);
+                const userId = userObj ? userObj.id : '';
                 const hasError = t.errorCount > 0;
                 return `
                   <div style="display:flex; flex-direction:column; justify-content:space-between; padding:14px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px; gap:8px;">
@@ -2455,14 +2502,17 @@ export const UI = {
                       <span class="status-badge" style="font-size:0.72rem; font-weight:700; background:rgba(79, 70, 229, 0.12); color:#818CF8; padding:3px 6px; border-radius:6px;">Thợ</span>
                     </div>
                     <div style="display:flex; gap:12px; border-top:1px solid rgba(255,255,255,0.03); padding-top:8px;">
-                      <div style="flex:1;">
-                        <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Lắp đúng hạn</span>
+                      
+                      <div class="btn-worker-completed-detail" data-userid="${userId}" data-name="${t.name}" style="flex:1; cursor:pointer; border-radius:6px; padding:4px 6px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(16, 185, 129, 0.05)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <span style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">Lắp đúng hạn <i class="fas fa-search-plus" style="font-size:0.6rem; opacity:0.5;"></i></span>
                         <span style="font-size:0.85rem; font-weight:700; color:var(--status-approved);">${t.completedOnTime} việc</span>
                       </div>
-                      <div style="flex:1; border-left:1px solid rgba(255,255,255,0.05); padding-left:12px;">
-                        <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Lỗi sản xuất</span>
+                      
+                      <div class="btn-worker-rework-detail" data-userid="${userId}" data-name="${t.name}" style="flex:1; border-left:1px solid rgba(255,255,255,0.05); padding-left:12px; cursor:pointer; border-radius:6px; padding:4px 6px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(239, 68, 68, 0.05)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <span style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">Lỗi sản xuất <i class="fas fa-search-plus" style="font-size:0.6rem; opacity:0.5;"></i></span>
                         <span style="font-size:0.85rem; font-weight:700; color:${hasError ? 'var(--status-rejected)' : 'var(--status-approved)'};">${t.errorCount} lần</span>
                       </div>
+                      
                     </div>
                   </div>
                 `;
@@ -2473,6 +2523,7 @@ export const UI = {
 
       </div>
     `;
+    this.bindDashboardDetailListeners();
   },
 
   // 13. EXPORT COMPLETED PROJECT TO EXCEL CSV (UTF-8 WITH BOM)
@@ -2547,6 +2598,91 @@ export const UI = {
     Toast.success('Đã tải xuống file báo cáo Excel (CSV) thành công.');
   },
 
+  // 13.1 EXPORT PROJECT TO RAW JSON FILE FOR HARD STORAGE/BACKUP
+  exportProjectToJson(projectId) {
+    const project = DB.getProject(projectId);
+    if (!project) {
+      Toast.error('Không tìm thấy thông tin công trình.');
+      return;
+    }
+    const jsonStr = JSON.stringify(project, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    
+    const sanitizedName = project.name.replace(/[^a-zA-Z0-9-]/g, '_');
+    link.setAttribute('download', `[MocTienPhat]_${sanitizedName}_BackupData.json`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    Toast.success('Đã tải file sao lưu cứng (.json) thành công! Hãy lưu giữ file này để giải phóng dung lượng web.');
+  },
+
+  // 13.2 IMPORT PROJECT FROM BACKUP JSON FILE
+  importProjectFromJson(file, user, onComplete) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const project = JSON.parse(e.target.result);
+        if (!project.id || !project.name || !Array.isArray(project.subtasks)) {
+          throw new Error('Định dạng file sao lưu JSON không hợp lệ.');
+        }
+
+        const db = DB.load();
+        const existingIdx = db.projects.findIndex(p => p.id === project.id);
+        if (existingIdx > -1) {
+          if (!confirm(`Công trình "${project.name}" đã tồn tại trong hệ thống. Bạn có muốn ghi đè dữ liệu hiện tại bằng file sao lưu này không?`)) {
+            return;
+          }
+          db.projects[existingIdx] = project;
+        } else {
+          db.projects.push(project);
+        }
+
+        db.systemLogs.push({
+          timestamp: new Date().toISOString(),
+          action: `Khôi phục công trình từ file sao lưu JSON: "${project.name}"`,
+          user: user.name
+        });
+
+        DB.save(db);
+        Toast.success('Khôi phục công trình thành công!');
+        onComplete();
+      } catch (err) {
+        Toast.error('Lỗi khôi phục: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  // 13.3 BIND IMPORT FILE LISTENERS
+  bindImportBackupListener(user) {
+    const btn = document.getElementById('btn-import-project-backup');
+    const input = document.getElementById('import-project-file-input');
+    if (btn && input) {
+      // Avoid adding multiple listeners if bound multiple times
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      
+      const newInput = input.cloneNode(true);
+      input.parentNode.replaceChild(newInput, input);
+
+      newBtn.addEventListener('click', () => newInput.click());
+      newInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          this.importProjectFromJson(file, user, () => {
+            this.renderManagerCompleted(user);
+          });
+        }
+        newInput.value = '';
+      });
+    }
+  },
+
   // 9. SILENT UPDATE CURRENT SCREEN DATA WITHOUT WIPING FORM INPUTS
   refreshActiveView(user) {
     const userRoleTag = document.querySelector('.user-role-tag');
@@ -2581,5 +2717,372 @@ export const UI = {
         }
       }
     }
+  },
+
+  // 12.1 REGISTER DETAILED REPORT EVENT LISTENERS
+  bindDashboardDetailListeners() {
+    const container = document.getElementById('manager-tab-content');
+    if (!container) return;
+
+    // Delay Reasons details
+    container.querySelectorAll('.btn-delay-reason-detail').forEach(el => {
+      el.addEventListener('click', () => {
+        const reason = el.getAttribute('data-reason');
+        this.showDelayReasonDetails(reason);
+      });
+    });
+
+    // Designer freeze details
+    container.querySelectorAll('.btn-designer-detail').forEach(el => {
+      el.addEventListener('click', () => {
+        const userId = el.getAttribute('data-userid');
+        const name = el.getAttribute('data-name');
+        this.showDesignerProductivityDetails(userId, name);
+      });
+    });
+
+    // Worker completed tasks details
+    container.querySelectorAll('.btn-worker-completed-detail').forEach(el => {
+      el.addEventListener('click', () => {
+        const userId = el.getAttribute('data-userid');
+        const name = el.getAttribute('data-name');
+        this.showWorkerCompletedDetails(userId, name);
+      });
+    });
+
+    // Worker rework details
+    container.querySelectorAll('.btn-worker-rework-detail').forEach(el => {
+      el.addEventListener('click', () => {
+        const userId = el.getAttribute('data-userid');
+        const name = el.getAttribute('data-name');
+        this.showWorkerReworkDetails(userId, name);
+      });
+    });
+
+    // Summary widget: Errors (Nhãn Đỏ) details
+    container.querySelectorAll('.btn-summary-errors').forEach(el => {
+      el.addEventListener('click', () => {
+        this.showDelayReasonDetails('Sản xuất/Thi công sai lỗi');
+      });
+    });
+
+    // Summary widget: Scopes (Nhãn Cam) details
+    container.querySelectorAll('.btn-summary-scopes').forEach(el => {
+      el.addEventListener('click', () => {
+        this.showSummaryScopesDetails();
+      });
+    });
+  },
+
+  // 12.2 SHOW DELAY REASON DETAIL MODAL
+  showDelayReasonDetails(reason) {
+    const projects = DB.getProjects();
+    let itemsHtml = '';
+
+    if (reason === 'Khách đổi ý/chậm duyệt' || reason === 'Tắc nghẽn hiện trường' || reason === 'Trễ vật tư/phụ kiện') {
+      const matchKeywords = {
+        'Khách đổi ý/chậm duyệt': ['khách', 'duyệt', 'đổi ý', 'ngâm', 'chờ'],
+        'Tắc nghẽn hiện trường': ['hiện trường', 'tắc', 'mặt bằng', 'chưa giao', 'vướng'],
+        'Trễ vật tư/phụ kiện': ['vật tư', 'thiếu', 'phụ kiện', 'chưa về', 'gỗ', 'ray', 'bản lề', 'trễ']
+      }[reason];
+
+      // Find from frozen projects
+      const frozenMatches = projects.filter(p => p.isFrozen && p.freezeReason && matchKeywords.some(k => p.freezeReason.toLowerCase().includes(k)));
+      
+      // Find from delayed daily logs
+      let logMatches = [];
+      projects.forEach(p => {
+        p.dailyLogs.forEach(l => {
+          if (l.status === 'delayed' && l.note && matchKeywords.some(k => l.note.toLowerCase().includes(k))) {
+            logMatches.push({
+              projectName: p.name,
+              date: l.date,
+              reporter: l.reporterName,
+              note: l.note
+            });
+          }
+        });
+      });
+
+      if (frozenMatches.length === 0 && logMatches.length === 0) {
+        itemsHtml = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">Không tìm thấy chi tiết sự việc nào.</p>';
+      } else {
+        itemsHtml = `
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${frozenMatches.map(p => `
+              <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-snowflake" style="color:var(--status-pending); margin-right:4px;"></i> ${p.name}</div>
+                <div style="font-size:0.78rem; color:var(--status-rejected); font-weight:600; margin-top:6px;">Lý do treo: "${p.freezeReason}"</div>
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Trạng thái: Đóng băng tiến độ</div>
+              </div>
+            `).join('')}
+            ${logMatches.map(l => `
+              <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-clock" style="color:var(--status-rejected); margin-right:4px;"></i> ${l.projectName}</div>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:6px;">Báo cáo chậm: "${l.note}"</div>
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Bởi: ${l.reporter} • Ngày: ${l.date}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    } else if (reason === 'Sản xuất/Thi công sai lỗi') {
+      // Find all rework subtasks
+      let reworkTasks = [];
+      projects.forEach(p => {
+        p.subtasks.forEach(st => {
+          if (st.type === 'rework') {
+            reworkTasks.push({
+              projectName: p.name,
+              taskTitle: st.title,
+              assignedTo: st.assignedTo,
+              status: st.status,
+              completedAt: st.completedAt
+            });
+          }
+        });
+      });
+
+      if (reworkTasks.length === 0) {
+        itemsHtml = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">Không có lỗi sản xuất/thi công nào.</p>';
+      } else {
+        const db = DB.load();
+        itemsHtml = `
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${reworkTasks.map(t => {
+              const worker = db.users.find(u => u.id === t.assignedTo);
+              return `
+                <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                  <div>
+                    <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-exclamation-triangle" style="color:var(--status-rejected); margin-right:4px;"></i> ${t.taskTitle}</div>
+                    <div style="font-size:0.78rem; color:var(--primary); font-weight:600; margin-top:4px;">Dự án: ${t.projectName}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Người làm: ${worker ? worker.name : 'Chưa giao'}</div>
+                  </div>
+                  <div>
+                    <span class="status-badge ${t.status === 'completed' ? 'approved' : 'pending'}" style="font-size:0.7rem;">
+                      ${t.status === 'completed' ? 'Đã khắc phục' : 'Chưa xử lý'}
+                    </span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+    }
+
+    Modal.create(`Chi Tiết: ${reason}`, `
+      <div style="max-height:480px; overflow-y:auto; padding-right:4px;">
+        ${itemsHtml}
+      </div>
+    `);
+  },
+
+  // 12.3 SHOW DESIGNER PRODUCTIVITY DETAILS
+  showDesignerProductivityDetails(userId, name) {
+    if (!userId) {
+      Toast.error('Không tìm thấy ID người dùng.');
+      return;
+    }
+    const projects = DB.getProjects();
+    let freezeRecords = [];
+
+    projects.forEach(p => {
+      p.history.forEach(h => {
+        if (h.action.includes('Đóng băng') && (p.subtasks.some(st => st.assignedTo === userId) || h.action.includes(name))) {
+          freezeRecords.push({
+            projectName: p.name,
+            action: h.action,
+            time: h.timestamp
+          });
+        }
+      });
+    });
+
+    let html = '';
+    if (freezeRecords.length === 0) {
+      html = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">KTS không có lịch sử chậm duyệt thiết kế nào.</p>';
+    } else {
+      html = `
+        <div style="display:flex; flex-direction:column; gap:12px; max-height:480px; overflow-y:auto; padding-right:4px;">
+          ${freezeRecords.map(r => `
+            <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+              <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">${r.projectName}</div>
+              <div style="font-size:0.78rem; color:var(--status-rejected); margin-top:4px; font-weight:600;">${r.action}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Thời gian: ${new Date(r.time).toLocaleString('vi-VN')}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    Modal.create(`Chậm Duyệt Thiết Kế: ${name}`, html);
+  },
+
+  // 12.4 SHOW WORKER COMPLETED TASKS DETAILS
+  showWorkerCompletedDetails(userId, name) {
+    if (!userId) {
+      Toast.error('Không tìm thấy ID người dùng.');
+      return;
+    }
+    const projects = DB.getProjects();
+    let completedTasks = [];
+
+    projects.forEach(p => {
+      p.subtasks.forEach(st => {
+        if (st.assignedTo === userId && st.status === 'completed') {
+          completedTasks.push({
+            projectName: p.name,
+            taskTitle: st.title,
+            completedAt: st.completedAt
+          });
+        }
+      });
+    });
+
+    let html = '';
+    if (completedTasks.length === 0) {
+      html = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">Thợ chưa hoàn thành nhiệm vụ nào.</p>';
+    } else {
+      html = `
+        <div style="display:flex; flex-direction:column; gap:12px; max-height:480px; overflow-y:auto; padding-right:4px;">
+          ${completedTasks.map(t => `
+            <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">${t.taskTitle}</div>
+                <div style="font-size:0.75rem; color:var(--primary); margin-top:2px;">Dự án: ${t.projectName}</div>
+              </div>
+              <div style="text-align:right;">
+                <span class="status-badge approved" style="font-size:0.7rem;">Xong đúng hạn</span>
+                ${t.completedAt ? `<div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;">${new Date(t.completedAt).toLocaleDateString('vi-VN')}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    Modal.create(`Công Việc Hoàn Thành: ${name}`, html);
+  },
+
+  // 12.5 SHOW WORKER REWORK DETAILS
+  showWorkerReworkDetails(userId, name) {
+    if (!userId) {
+      Toast.error('Không tìm thấy ID người dùng.');
+      return;
+    }
+    const projects = DB.getProjects();
+    let reworkTasks = [];
+
+    projects.forEach(p => {
+      p.subtasks.forEach(st => {
+        if (st.assignedTo === userId && st.type === 'rework') {
+          reworkTasks.push({
+            projectName: p.name,
+            taskTitle: st.title,
+            status: st.status
+          });
+        }
+      });
+    });
+
+    let html = '';
+    if (reworkTasks.length === 0) {
+      html = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">Thợ chưa từng sản xuất lỗi lần nào (Rát tốt!).</p>';
+    } else {
+      html = `
+        <div style="display:flex; flex-direction:column; gap:12px; max-height:480px; overflow-y:auto; padding-right:4px;">
+          ${reworkTasks.map(t => `
+            <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-exclamation-triangle" style="color:var(--status-rejected); margin-right:4px;"></i> ${t.taskTitle}</div>
+                <div style="font-size:0.75rem; color:var(--primary); margin-top:2px;">Dự án: ${t.projectName}</div>
+              </div>
+              <div>
+                <span class="status-badge ${t.status === 'completed' ? 'approved' : 'pending'}" style="font-size:0.7rem;">
+                  ${t.status === 'completed' ? 'Đã sửa xong' : 'Đang xử lý'}
+                </span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    Modal.create(`Danh Sách Lỗi Sản Xuất: ${name}`, html);
+  },
+
+  // 12.6 SHOW SUMMARY SCOPES (NHÃN CAM) DETAIL MODAL
+  showSummaryScopesDetails() {
+    const projects = DB.getProjects();
+    const db = DB.load();
+    
+    // 1. Large scope projects
+    const largeScopes = projects.filter(p => p.name.includes('[PHÁT SINH]'));
+
+    // 2. Small scope tasks
+    let smallScopes = [];
+    projects.forEach(p => {
+      p.subtasks.forEach(st => {
+        if (st.type === 'small_scope') {
+          smallScopes.push({
+            projectName: p.name,
+            taskTitle: st.title,
+            assignedTo: st.assignedTo,
+            status: st.status
+          });
+        }
+      });
+    });
+
+    let html = '';
+    if (largeScopes.length === 0 && smallScopes.length === 0) {
+      html = '<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">Không có dự án/đầu việc phát sinh nào.</p>';
+    } else {
+      html = `
+        <div style="display:flex; flex-direction:column; gap:16px; max-height:480px; overflow-y:auto; padding-right:4px;">
+          ${largeScopes.length > 0 ? `
+            <div>
+              <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Phát sinh lớn (Tách thẻ riêng):</p>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${largeScopes.map(p => `
+                  <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-folder-plus" style="color:var(--status-pending); margin-right:4px;"></i> ${p.name}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">Hạn hoàn thành: ${p.deadline}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${smallScopes.length > 0 ? `
+            <div>
+              <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Phát sinh nhỏ (Nhiệm vụ con):</p>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${smallScopes.map(t => {
+                  const worker = db.users.find(u => u.id === t.assignedTo);
+                  return `
+                    <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                      <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-plus-circle" style="color:var(--status-pending); margin-right:4px;"></i> ${t.taskTitle}</div>
+                        <div style="font-size:0.78rem; color:var(--primary); font-weight:600; margin-top:4px;">Dự án: ${t.projectName}</div>
+                        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Phụ trách: ${worker ? worker.name : 'Chưa giao'}</div>
+                      </div>
+                      <div>
+                        <span class="status-badge ${t.status === 'completed' ? 'approved' : 'pending'}" style="font-size:0.7rem;">
+                          ${t.status === 'completed' ? 'Đã xong' : 'Chưa xong'}
+                        </span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    Modal.create('Chi Tiết: Nhãn Cam [PHÁT SINH]', html);
   }
 };
