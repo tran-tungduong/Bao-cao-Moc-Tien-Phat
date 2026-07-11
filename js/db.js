@@ -82,6 +82,21 @@ export const DB = {
         const localData = localStorage.getItem(DB_KEY);
         if (localData) {
           const localDb = JSON.parse(localData);
+
+          // Auto-recovery: If Supabase DB is empty/no projects, but local cache has projects, push local to Supabase!
+          if (localDb && localDb.projects && localDb.projects.length > 0 && (!serverDb.projects || serverDb.projects.length === 0)) {
+            console.warn('Supabase projects are empty, but local has projects. Recovering to Supabase...');
+            try {
+              await supabaseClient
+                .from('app_state')
+                .update({ data: localDb, updated_at: new Date().toISOString() })
+                .eq('id', 1);
+              serverDb = localDb;
+            } catch (recoveryErr) {
+              console.error('Failed to auto-recover database to Supabase:', recoveryErr);
+            }
+          }
+
           if (JSON.stringify(localDb) !== JSON.stringify(serverDb)) {
             localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
             console.log('Database synced from Supabase.');
