@@ -378,7 +378,7 @@ export const UI = {
       const mySubtasks = p.subtasks.filter(st => {
         const isAssignedToMe = st.assignedTo === user.id;
         const isUnassignedTask = (!st.assignedTo || st.assignedTo === '') && (st.type === 'rework' || st.type === 'small_scope');
-        return isAssignedToMe || (user.role === 'kts' && isUnassignedTask);
+        return isAssignedToMe || ((user.role === 'kts' || user.role === 'sales') && isUnassignedTask);
       });
 
       // Check deadline
@@ -414,7 +414,7 @@ export const UI = {
           <!-- Subtasks assigned to this user -->
           ${mySubtasks.length > 0 ? `
             <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
-              <p style="font-size:0.8rem; font-weight:600; color:var(--primary); margin-bottom:10px;"><i class="fas fa-tasks"></i> ${user.role === 'kts' ? 'Nhiệm vụ cần phân công & xử lý:' : 'Nhiệm vụ của bạn:'}</p>
+              <p style="font-size:0.8rem; font-weight:600; color:var(--primary); margin-bottom:10px;"><i class="fas fa-tasks"></i> ${(user.role === 'kts' || user.role === 'sales') ? 'Nhiệm vụ cần phân công & xử lý:' : 'Nhiệm vụ của bạn:'}</p>
               <div style="display:flex; flex-direction:column; gap:10px;">
                 ${mySubtasks.map(st => {
                   const compTimeText = st.status === 'completed' && st.completedAt
@@ -430,12 +430,18 @@ export const UI = {
                         </span>
                         ${compTimeText}
                       </div>
-                      ${st.status === 'pending'
-                        ? (user.role === 'kts' && !st.assignedTo
-                          ? `<button class="btn-assign-existing-task" data-project="${p.id}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">Giao việc</button>`
-                          : `<button class="btn-complete-subtask" data-project="${p.id}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto;">Xong</button>`)
-                        : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap;"><i class="fas fa-check-double"></i> Đã xong</span>'
-                      }
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        ${st.status === 'pending'
+                          ? ((user.role === 'kts' || user.role === 'sales') && !st.assignedTo
+                            ? `<button class="btn-assign-existing-task" data-project="${p.id}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">Giao việc</button>`
+                            : `<button class="btn-complete-subtask" data-project="${p.id}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto; margin-right:4px;">Xong</button>`)
+                          : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap; margin-right:4px;"><i class="fas fa-check-double"></i> Đã xong</span>'
+                        }
+                        ${(user.role === 'kts' || user.role === 'sales') && !p.isCompleted ? `
+                          <button class="btn-card-edit-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa nhiệm vụ"><i class="fas fa-edit"></i></button>
+                          <button class="btn-card-delete-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt"></i></button>
+                        ` : ''}
+                      </div>
                     </div>
                   `;
                 }).join('')}
@@ -469,8 +475,8 @@ export const UI = {
               <i class="fas fa-plus"></i> Phát Sinh Thêm
             </button>
 
-            <!-- KTS Assign Task to Worker -->
-            ${user.role === 'kts' ? `
+            <!-- KTS/Sales Assign Task to Worker -->
+            ${(user.role === 'kts' || user.role === 'sales') ? `
               <button class="btn-assign-subtask-modal btn-action" data-project="${p.id}" style="grid-column: span 2; background: linear-gradient(135deg, var(--primary), #9E815B); color: var(--bg-primary); border: none; font-weight: 700; box-shadow: var(--shadow-sm);">
                 <i class="fas fa-tasks"></i> GIAO VIỆC CHO THỢ
               </button>
@@ -499,6 +505,28 @@ export const UI = {
         this.openAssignExistingTaskModal(prjId, stId, () => {
           if (onUpdate) onUpdate(); else this.renderWorkerView(user);
         });
+      });
+    });
+
+    listContainer.querySelectorAll('.btn-card-edit-subtask').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prjId = btn.getAttribute('data-project');
+        const stId = btn.getAttribute('data-task');
+        this.openEditSubtaskModal(prjId, stId, user, () => {
+          if (onUpdate) onUpdate(); else this.renderWorkerView(user);
+        });
+      });
+    });
+
+    listContainer.querySelectorAll('.btn-card-delete-subtask').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prjId = btn.getAttribute('data-project');
+        const stId = btn.getAttribute('data-task');
+        if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+          DB.deleteSubtask(prjId, stId, user.id);
+          Toast.success('Đã xóa nhiệm vụ.');
+          if (onUpdate) onUpdate(); else this.renderWorkerView(user);
+        }
       });
     });
 
@@ -563,14 +591,14 @@ export const UI = {
   openPendingTasksModal(user, onComplete) {
     const projects = DB.getProjects();
 
-    // Aggregate all pending subtasks assigned to this user OR unassigned for KTS
+    // Aggregate all pending subtasks assigned to this user OR unassigned for KTS/Sales
     let myPendingTasks = [];
     projects.forEach(p => {
       p.subtasks.forEach(st => {
         if (st.status === 'pending') {
           const isAssignedToMe = st.assignedTo === user.id;
           const isUnassignedTask = (!st.assignedTo || st.assignedTo === '') && (st.type === 'rework' || st.type === 'small_scope');
-          if (isAssignedToMe || (user.role === 'kts' && isUnassignedTask)) {
+          if (isAssignedToMe || ((user.role === 'kts' || user.role === 'sales') && isUnassignedTask)) {
             myPendingTasks.push({
               ...st,
               projectId: p.id,
@@ -584,7 +612,7 @@ export const UI = {
     const html = `
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:10px;">
-          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);">${user.role === 'kts' ? 'Nhiệm Vụ Phân Công & Xử Lý' : 'Việc Cần Xử Lý Của Bạn'}</h4>
+          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);">${(user.role === 'kts' || user.role === 'sales') ? 'Nhiệm Vụ Phân Công & Xử Lý' : 'Việc Cần Xử Lý Của Bạn'}</h4>
           <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">Tổng số việc chưa làm: <strong>${myPendingTasks.length} việc</strong></p>
         </div>
 
@@ -767,7 +795,7 @@ export const UI = {
   openReworkModal(projectId, user, onUpdate = null) {
     const db = DB.load();
     const workshopWorkers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
-    const isSupervisor = user.role === 'manager' || user.role === 'kts';
+    const isSupervisor = user.role === 'manager' || user.role === 'kts' || user.role === 'sales';
 
     const html = `
       <form id="rework-form" style="display:flex; flex-direction:column; gap:16px;">
@@ -811,7 +839,7 @@ export const UI = {
     const project = DB.getProject(projectId);
     const db = DB.load();
     const workers = db.users.filter(u => u.role !== 'manager');
-    const isSupervisor = user.role === 'manager' || user.role === 'kts';
+    const isSupervisor = user.role === 'manager' || user.role === 'kts' || user.role === 'sales';
 
     const html = `
       <div class="manager-tabs" style="margin-bottom:16px;">
@@ -1466,13 +1494,16 @@ export const UI = {
 
         <div class="report-list">
           ${completedProjects.map(p => `
-            <div class="report-card" data-project="${p.id}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:18px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                  <h4 style="font-family:var(--font-title); font-size:1.05rem; font-weight:700; color:var(--text-primary);">${p.name}</h4>
-                  <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Hạn gốc: ${p.originalDeadline} • Hoàn thành: ${new Date(p.completedAt).toLocaleDateString('vi-VN')}</p>
-                </div>
-                <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15);">
+            <div class="report-card" data-project="${p.id}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:18px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+              <div style="flex:1;">
+                <h4 style="font-family:var(--font-title); font-size:1.05rem; font-weight:700; color:var(--text-primary);">${p.name}</h4>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Hạn gốc: ${p.originalDeadline} • Hoàn thành: ${p.completedAt ? new Date(p.completedAt).toLocaleDateString('vi-VN') : ''}</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-download-excel" data-project="${p.id}" style="background-color:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); color:#10B981; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải báo cáo Excel">
+                  <i class="fas fa-file-excel"></i> Xuất Excel
+                </button>
+                <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15); white-space:nowrap;">
                   <i class="fas fa-check-circle"></i> Đã Bàn Giao
                 </span>
               </div>
@@ -1489,6 +1520,15 @@ export const UI = {
         this.openProjectDetailsDrawer(prjId, user, () => {
           this.renderManagerCompleted(user);
         });
+      });
+    });
+
+    // Excel export handler
+    container.querySelectorAll('.btn-download-excel').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent drawer trigger
+        const prjId = btn.getAttribute('data-project');
+        this.exportProjectToExcel(prjId);
       });
     });
   },
@@ -1582,9 +1622,12 @@ export const UI = {
       }
           ${project.isCompleted
         ? `
-              <div style="background-color:rgba(78, 141, 124, 0.15); border:1px solid var(--status-approved); color:var(--status-approved); padding:12px; border-radius:12px; font-size:0.85rem; font-weight:600; width:100%; text-align:center;">
+              <div style="background-color:rgba(78, 141, 124, 0.15); border:1px solid var(--status-approved); color:var(--status-approved); padding:12px; border-radius:12px; font-size:0.85rem; font-weight:600; width:100%; text-align:center; margin-bottom:8px;">
                 <i class="fas fa-check-double"></i> Dự án này đã hoàn thành toàn bộ và lưu trữ
               </div>
+              <button class="btn-primary" id="drawer-btn-export-excel" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer;">
+                <i class="fas fa-file-excel"></i> Xuất Báo Cáo Excel (.CSV)
+              </button>
             `
         : ''
       }
@@ -1617,13 +1660,17 @@ export const UI = {
                     <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Người làm: <strong>${assignedUser ? assignedUser.name : 'Chưa giao'}</strong></div>
                     ${compTimeText}
                   </div>
-                  <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
                     ${st.status === 'pending' && !project.isCompleted
-            ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto;">Xong</button>`
-            : st.status === 'pending'
-              ? '<span style="color:var(--text-muted); font-size:0.75rem; font-weight:500;">Chưa làm</span>'
-              : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap;"><i class="fas fa-check-double"></i> Đã xong</span>'
-          }
+                      ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto; margin-right:4px;">Xong</button>`
+                      : st.status === 'pending'
+                        ? '<span style="color:var(--text-muted); font-size:0.75rem; font-weight:500; margin-right:4px;">Chưa làm</span>'
+                        : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap; margin-right:4px;"><i class="fas fa-check-double"></i> Đã xong</span>'
+                    }
+                    ${(user.role === 'manager' || user.role === 'kts' || user.role === 'sales') && !project.isCompleted ? `
+                      <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa nhiệm vụ"><i class="fas fa-edit"></i></button>
+                      <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt"></i></button>
+                    ` : ''}
                   </div>
                 </div>
               `;
@@ -1758,7 +1805,6 @@ export const UI = {
       });
     }
 
-    // Complete subtask within drawer
     drawer.element.querySelectorAll('.btn-drawer-complete-task').forEach(btn => {
       btn.addEventListener('click', () => {
         const taskId = btn.getAttribute('data-task');
@@ -1766,6 +1812,32 @@ export const UI = {
         Toast.success('Đã hoàn thành nhiệm vụ.');
         drawer.close();
         onUpdate();
+      });
+    });
+
+    // Edit subtask
+    drawer.element.querySelectorAll('.btn-edit-subtask').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskId = btn.getAttribute('data-task');
+        this.openEditSubtaskModal(projectId, taskId, user, () => {
+          drawer.close();
+          onUpdate();
+        });
+      });
+    });
+
+    // Delete subtask
+    drawer.element.querySelectorAll('.btn-delete-subtask').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskId = btn.getAttribute('data-task');
+        if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+          DB.deleteSubtask(projectId, taskId, user.id);
+          Toast.success('Đã xóa nhiệm vụ.');
+          drawer.close();
+          onUpdate();
+        }
       });
     });
 
@@ -1779,6 +1851,14 @@ export const UI = {
           drawer.close();
           onUpdate();
         }
+      });
+    }
+
+    // Export Excel click
+    const btnExportExcel = document.getElementById('drawer-btn-export-excel');
+    if (btnExportExcel) {
+      btnExportExcel.addEventListener('click', () => {
+        this.exportProjectToExcel(projectId);
       });
     }
 
@@ -1955,6 +2035,69 @@ export const UI = {
     });
   },
 
+  // 10.2 OPEN EDIT SUBTASK MODAL FOR MANAGER/KTS
+  openEditSubtaskModal(projectId, taskId, user, onComplete) {
+    const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const task = project ? project.subtasks.find(st => st.id === taskId) : null;
+    const workers = db.users.filter(u => u.role !== 'manager');
+
+    if (!task) return;
+
+    const html = `
+      <form id="edit-subtask-form" style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label class="form-label">Tên nhiệm vụ</label>
+          <input type="text" id="edit-subtask-title" class="form-input" value="${task.title}" required style="padding-left:14px;">
+        </div>
+
+        <div>
+          <label class="form-label">Giao nhân sự phụ trách</label>
+          <select id="edit-subtask-worker" class="form-select" required>
+            <option value="">-- Chưa giao --</option>
+            ${workers.map(w => `<option value="${w.id}" ${task.assignedTo === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--primary), #9E815B);">Cập Nhật Nhiệm Vụ</button>
+      </form>
+    `;
+
+    const modal = Modal.create('Chỉnh Sửa Nhiệm Vụ', html);
+
+    document.getElementById('edit-subtask-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = document.getElementById('edit-subtask-title').value;
+      const workerId = document.getElementById('edit-subtask-worker').value;
+
+      const loadedDb = DB.load();
+      const loadedProj = loadedDb.projects.find(p => p.id === projectId);
+      const loadedTask = loadedProj ? loadedProj.subtasks.find(st => st.id === taskId) : null;
+
+      if (loadedTask && loadedProj) {
+        const oldTitle = loadedTask.title;
+        const oldAssigned = loadedTask.assignedTo;
+        
+        loadedTask.title = title;
+        loadedTask.assignedTo = workerId;
+
+        const oldWorkerName = oldAssigned ? (loadedDb.users.find(u => u.id === oldAssigned)?.name || 'Chưa rõ') : 'Chưa giao';
+        const newWorkerName = workerId ? (loadedDb.users.find(u => u.id === workerId)?.name || 'Chưa rõ') : 'Chưa giao';
+
+        loadedProj.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Sửa nhiệm vụ "${oldTitle}" -> "${title}" (Người làm: ${oldWorkerName} -> ${newWorkerName})`,
+          user: user.name
+        });
+
+        DB.save(loadedDb);
+        Toast.success('Cập nhật nhiệm vụ thành công!');
+        modal.close();
+        onComplete();
+      }
+    });
+  },
+
   // 11. OPEN NEW PROJECT CREATION FORM FOR MANAGER
   openCreateProjectModal(user, onCreateSuccess) {
     const html = `
@@ -2126,6 +2269,78 @@ export const UI = {
 
       </div>
     `;
+  },
+
+  // 13. EXPORT COMPLETED PROJECT TO EXCEL CSV (UTF-8 WITH BOM)
+  exportProjectToExcel(projectId) {
+    const project = DB.getProject(projectId);
+    if (!project) {
+      Toast.error('Không tìm thấy thông tin công trình.');
+      return;
+    }
+
+    const db = DB.load();
+
+    const escapeCSV = (val) => {
+      if (val === null || val === undefined) return '';
+      let str = String(val).replace(/"/g, '""');
+      if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+        return `"${str}"`;
+      }
+      return str;
+    };
+
+    let csvContent = '\uFEFF'; // UTF-8 BOM for Microsoft Excel Vietnamese support
+
+    csvContent += 'THÔNG TIN CHUNG CÔNG TRÌNH\n';
+    csvContent += `Tên công trình,${escapeCSV(project.name)}\n`;
+    csvContent += `Trạng thái,Đã hoàn thành bàn giao\n`;
+    csvContent += `Hoàn thành lúc,${escapeCSV(project.completedAt ? new Date(project.completedAt).toLocaleString('vi-VN') : '')}\n`;
+    csvContent += `Hạn hoàn thành gốc,${escapeCSV(project.originalDeadline)}\n`;
+    csvContent += `Hạn hoàn thành điều chỉnh,${escapeCSV(project.deadline)}\n`;
+    csvContent += `Tổng thời gian đóng băng,${escapeCSV(project.totalFreezeTime ? Math.round(project.totalFreezeTime / 60000) + ' phút' : '0 phút')}\n\n`;
+
+    csvContent += 'DANH SÁCH NHIỆM VỤ CON\n';
+    csvContent += 'Mã nhiệm vụ,Tên nhiệm vụ,Loại,Người phụ trách,Trạng thái,Thời gian hoàn thành\n';
+    project.subtasks.forEach(st => {
+      const worker = db.users.find(u => u.id === st.assignedTo);
+      const workerName = worker ? worker.name : 'Chưa giao';
+      const typeDisplay = st.type === 'rework' ? 'Sửa hàng lỗi' : st.type === 'small_scope' ? 'Phát sinh' : 'Nhiệm vụ thường';
+      const statusDisplay = st.status === 'completed' ? 'Đã xong' : 'Chưa xong';
+      const compTime = st.completedAt ? new Date(st.completedAt).toLocaleString('vi-VN') : '';
+      csvContent += `${escapeCSV(st.id)},${escapeCSV(st.title)},${escapeCSV(typeDisplay)},${escapeCSV(workerName)},${escapeCSV(statusDisplay)},${escapeCSV(compTime)}\n`;
+    });
+    csvContent += '\n';
+
+    csvContent += 'NHẬT KÝ BÁO CÁO HÀNG NGÀY\n';
+    csvContent += 'Ngày báo cáo,Người báo cáo,Vai trò,Trạng thái tiến độ,Nội dung ghi chú\n';
+    project.dailyLogs.forEach(l => {
+      const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : 'Khác';
+      const statusDisplay = l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm';
+      csvContent += `${escapeCSV(l.date)},${escapeCSV(l.reporterName)},${escapeCSV(roleDisplay)},${escapeCSV(statusDisplay)},${escapeCSV(l.note)}\n`;
+    });
+    csvContent += '\n';
+
+    csvContent += 'LỊCH SỬ HỆ THỐNG\n';
+    csvContent += 'Thời gian,Hành động,Người thực hiện\n';
+    project.history.forEach(h => {
+      csvContent += `${escapeCSV(new Date(h.timestamp).toLocaleString('vi-VN'))},${escapeCSV(h.action)},${escapeCSV(h.user)}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    
+    // Normalize filename
+    const sanitizedName = project.name.replace(/[^a-zA-Z0-9-]/g, '_');
+    link.setAttribute('download', `[MocTienPhat]_${sanitizedName}_BaoCaoChiTiet.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    Toast.success('Đã tải xuống file báo cáo Excel (CSV) thành công.');
   },
 
   // 9. SILENT UPDATE CURRENT SCREEN DATA WITHOUT WIPING FORM INPUTS

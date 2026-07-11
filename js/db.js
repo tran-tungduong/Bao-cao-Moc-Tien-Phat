@@ -49,27 +49,49 @@ export const DB = {
           .eq('id', 1)
           .single();
 
-        if (error) {
+        if (error && error.code !== 'PGRST116') { // Ignore single-row empty result error code
           console.warn('Supabase fetch error, fallback to local database.', error);
           return false;
         }
 
-        if (data && data.data) {
-          const serverDb = data.data;
-          const localData = localStorage.getItem(DB_KEY);
-          if (localData) {
-            const localDb = JSON.parse(localData);
-            if (JSON.stringify(localDb) !== JSON.stringify(serverDb)) {
-              localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-              console.log('Database synced from Supabase.');
-              if (onSyncComplete) onSyncComplete(serverDb);
-            }
+        let serverDb = data ? data.data : null;
+        
+        // Self-seed if serverDb is empty or has no users
+        if (!serverDb || !serverDb.users || serverDb.users.length === 0) {
+          serverDb = {
+            users: DEFAULT_USERS,
+            projects: DEFAULT_PROJECTS,
+            attendance: DEFAULT_ATTENDANCE,
+            systemLogs: []
+          };
+
+          const { data: checkData } = await supabaseClient.from('app_state').select('id').eq('id', 1);
+          if (checkData && checkData.length > 0) {
+            await supabaseClient
+              .from('app_state')
+              .update({ data: serverDb, updated_at: new Date().toISOString() })
+              .eq('id', 1);
           } else {
+            await supabaseClient
+              .from('app_state')
+              .insert({ id: 1, data: serverDb, updated_at: new Date().toISOString() });
+          }
+          console.log('Seeded default database to Supabase.');
+        }
+
+        const localData = localStorage.getItem(DB_KEY);
+        if (localData) {
+          const localDb = JSON.parse(localData);
+          if (JSON.stringify(localDb) !== JSON.stringify(serverDb)) {
             localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
+            console.log('Database synced from Supabase.');
             if (onSyncComplete) onSyncComplete(serverDb);
           }
-          return true;
+        } else {
+          localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
+          if (onSyncComplete) onSyncComplete(serverDb);
         }
+        return true;
       } catch (e) {
         console.error('Error syncing from Supabase:', e);
       }
@@ -210,7 +232,6 @@ export const DB = {
       };
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       localStorage.removeItem('furni_session'); // Clear session
-      this.pushToServer(db); // Sync to server if possible
       return db;
     }
     return db;
@@ -256,13 +277,13 @@ export const DB = {
     const db = this.load();
     const projects = db.projects;
 
-    // Managers and KTS coordinate tasks and see all projects
-    if (user.role === 'manager' || user.role === 'kts') {
+    // Managers, KTS and Sales coordinate tasks and see all projects
+    if (user.role === 'manager' || user.role === 'kts' || user.role === 'sales') {
       return projects;
     }
 
     // Other roles see projects based on current step OR if they have any task assigned to them
-    if (user.role === 'sales' || user.role === 'marketing') {
+    if (user.role === 'marketing') {
       return projects.filter(p => p.step <= 4 || p.subtasks.some(st => st.assignedTo === user.id));
     } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
       return projects.filter(p => p.step >= 5 || p.subtasks.some(st => st.assignedTo === user.id));
@@ -437,6 +458,37 @@ export const DB = {
         if (!hasPendingRework) {
           project.isRework = false;
         }
+
+        this.save(db);
+        return project;
+      }
+    }
+    return null;
+  },
+
+  // Delete subtask (Xóa nhiệm vụ)
+  deleteSubtask(projectId, subtaskId, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+
+    if (project) {
+      const taskIndex = project.subtasks.findIndex(st => st.id === subtaskId);
+      if (taskIndex > -1) {
+        const task = project.subtasks[taskIndex];
+        project.subtasks.splice(taskIndex, 1);
+
+        // Check if there are any pending rework tasks left
+        const hasPendingRework = project.subtasks.some(st => st.type === 'rework' && st.status === 'pending');
+        if (!hasPendingRework) {
+          project.isRework = false;
+        }
+
+        project.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Xóa nhiệm vụ: "${task.title}"`,
+          user: user ? user.name : 'Sếp'
+        });
 
         this.save(db);
         return project;
