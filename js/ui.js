@@ -1241,9 +1241,14 @@ export const UI = {
                 <strong style="font-size:0.85rem; color:var(--text-primary);">${l.reporterName}</strong>
                 <div style="font-size:0.7rem; color:var(--text-muted);">${roleDisplay} • ${l.date}</div>
               </div>
-              <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}">
-                ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
-              </span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}" style="margin-right:0;">
+                  ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
+                </span>
+                ${user.role === 'manager' ? `
+                  <button class="btn-delete-log-from-tab" data-project="${l.projectId}" data-log-id="${l.id}" style="background:none; border:none; padding:4px 6px; color:var(--status-rejected); cursor:pointer; font-size:0.85rem;" title="Xóa báo cáo này"><i class="fas fa-trash-alt"></i></button>
+                ` : ''}
+              </div>
             </div>
             
             <p style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:4px;"><i class="fas fa-building"></i> ${l.projectName}</p>
@@ -1270,6 +1275,34 @@ export const UI = {
             if (log) {
               this.openLogDetailModal(log, prj);
             }
+          }
+        });
+      });
+
+      // Add delete log click listener
+      logsList.querySelectorAll('.btn-delete-log-from-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent opening detail modal
+          const prjId = btn.getAttribute('data-project');
+          const logId = btn.getAttribute('data-log-id');
+          if (confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này khỏi hệ thống không?\nHành động này không thể khôi phục!')) {
+            DB.deleteDailyLog(prjId, logId, user.id);
+            Toast.success('Đã xóa báo cáo thi công thành công.');
+            
+            // Delete from local memory list dynamically so filterAndRender doesn't reload deleted item
+            const projObj = projects.find(p => p.id === prjId);
+            if (projObj && projObj.dailyLogs) {
+              const dlIdx = projObj.dailyLogs.findIndex(dl => dl.id === logId);
+              if (dlIdx > -1) {
+                projObj.dailyLogs.splice(dlIdx, 1);
+              }
+            }
+            const logIdx = allLogs.findIndex(al => al.id === logId);
+            if (logIdx > -1) {
+              allLogs.splice(logIdx, 1);
+            }
+
+            filterAndRender(); // Re-render the logs tab
           }
         });
       });
@@ -2486,75 +2519,6 @@ export const UI = {
                 </div>
               `;
             }).join('')}
-          </div>
-        </div>
-
-        <!-- 3. Năng suất nhân sự -->
-        <div class="material-stats-card">
-          <h4 class="section-title" style="margin-bottom:16px;"><i class="fas fa-user-friends"></i> Đánh Giá Năng Suất Nhân Sự</h4>
-          
-          <!-- Designers Grid -->
-          <div style="margin-bottom: 24px;">
-            <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-pencil-ruler"></i> Thiết kế (Thời gian duyệt của khách)
-            </p>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
-              ${analytics.designers.map(d => {
-                const db = DB.load();
-                const userObj = db.users.find(u => u.name === d.name);
-                const userId = userObj ? userObj.id : '';
-                return `
-                  <div class="btn-designer-detail" data-userid="${userId}" data-name="${d.name}" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px; cursor:pointer; transition: transform var(--transition-fast);" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <div>
-                      <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${d.name}</div>
-                      <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Thiết kế & Kỹ thuật</div>
-                    </div>
-                    <div style="text-align:right; display:flex; align-items:center; gap:6px;">
-                      <span class="status-badge" style="background:${d.frozenCount > 1 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}; color:${d.frozenCount > 1 ? 'var(--status-rejected)' : 'var(--status-approved)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
-                        ${d.frozenCount} lần chậm duyệt
-                      </span>
-                      <i class="fas fa-search-plus" style="font-size:0.75rem; color:var(--primary); opacity:0.6;"></i>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-
-          <!-- Workers Grid -->
-          <div>
-            <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-hammer"></i> Sản xuất & Lắp đặt (Tỉ lệ sửa hàng lỗi)
-            </p>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
-              ${analytics.teams.map(t => {
-                const db = DB.load();
-                const userObj = db.users.find(u => u.name === t.name);
-                const userId = userObj ? userObj.id : '';
-                const hasError = t.errorCount > 0;
-                return `
-                  <div style="display:flex; flex-direction:column; justify-content:space-between; padding:14px 16px; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); border-radius:12px; gap:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary);">${t.name}</div>
-                      <span class="status-badge" style="font-size:0.72rem; font-weight:700; background:rgba(79, 70, 229, 0.12); color:#818CF8; padding:3px 6px; border-radius:6px;">Thợ</span>
-                    </div>
-                    <div style="display:flex; gap:12px; border-top:1px solid rgba(255,255,255,0.03); padding-top:8px;">
-                      
-                      <div class="btn-worker-completed-detail" data-userid="${userId}" data-name="${t.name}" style="flex:1; cursor:pointer; border-radius:6px; padding:4px 6px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(16, 185, 129, 0.05)'" onmouseout="this.style.backgroundColor='transparent'">
-                        <span style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">Lắp đúng hạn <i class="fas fa-search-plus" style="font-size:0.6rem; opacity:0.5;"></i></span>
-                        <span style="font-size:0.85rem; font-weight:700; color:var(--status-approved);">${t.completedOnTime} việc</span>
-                      </div>
-                      
-                      <div class="btn-worker-rework-detail" data-userid="${userId}" data-name="${t.name}" style="flex:1; border-left:1px solid rgba(255,255,255,0.05); padding-left:12px; cursor:pointer; border-radius:6px; padding:4px 6px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(239, 68, 68, 0.05)'" onmouseout="this.style.backgroundColor='transparent'">
-                        <span style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">Lỗi sản xuất <i class="fas fa-search-plus" style="font-size:0.6rem; opacity:0.5;"></i></span>
-                        <span style="font-size:0.85rem; font-weight:700; color:${hasError ? 'var(--status-rejected)' : 'var(--status-approved)'};">${t.errorCount} lần</span>
-                      </div>
-                      
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
           </div>
         </div>
 
