@@ -234,11 +234,16 @@ export const UI = {
           </div>
 
           <div>
-            <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 3 ảnh)</label>
+            <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
+            <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
+          </div>
+
+          <div>
+            <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
             <div class="photo-uploader" id="log-photo-uploader">
               <i class="fas fa-camera"></i>
               <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
-              <p style="font-size:0.75rem; color:var(--text-muted);">Cần chụp: Tổng thể, góc kỹ thuật, hiện trạng vật tư</p>
+              <p style="font-size:0.75rem; color:var(--text-muted);">Cần chụp: Tổng thể, góc kỹ thuật hoặc hiện trạng vật tư</p>
               <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
             </div>
             <div class="upload-preview-container" id="log-preview-container"></div>
@@ -308,16 +313,23 @@ export const UI = {
       fileInput.value = ''; // clear value
     });
 
+    // Pre-populate expected completion date with today
+    const expDateInput = document.getElementById('log-expected-completion');
+    if (expDateInput) {
+      expDateInput.value = new Date().toISOString().split('T')[0];
+    }
+
     // Form Submit Daily Log
     document.getElementById('daily-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const prjId = document.getElementById('log-project-id').value;
       const status = document.querySelector('input[name="log-status"]:checked').value;
       const note = document.getElementById('log-note').value;
+      const expectedDate = document.getElementById('log-expected-completion').value;
 
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
-        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id);
+        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate);
         Toast.success('Gửi báo cáo cuối ngày thành công!');
         this.renderWorkerView(user); // refresh everything
       } catch (err) {
@@ -2140,6 +2152,15 @@ export const UI = {
           <label class="form-label" style="font-size:0.75rem;">Nội dung công việc đã làm</label>
           <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${log.note}</div>
         </div>
+
+        ${log.expectedCompletionDate ? `
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">Thời gian hoàn thành dự kiến</label>
+            <div style="background-color: rgba(197, 168, 128, 0.12); border:1px solid rgba(197, 168, 128, 0.3); border-radius:10px; padding:10px 12px; font-size:0.85rem; font-weight:600; color:var(--primary); width:max-content; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-calendar-alt"></i> ${new Date(log.expectedCompletionDate).toLocaleDateString('vi-VN')}
+            </div>
+          </div>
+        ` : ''}
 
         ${log.photos && log.photos.length > 0 ? `
           <div>

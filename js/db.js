@@ -589,14 +589,14 @@ export const DB = {
   },
 
   // Submit Daily Log (Báo cáo cuối ngày)
-  submitDailyLog(projectId, status, note, photos = [], userId) {
+  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '') {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
 
     if (project) {
-      if (photos.length < 3) {
-        throw new Error('Yêu cầu bắt buộc đính kèm tối thiểu 3 ảnh thực tế.');
+      if (photos.length < 1) {
+        throw new Error('Yêu cầu bắt buộc đính kèm tối thiểu 1 ảnh thực tế.');
       }
 
       const logId = 'log_' + Math.random().toString(36).substr(2, 9);
@@ -608,14 +608,15 @@ export const DB = {
         reporterRole: user ? user.role : 'worker',
         status: status, // 'on_track' | 'delayed'
         note: note,
-        photos: photos
+        photos: photos,
+        expectedCompletionDate: expectedCompletionDate
       };
 
       project.dailyLogs.unshift(newLog);
 
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: `Gửi báo cáo cuối ngày: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}]`,
+        action: `Gửi báo cáo cuối ngày: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
         user: user ? user.name : 'Nhân viên'
       });
 
