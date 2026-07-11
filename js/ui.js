@@ -24,7 +24,7 @@ export const UI = {
     const container = this.getAppContainer();
     container.innerHTML = `
       <div class="login-container">
-        <div class="login-bg"></div>
+        <div class="login-bg" style="background: linear-gradient(180deg, rgba(15, 15, 17, 0.4) 0%, #0F0F11 100%), url('bg.jpg') center center / cover no-repeat, url('https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80') center center / cover no-repeat;"></div>
         <div class="login-card" style="position:relative;">
           <!-- Theme Toggler on Login -->
           <button class="header-btn" id="login-theme-toggle" style="position:absolute; top:16px; right:16px; z-index:10; border:1px solid var(--border-color);" title="Chuyển chế độ Sáng/Tối">
@@ -32,8 +32,11 @@ export const UI = {
           </button>
           
           <div class="login-header">
-            <div class="login-logo">
-              <i class="fas fa-couch"></i>
+            <div class="login-logo" style="background: none; box-shadow: none; width: auto; height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+              <img src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="height: 100%; max-width: 180px; object-fit: contain;">
+              <div class="fallback-logo" style="width: 64px; height: 64px; background: linear-gradient(135deg, var(--primary), #8E714B); border-radius: 18px; display: none; align-items: center; justify-content: center; color: var(--bg-primary); font-size: 1.75rem; box-shadow: var(--shadow-primary); margin: 0 auto;">
+                <i class="fas fa-couch"></i>
+              </div>
             </div>
             <h2 class="login-title">Mộc Tiên Phát</h2>
             <p class="login-subtitle">Hệ thống báo cáo thi công & quản lý nội thất</p>
@@ -108,8 +111,13 @@ export const UI = {
       <div class="app-shell" id="app-shell-container">
         <header class="app-header">
           <div class="header-brand">
-            <div class="header-logo"><i class="fas fa-couch"></i></div>
-            <div class="header-title">Mộc Tiên Phát</div>
+            <div class="header-logo" style="background: none; display: flex; align-items: center; justify-content: center; width: auto; height: 36px; padding: 0; box-shadow: none;">
+              <img src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="height: 100%; max-width: 100px; object-fit: contain;">
+              <div class="fallback-header-logo" style="width: 32px; height: 32px; background: linear-gradient(135deg, var(--primary), #8E714B); border-radius: 8px; display: none; align-items: center; justify-content: center; color: var(--bg-primary); font-size: 0.9rem; box-shadow: var(--shadow-primary);">
+                <i class="fas fa-couch"></i>
+              </div>
+            </div>
+            <div class="header-title" style="margin-left: 8px;">Mộc Tiên Phát</div>
           </div>
           <div class="header-actions">
             <span class="user-role-tag" style="font-size: 0.8rem; font-weight:600; color:var(--primary); padding: 4px 8px; border-radius:8px; background-color:rgba(197,168,128,0.1)">
