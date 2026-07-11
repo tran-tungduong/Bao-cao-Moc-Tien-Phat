@@ -782,5 +782,50 @@ export const DB = {
       designers,
       teams
     };
+  },
+
+  // Delete project completely (Xóa công trình)
+  deleteProject(projectId, userId) {
+    const db = this.load();
+    const prjIdx = db.projects.findIndex(p => p.id === projectId);
+    if (prjIdx > -1) {
+      const prj = db.projects[prjIdx];
+      db.projects.splice(prjIdx, 1);
+      
+      const user = db.users.find(u => u.id === userId);
+      db.systemLogs.push({
+        timestamp: new Date().toISOString(),
+        action: `Xóa hoàn toàn công trình: "${prj.name}"`,
+        user: user ? user.name : 'Sếp'
+      });
+
+      this.save(db);
+      return true;
+    }
+    return false;
+  },
+
+  // Edit project info (Sửa thông tin công trình)
+  updateProjectInfo(projectId, newName, newDeadline, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    if (project) {
+      const oldName = project.name;
+      const oldDeadline = project.deadline;
+      
+      project.name = newName;
+      project.deadline = newDeadline;
+
+      const user = db.users.find(u => u.id === userId);
+      project.history.push({
+        timestamp: new Date().toISOString(),
+        action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"`,
+        user: user ? user.name : 'Sếp'
+      });
+
+      this.save(db);
+      return project;
+    }
+    return null;
   }
 };

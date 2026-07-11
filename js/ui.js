@@ -1439,7 +1439,11 @@ export const UI = {
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.03); font-size:0.75rem; color:var(--text-muted);">
               <span><i class="fas fa-history"></i> Logs: ${p.dailyLogs.length} | Tasks: ${p.subtasks.filter(s => s.status === 'completed').length}/${p.subtasks.length}</span>
-              <span style="font-weight:600; color:var(--primary);">Xem chi tiết &rarr;</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-card-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
+                <button class="btn-card-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
+                <span style="font-weight:600; color:var(--primary); margin-left:4px;">Chi tiết &rarr;</span>
+              </div>
             </div>
           </div>
         `;
@@ -1452,6 +1456,32 @@ export const UI = {
           this.openProjectDetailsDrawer(prjId, user, () => {
             filterProjects(stepValue);
           });
+        });
+      });
+
+      // Edit project click
+      cardsContainer.querySelectorAll('.btn-card-edit-project').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const prjId = btn.getAttribute('data-id');
+          this.openEditProjectModal(prjId, user, () => {
+            // Need to update the local projects array context by re-rendering
+            this.renderManagerKanban(user);
+          });
+        });
+      });
+
+      // Delete project click
+      cardsContainer.querySelectorAll('.btn-card-delete-project').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const prjId = btn.getAttribute('data-id');
+          const prj = DB.getProject(prjId);
+          if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình: "${prj.name}"?\nThao tác này sẽ xóa tất cả nhật ký, hình ảnh, lịch sử liên quan và không thể khôi phục!`)) {
+            DB.deleteProject(prjId, user.id);
+            Toast.success('Đã xóa công trình.');
+            this.renderManagerKanban(user);
+          }
         });
       });
     };
@@ -1503,6 +1533,8 @@ export const UI = {
                 <button class="btn-download-excel" data-project="${p.id}" style="background-color:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); color:#10B981; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải báo cáo Excel">
                   <i class="fas fa-file-excel"></i> Xuất Excel
                 </button>
+                <button class="btn-completed-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
+                <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
                 <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15); white-space:nowrap;">
                   <i class="fas fa-check-circle"></i> Đã Bàn Giao
                 </span>
@@ -1529,6 +1561,31 @@ export const UI = {
         e.stopPropagation(); // Prevent drawer trigger
         const prjId = btn.getAttribute('data-project');
         this.exportProjectToExcel(prjId);
+      });
+    });
+
+    // Edit project click
+    container.querySelectorAll('.btn-completed-edit-project').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const prjId = btn.getAttribute('data-id');
+        this.openEditProjectModal(prjId, user, () => {
+          this.renderManagerCompleted(user);
+        });
+      });
+    });
+
+    // Delete project click
+    container.querySelectorAll('.btn-completed-delete-project').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const prjId = btn.getAttribute('data-id');
+        const prj = DB.getProject(prjId);
+        if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình đã hoàn thành: "${prj.name}"?\nThao tác này sẽ xóa tất cả nhật ký, hình ảnh, lịch sử liên quan và không thể khôi phục!`)) {
+          DB.deleteProject(prjId, user.id);
+          Toast.success('Đã xóa công trình.');
+          this.renderManagerCompleted(user);
+        }
       });
     });
   },
@@ -2155,6 +2212,44 @@ export const UI = {
       onCreateSuccess();
     });
   },
+
+  // 11.1 OPEN EDIT PROJECT MODAL FOR MANAGER
+  openEditProjectModal(projectId, user, onComplete) {
+    const project = DB.getProject(projectId);
+    if (!project) return;
+
+    const html = `
+      <form id="edit-project-form" style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label class="form-label">Tên công trình nội thất</label>
+          <input type="text" id="edit-prj-name" class="form-input" value="${project.name}" required style="padding-left:14px;">
+        </div>
+
+        <div>
+          <label class="form-label">Hạn hoàn thành tổng (Deadline)</label>
+          <input type="date" id="edit-prj-deadline" class="form-input" value="${project.deadline}" required style="padding-left:14px;">
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--primary), #9E815B);">
+          Lưu Thay Đổi
+        </button>
+      </form>
+    `;
+
+    const modal = Modal.create('Chỉnh Sửa Công Trình', html);
+
+    document.getElementById('edit-project-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('edit-prj-name').value;
+      const deadline = document.getElementById('edit-prj-deadline').value;
+
+      const updated = DB.updateProjectInfo(projectId, name, deadline, user.id);
+      if (updated) {
+        Toast.success('Cập nhật thông tin công trình thành công!');
+        modal.close();
+        onComplete();
+      }
+    });
 
   // 12. RENDER MANAGER REPORT & ANALYTICS DASHBOARD
   renderManagerDashboard() {
