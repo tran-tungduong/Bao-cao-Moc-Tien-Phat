@@ -230,7 +230,7 @@ export const UI = {
 
           <div>
             <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
-            <textarea id="log-note" class="form-textarea" placeholder="Ví dụ: Xong khung tủ bếp, mai lắp cánh. Hoặc lý do chậm..." required></textarea>
+            <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
           </div>
 
           <div>
@@ -243,7 +243,6 @@ export const UI = {
             <div class="photo-uploader" id="log-photo-uploader">
               <i class="fas fa-camera"></i>
               <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
-              <p style="font-size:0.75rem; color:var(--text-muted);">Cần chụp: Tổng thể, góc kỹ thuật hoặc hiện trạng vật tư</p>
               <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
             </div>
             <div class="upload-preview-container" id="log-preview-container"></div>
@@ -313,10 +312,12 @@ export const UI = {
       fileInput.value = ''; // clear value
     });
 
-    // Pre-populate expected completion date with today
+    // Pre-populate expected completion date
     const expDateInput = document.getElementById('log-expected-completion');
     if (expDateInput) {
-      expDateInput.value = new Date().toISOString().split('T')[0];
+      const d = new Date();
+      d.setDate(d.getDate() + 1); // Default is always +1 day (ngày mai) for all roles
+      expDateInput.value = d.toISOString().split('T')[0];
     }
 
     // Form Submit Daily Log
