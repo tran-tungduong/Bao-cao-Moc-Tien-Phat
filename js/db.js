@@ -865,5 +865,29 @@ export const DB = {
       return project;
     }
     return null;
+  },
+
+  // Delete daily log (Xóa báo cáo nhật ký hàng ngày)
+  deleteDailyLog(projectId, logId, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (project && project.dailyLogs) {
+      const idx = project.dailyLogs.findIndex(l => l.id === logId);
+      if (idx > -1) {
+        const removed = project.dailyLogs[idx];
+        project.dailyLogs.splice(idx, 1);
+        
+        project.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Xóa báo cáo của: ${removed.reporterName} (Ngày: ${removed.date})`,
+          user: user ? user.name : 'Sếp'
+        });
+
+        this.save(db);
+        return true;
+      }
+    }
+    return false;
   }
 };

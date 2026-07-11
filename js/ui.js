@@ -1847,23 +1847,34 @@ export const UI = {
 
         <!-- Daily report history (Daily Log) -->
         <div>
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px;">Lịch Sử Gửi Theo Thời Gian (Bấm để xem)</h5>
+          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.length})</span>
+            ${user.role === 'manager' && !project.isCompleted
+              ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
+              : ''
+            }
+          </h5>
           <div style="display:flex; flex-direction:column; gap:10px;" id="drawer-timeline-container">
             ${project.dailyLogs.map((l, idx) => {
-        const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : 'Khác';
-        return `
-                <div class="timeline-log-item" data-log-index="${idx}" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'};"></div>
+              const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : l.reporterRole === 'manager' ? 'Sếp' : 'Khác';
+              return `
+                <div style="background-color:rgba(0,0,0,0.15); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; box-sizing:border-box;">
+                  <div class="btn-view-log-item" data-log-index="${idx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
+                    <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
                       <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName}</div>
-                      <div style="font-size:0.75rem; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:240px;">${roleDisplay} • ${l.note}</div>
+                      <div style="font-size:0.75rem; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:200px;">${roleDisplay} • ${l.note}</div>
                     </div>
                   </div>
-                  <div style="font-size:0.75rem; color:var(--primary); font-weight:600;">Xem &rarr;</div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="btn-view-log-item" data-log-index="${idx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
+                    ${user.role === 'manager' ? `
+                      <button class="btn-delete-log-item" data-log-id="${l.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa báo cáo"><i class="fas fa-trash-alt"></i></button>
+                    ` : ''}
+                  </div>
                 </div>
               `;
-      }).join('')}
+            }).join('')}
             ${project.dailyLogs.length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted);">Chưa có nhật ký cuối ngày nào được gửi.</p>' : ''}
           </div>
         </div>
@@ -1899,13 +1910,39 @@ export const UI = {
     // Bind timeline log clicks to detail view modal
     const timelineContainer = drawer.element.querySelector('#drawer-timeline-container');
     if (timelineContainer) {
-      timelineContainer.querySelectorAll('.timeline-log-item').forEach(item => {
+      // View log detail click
+      timelineContainer.querySelectorAll('.btn-view-log-item').forEach(item => {
         item.addEventListener('click', () => {
           const logIndex = parseInt(item.getAttribute('data-log-index'));
           const log = project.dailyLogs[logIndex];
           if (log) {
             this.openLogDetailModal(log, project);
           }
+        });
+      });
+
+      // Delete log item click
+      timelineContainer.querySelectorAll('.btn-delete-log-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const logId = btn.getAttribute('data-log-id');
+          if (confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này không?\nHành động này không thể khôi phục!')) {
+            DB.deleteDailyLog(projectId, logId, user.id);
+            Toast.success('Đã xóa báo cáo thi công.');
+            drawer.close();
+            onUpdate();
+          }
+        });
+      });
+    }
+
+    // Add daily log on behalf of manager click
+    const btnAddLog = document.getElementById('drawer-add-log-btn');
+    if (btnAddLog) {
+      btnAddLog.addEventListener('click', () => {
+        this.openManagerAddLogModal(projectId, user, () => {
+          drawer.close();
+          onUpdate();
         });
       });
     }
@@ -3084,5 +3121,121 @@ export const UI = {
     }
 
     Modal.create('Chi Tiết: Nhãn Cam [PHÁT SINH]', html);
+  },
+
+  // 12.7 OPEN MANAGER ADD LOG MODAL
+  openManagerAddLogModal(projectId, user, onComplete) {
+    const project = DB.getProject(projectId);
+    if (!project) return;
+
+    const html = `
+      <form id="manager-add-log-form" style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label class="form-label">Tên công trình</label>
+          <input type="text" class="form-input" value="${project.name}" disabled style="padding-left:14px;">
+        </div>
+
+        <div>
+          <label class="form-label">Tình trạng tiến độ ngày hôm nay</label>
+          <div style="display:flex; gap:16px; margin-top:4px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="manager-log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
+              <span>Đúng tiến độ ✅</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="manager-log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
+               <span>Bị chậm ⚠️</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
+          <textarea id="manager-log-note" class="form-textarea" placeholder="Nhập ghi chú tình hình thi công/lắp đặt hôm nay..." required></textarea>
+        </div>
+
+        <div>
+          <label class="form-label">Hình ảnh thực tế công việc (Không bắt buộc với sếp)</label>
+          <div class="photo-uploader" id="manager-log-photo-uploader">
+            <i class="fas fa-camera"></i>
+            <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Tải hình ảnh thực tế</p>
+            <input type="file" id="manager-log-photo-file-input" accept="image/*" multiple style="display:none;">
+          </div>
+          <div class="upload-preview-container" id="manager-log-preview-container"></div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--primary), #9E815B);">
+          Gửi Báo Cáo
+        </button>
+      </form>
+    `;
+
+    const modal = Modal.create('Thêm Báo Cáo Tiến Độ', html);
+    const previewContainer = document.getElementById('manager-log-preview-container');
+    const uploader = document.getElementById('manager-log-photo-uploader');
+    const fileInput = document.getElementById('manager-log-photo-file-input');
+    let selectedPhotos = [];
+
+    uploader.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (selectedPhotos.length + files.length > 5) {
+        Toast.info('Tải lên tối đa 5 hình ảnh.');
+        return;
+      }
+
+      Toast.info('Đang nén và xử lý hình ảnh...');
+      for (const file of files) {
+        try {
+          const base64Img = await this.compressImage(file);
+          selectedPhotos.push(base64Img);
+        } catch (err) {
+          console.error(err);
+          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
+        }
+      }
+      this.updatePhotoPreviews(selectedPhotos, previewContainer);
+      fileInput.value = '';
+    });
+
+    document.getElementById('manager-add-log-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const status = document.querySelector('input[name="manager-log-status"]:checked').value;
+      const note = document.getElementById('manager-log-note').value;
+
+      try {
+        const db = DB.load();
+        const proj = db.projects.find(p => p.id === projectId);
+        if (proj) {
+          const logId = 'log_' + Math.random().toString(36).substr(2, 9);
+          const newLog = {
+            id: logId,
+            date: new Date().toISOString().split('T')[0],
+            reporterId: user.id,
+            reporterName: user.name,
+            reporterRole: user.role,
+            status: status,
+            note: note,
+            photos: selectedPhotos
+          };
+
+          proj.dailyLogs.unshift(newLog);
+
+          proj.history.push({
+            timestamp: new Date().toISOString(),
+            action: `Sếp gửi báo cáo: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}]`,
+            user: user.name
+          });
+
+          DB.save(db);
+          Toast.success('Thêm báo cáo thành công!');
+          modal.close();
+          onComplete();
+        }
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    });
   }
 };
