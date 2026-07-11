@@ -292,19 +292,25 @@ export const DB = {
     const db = this.load();
     const projects = db.projects;
 
-    // Managers, KTS and Sales coordinate tasks and see all projects
-    if (user.role === 'manager' || user.role === 'kts' || user.role === 'sales') {
+    // Managers see all projects (active and completed)
+    if (user.role === 'manager') {
       return projects;
     }
 
-    // Other roles see projects based on current step OR if they have any task assigned to them
-    if (user.role === 'marketing') {
-      return projects.filter(p => p.step <= 4 || p.subtasks.some(st => st.assignedTo === user.id));
-    } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
-      return projects.filter(p => p.step >= 5 || p.subtasks.some(st => st.assignedTo === user.id));
+    // Other roles only see active (non-completed) projects that are relevant to them
+    const activeProjects = projects.filter(p => !p.isCompleted);
+
+    if (user.role === 'kts' || user.role === 'sales') {
+      return activeProjects;
     }
 
-    return projects;
+    if (user.role === 'marketing') {
+      return activeProjects.filter(p => p.step <= 4 || p.subtasks.some(st => st.assignedTo === user.id));
+    } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
+      return activeProjects.filter(p => p.subtasks.some(st => st.assignedTo === user.id));
+    }
+
+    return activeProjects;
   },
 
   // Get single project

@@ -165,7 +165,7 @@ export const UI = {
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
-      <div class="stats-grid fade-in">
+      <div class="stats-grid fade-in" style="display:grid; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
         <div class="stat-mini-card" id="stat-projects-btn" style="cursor:pointer; border-color:var(--primary); transition:all var(--transition-fast);">
           <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span>Công trình phụ trách</span>
@@ -180,6 +180,15 @@ export const UI = {
           </span>
           <span class="stat-mini-val">${relevantProjects.reduce((acc, p) => acc + p.subtasks.filter(st => st.assignedTo === user.id && st.status === 'pending').length, 0)}</span>
         </div>
+        ${['kts', 'sales', 'marketing'].includes(user.role) ? `
+          <div class="stat-mini-card" id="stat-completed-projects-btn" style="cursor:pointer; border-color:var(--status-approved); transition:all var(--transition-fast);">
+            <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Công trình đã xong</span>
+              <i class="fas fa-external-link-alt" style="font-size:0.7rem; color:var(--status-approved);"></i>
+            </span>
+            <span class="stat-mini-val">${DB.getProjects().filter(p => p.isCompleted).length}</span>
+          </div>
+        ` : ''}
       </div>
 
       <div class="section-header fade-in">
@@ -249,6 +258,14 @@ export const UI = {
         this.openPendingTasksModal(user, () => {
           this.renderWorkerView(user);
         });
+      });
+    }
+
+    // Bind click on completed projects statistics card
+    const btnCompletedProjects = document.getElementById('stat-completed-projects-btn');
+    if (btnCompletedProjects) {
+      btnCompletedProjects.addEventListener('click', () => {
+        this.openEmployeeCompletedProjectsModal(user);
       });
     }
 
@@ -710,6 +727,67 @@ export const UI = {
     const modal = Modal.create('Công Trình Phụ Trách', html);
     refreshModal();
   },
+
+  // 3.2.1 OPEN COMPLETED PROJECTS LIST MODAL FOR KTS, SALES, MARKETING
+  openEmployeeCompletedProjectsModal(user) {
+    const completedProjects = DB.getProjects().filter(p => p.isCompleted);
+
+    if (completedProjects.length === 0) {
+      Modal.create('Công Trình Đã Hoàn Thành', `
+        <div style="text-align:center; padding:32px 16px; color:var(--text-muted);">
+          <i class="fas fa-archive" style="font-size:2rem; color:var(--primary); margin-bottom:8px;"></i>
+          <p style="font-size:0.85rem;">Không có công trình nào đã hoàn thành.</p>
+        </div>
+      `);
+      return;
+    }
+
+    const html = `
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);"><i class="fas fa-check-circle" style="color:var(--status-approved);"></i> Công Trình Đã Xong</h4>
+          <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">Tổng số: <strong>${completedProjects.length} công trình</strong></p>
+        </div>
+
+        <div class="report-list" style="max-height:500px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:16px;">
+          ${completedProjects.map(p => `
+            <div class="report-card employee-completed-card" data-id="${p.id}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:18px; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+              <div style="flex:1;">
+                <h4 style="font-family:var(--font-title); font-size:1.05rem; font-weight:700; color:var(--text-primary);">${p.name}</h4>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Bàn giao: ${p.completedAt ? new Date(p.completedAt).toLocaleDateString('vi-VN') : ''}</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-download-excel-emp" data-project="${p.id}" style="background-color:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); color:#10B981; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải báo cáo Excel">
+                  <i class="fas fa-file-excel"></i> Xuất Excel
+                </button>
+                <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15); white-space:nowrap;">
+                  <i class="fas fa-check-circle"></i> Đã Xong
+                </span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    const modal = Modal.create('Công Trình Đã Hoàn Thành', html);
+
+    // Event handler for excel export
+    modal.element.querySelectorAll('.btn-download-excel-emp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const prjId = btn.getAttribute('data-project');
+        this.exportProjectToExcel(prjId);
+      });
+    });
+
+    // Event handler for completed card click (to open read-only drawer)
+    modal.element.querySelectorAll('.employee-completed-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const prjId = card.getAttribute('data-id');
+        this.openProjectDetailsDrawer(prjId, user, () => {});
+      });
+    });
 
   // 4. OPEN FREEZE MODAL DIALOG
   openFreezeModal(projectId, step, user, onUpdate = null) {
