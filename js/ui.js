@@ -2250,6 +2250,7 @@ export const UI = {
         onComplete();
       }
     });
+  },
 
   // 12. RENDER MANAGER REPORT & ANALYTICS DASHBOARD
   renderManagerDashboard() {
