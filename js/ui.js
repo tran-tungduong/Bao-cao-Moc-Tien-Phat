@@ -788,6 +788,7 @@ export const UI = {
         this.openProjectDetailsDrawer(prjId, user, () => {});
       });
     });
+  },
 
   // 4. OPEN FREEZE MODAL DIALOG
   openFreezeModal(projectId, step, user, onUpdate = null) {
