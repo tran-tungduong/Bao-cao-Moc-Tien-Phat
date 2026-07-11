@@ -33,7 +33,7 @@ export const UI = {
           
           <div class="login-header">
             <div class="login-logo" style="background: none; box-shadow: none; width: auto; height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-              <img src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="height: 100%; max-width: 180px; object-fit: contain;">
+              <img src="logo.png" onerror="this.onerror=null; this.src='logo.jpg'; this.onerror=() => { this.onerror=null; this.src='logo.jpeg'; this.onerror=() => { this.onerror=null; this.src='logo.svg'; this.onerror=() => { this.style.display='none'; this.nextElementSibling.style.display='flex'; } } }" style="height: 100%; max-width: 180px; object-fit: contain;">
               <div class="fallback-logo" style="width: 64px; height: 64px; background: linear-gradient(135deg, var(--primary), #8E714B); border-radius: 18px; display: none; align-items: center; justify-content: center; color: var(--bg-primary); font-size: 1.75rem; box-shadow: var(--shadow-primary); margin: 0 auto;">
                 <i class="fas fa-couch"></i>
               </div>
@@ -112,7 +112,7 @@ export const UI = {
         <header class="app-header">
           <div class="header-brand">
             <div class="header-logo" style="background: none; display: flex; align-items: center; justify-content: center; width: auto; height: 36px; padding: 0; box-shadow: none;">
-              <img src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="height: 100%; max-width: 100px; object-fit: contain;">
+              <img src="logo.png" onerror="this.onerror=null; this.src='logo.jpg'; this.onerror=() => { this.onerror=null; this.src='logo.jpeg'; this.onerror=() => { this.onerror=null; this.src='logo.svg'; this.onerror=() => { this.style.display='none'; this.nextElementSibling.style.display='flex'; } } }" style="height: 100%; max-width: 100px; object-fit: contain;">
               <div class="fallback-header-logo" style="width: 32px; height: 32px; background: linear-gradient(135deg, var(--primary), #8E714B); border-radius: 8px; display: none; align-items: center; justify-content: center; color: var(--bg-primary); font-size: 0.9rem; box-shadow: var(--shadow-primary);">
                 <i class="fas fa-couch"></i>
               </div>
