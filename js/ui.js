@@ -2431,92 +2431,117 @@ export const UI = {
     const nextStepInfo = STEPS.find(s => s.num === project.step + 1);
     const isManagementRole = ['manager', 'kts', 'sales', 'marketing'].includes(user.role);
 
-    // Calculate Scope Progress list dynamically from daily reports
-    let scopeProgressHtml = '';
-    if (project.scope && project.scope.length > 0) {
-      scopeProgressHtml = `
-        <div style="margin-top: 8px;">
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:6px; color:var(--primary);">
-            <i class="fas fa-list-check"></i> Trạng thái Hạng mục thi công (Scope Progress)
-          </h5>
-          <div style="background-color:rgba(0,0,0,0.15); border-radius:12px; padding:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; gap:8px;">
-            ${project.scope.map(s => {
-              const approvedLogs = (project.dailyLogs || []).filter(l => l.approved === true || l.approved === 'true');
-              const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
-              const matchedItem = latestLog ? latestLog.items.find(it => it.room === s.room && it.item === s.item) : null;
+    // Build interactive Scope Manager HTML (always show, even if empty)
+    const buildScopeManagerHtml = (proj) => {
+      const scopeItems = proj.scope || [];
+      const approvedLogs = (proj.dailyLogs || []).filter(l => l.approved === true || l.approved === 'true');
+      const dbUsers = DB.load().users;
 
-              // Find subtasks for this item
-              const matchedSubtasks = (project.subtasks || []).filter(st => {
-                const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
-                const stRoom = match ? match[1].trim() : '';
-                const stItem = match ? match[2].trim() : '';
-                return stRoom === s.room && stItem === s.item;
-              });
-              const hasSubtasks = matchedSubtasks.length > 0;
-              const allSubtasksCompleted = hasSubtasks && matchedSubtasks.every(st => st.status === 'completed');
-              const latestSubtask = hasSubtasks ? matchedSubtasks[matchedSubtasks.length - 1] : null;
+      const itemsHtml = scopeItems.length === 0
+        ? `<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa có hạng mục nào. Nhấn "+ Thêm Hạng Mục" để bắt đầu.</p>`
+        : scopeItems.map((s, idx) => {
+            const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
+            const matchedItem = latestLog ? latestLog.items.find(it => it.room === s.room && it.item === s.item) : null;
 
-              let statusText = '';
-              let badgeClass = 'pending';
-              let badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted);';
-              let sourceInfoHtml = '';
+            const matchedSubtasks = (proj.subtasks || []).filter(st => {
+              const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
+              const stRoom = match ? match[1].trim() : '';
+              const stItem = match ? match[2].trim() : '';
+              return stRoom === s.room && stItem === s.item;
+            });
+            const hasSubtasks = matchedSubtasks.length > 0;
+            const allSubtasksCompleted = hasSubtasks && matchedSubtasks.every(st => st.status === 'completed');
+            const latestSubtask = hasSubtasks ? matchedSubtasks[matchedSubtasks.length - 1] : null;
 
-              // Determine if completed (either by thợ report or by completing all subtasks assigned to it)
-              const isCompletedByLog = matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true');
-              const isCompletedBySubtask = allSubtasksCompleted;
+            const isCompletedByLog = matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true');
+            const isCompletedBySubtask = allSubtasksCompleted;
+            const isDoing = !isCompletedByLog && !isCompletedBySubtask && (matchedItem || hasSubtasks);
 
-              if (isCompletedByLog || isCompletedBySubtask) {
-                statusText = 'Hoàn thành ✅';
-                badgeClass = 'approved';
-                badgeStyle = 'background-color:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
-                
-                if (isCompletedByLog) {
-                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Báo cáo bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
-                } else {
-                  const dbUsers = DB.load().users;
-                  const completedBy = latestSubtask && latestSubtask.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
-                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-tasks" style="font-size:0.6rem;"></i> Nhiệm vụ hoàn thành bởi: <strong>${completedBy}</strong></span>`;
-                }
+            let statusText, badgeStyle, sourceInfoHtml;
+            if (isCompletedByLog || isCompletedBySubtask) {
+              statusText = 'Hoàn thành ✅';
+              badgeStyle = 'background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+              if (isCompletedByLog) {
+                sourceInfoHtml = `<i class="fas fa-user-edit" style="font-size:0.6rem;"></i> ${latestLog.reporterName} · ${latestLog.date}`;
               } else {
-                if (matchedItem) {
-                  const details = matchedItem.pendingNotes ? `: ${matchedItem.pendingNotes}` : '';
-                  statusText = `Đang làm ⏱️ (${STEPS[project.step-1].title}${details})`;
-                  badgeClass = 'pending';
-                  badgeStyle = 'background-color:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
-                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Báo cáo bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
-                } else if (hasSubtasks) {
-                  statusText = `Đang làm ⏱️ (${STEPS[project.step-1].title}: Đang làm nhiệm vụ)`;
-                  badgeClass = 'pending';
-                  badgeStyle = 'background-color:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
-                  const dbUsers = DB.load().users;
-                  const assignedToName = latestSubtask && latestSubtask.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
-                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-tasks" style="font-size:0.6rem;"></i> Giao thợ: <strong>${assignedToName}</strong></span>`;
-                } else {
-                  statusText = `Chờ triển khai ⏳ (${STEPS[project.step-1].title})`;
-                  badgeClass = 'pending';
-                  badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
-                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo ghi nhận</span>`;
-                }
+                const completedBy = latestSubtask?.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
+                sourceInfoHtml = `<i class="fas fa-tasks" style="font-size:0.6rem;"></i> ${completedBy}`;
               }
+            } else if (isDoing) {
+              statusText = 'Đang làm ⏱️';
+              badgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+              if (matchedItem) {
+                sourceInfoHtml = `<i class="fas fa-user-edit" style="font-size:0.6rem;"></i> ${latestLog.reporterName} · ${latestLog.date}`;
+              } else {
+                const assignedToName = latestSubtask?.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
+                sourceInfoHtml = `<i class="fas fa-tasks" style="font-size:0.6rem;"></i> ${assignedToName}`;
+              }
+            } else {
+              statusText = 'Chờ triển khai ⏳';
+              badgeStyle = 'background:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
+              sourceInfoHtml = `<i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo`;
+            }
 
-              return `
-                <div style="display:flex; justify-content:space-between; align-items:center; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; gap:12px; box-shadow:var(--shadow-sm); width:100%; box-sizing:border-box;">
-                  <div style="display:flex; flex-direction:column; text-align:left; flex:1;">
-                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${s.room}</span>
-                    <span style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">Nội thất: <strong>${s.item}</strong></span>
-                    ${sourceInfoHtml}
+            const canEdit = isManagementRole && !proj.isCompleted;
+
+            return `
+              <div class="scope-item-row" data-scope-idx="${idx}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; box-shadow:var(--shadow-sm);">
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:0.8rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:5px;">
+                    <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.7rem; flex-shrink:0;"></i>
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.room}</span>
+                    <span style="color:var(--text-muted); font-weight:400;">›</span>
+                    <span style="color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.item}</span>
                   </div>
-                  <span class="status-badge ${badgeClass}" style="font-size:0.7rem; font-weight:600; padding:4px 8px; border-radius:6px; line-height:1.2; text-align:right; max-width:60%; word-break:break-word; ${badgeStyle}">
-                    ${statusText}
-                  </span>
+                  <div style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;">${sourceInfoHtml}</div>
                 </div>
-              `;
-            }).join('')}
+                <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0; ${badgeStyle}">${statusText}</span>
+                ${canEdit ? `
+                  <div style="display:flex; gap:4px; flex-shrink:0;">
+                    <button class="btn-scope-edit" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--primary); cursor:pointer; font-size:0.75rem;" title="Sửa hạng mục"><i class="fas fa-edit"></i></button>
+                    <button class="btn-scope-delete" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--status-rejected); cursor:pointer; font-size:0.75rem;" title="Xóa hạng mục"><i class="fas fa-trash-alt"></i></button>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('');
+
+      const canAdd = isManagementRole && !proj.isCompleted;
+      return `
+        <div id="scope-manager-section" style="margin-top:8px;">
+          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; color:var(--primary);">
+            <span><i class="fas fa-list-check"></i> Hạng mục thi công (${scopeItems.length} hạng mục)</span>
+            ${canAdd ? `<button id="btn-scope-add-new" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM HẠNG MỤC</button>` : ''}
+          </h5>
+
+          <!-- Add / Edit form (hidden by default) -->
+          <div id="scope-inline-form" style="display:none; background:rgba(197,168,128,0.07); border:1px dashed rgba(197,168,128,0.4); border-radius:12px; padding:12px; margin-bottom:10px;">
+            <div style="font-size:0.75rem; font-weight:700; color:var(--primary); margin-bottom:8px;" id="scope-form-title">Thêm hạng mục mới</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+              <div>
+                <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Phòng (Cấp 1)</label>
+                <input type="text" id="scope-form-room" class="form-input" placeholder="VD: Phòng ngủ, Phòng bếp..." style="height:34px; font-size:0.78rem; padding-left:10px;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Nội thất (Cấp 2)</label>
+                <input type="text" id="scope-form-item" class="form-input" placeholder="VD: Tủ áo, Bếp trên..." style="height:34px; font-size:0.78rem; padding-left:10px;">
+              </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button id="scope-form-save" class="btn-primary" style="height:34px; font-size:0.78rem; flex:1;">Lưu</button>
+              <button id="scope-form-cancel" style="height:34px; font-size:0.78rem; flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); border-radius:8px; color:var(--text-secondary); cursor:pointer;">Huỷ</button>
+            </div>
+          </div>
+
+          <!-- Items list -->
+          <div id="scope-items-list" style="display:flex; flex-direction:column; gap:8px;">
+            ${itemsHtml}
           </div>
         </div>
       `;
-    }
+    };
 
+    const scopeManagerHtml = buildScopeManagerHtml(project);
     const html = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
@@ -2611,8 +2636,8 @@ export const UI = {
           }
         </div>
 
-        <!-- Scope Progress -->
-        ${scopeProgressHtml}
+        <!-- Scope Manager: Add/Edit/Delete scope items -->
+        ${scopeManagerHtml}
 
         <!-- Project Assignees (Người phụ trách) -->
         <div>
@@ -2748,6 +2773,99 @@ export const UI = {
         container.scrollTo({ left: offset, behavior: 'smooth' });
       }
     }, 120);
+
+    // ── SCOPE MANAGER BINDINGS ──────────────────────────────────────────
+    const bindScopeManager = () => {
+      const section = drawer.element.querySelector('#scope-manager-section');
+      if (!section) return;
+
+      let editingIdx = null; // null = adding new, number = editing existing
+
+      const showForm = (title, roomVal = '', itemVal = '') => {
+        const form = section.querySelector('#scope-inline-form');
+        section.querySelector('#scope-form-title').textContent = title;
+        section.querySelector('#scope-form-room').value = roomVal;
+        section.querySelector('#scope-form-item').value = itemVal;
+        form.style.display = 'block';
+        section.querySelector('#scope-form-room').focus();
+      };
+
+      const hideForm = () => {
+        const form = section.querySelector('#scope-inline-form');
+        form.style.display = 'none';
+        editingIdx = null;
+      };
+
+      const refreshScopeList = () => {
+        const updatedProject = DB.getProject(projectId);
+        const tmpDiv = document.createElement('div');
+        tmpDiv.innerHTML = buildScopeManagerHtml(updatedProject);
+        const newSection = tmpDiv.querySelector('#scope-manager-section');
+        section.replaceWith(newSection);
+        bindScopeManager(); // re-bind on new DOM
+      };
+
+      // Button: "+ THÊM HẠNG MỤC"
+      const btnAdd = section.querySelector('#btn-scope-add-new');
+      if (btnAdd) {
+        btnAdd.addEventListener('click', () => {
+          editingIdx = null;
+          showForm('Thêm hạng mục mới');
+        });
+      }
+
+      // Button: Huỷ form
+      section.querySelector('#scope-form-cancel')?.addEventListener('click', hideForm);
+
+      // Button: Lưu form
+      section.querySelector('#scope-form-save')?.addEventListener('click', () => {
+        const room = section.querySelector('#scope-form-room').value.trim();
+        const item = section.querySelector('#scope-form-item').value.trim();
+        if (!room || !item) { Toast.error('Vui lòng điền đầy đủ Phòng và Nội thất.'); return; }
+
+        if (editingIdx === null) {
+          DB.addScopeItem(projectId, room, item, user.id);
+          Toast.success(`Đã thêm hạng mục: [${room}] - ${item}`);
+        } else {
+          DB.editScopeItem(projectId, editingIdx, room, item, user.id);
+          Toast.success('Đã cập nhật hạng mục.');
+        }
+        hideForm();
+        refreshScopeList();
+        if (onUpdate) onUpdate();
+      });
+
+      // Buttons: Sửa từng dòng
+      section.querySelectorAll('.btn-scope-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'));
+          const proj = DB.getProject(projectId);
+          const s = proj.scope[idx];
+          if (!s) return;
+          editingIdx = idx;
+          showForm(`Sửa hạng mục #${idx + 1}`, s.room, s.item);
+        });
+      });
+
+      // Buttons: Xóa từng dòng
+      section.querySelectorAll('.btn-scope-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'));
+          const proj = DB.getProject(projectId);
+          const s = proj.scope[idx];
+          if (!s) return;
+          if (confirm(`Xóa hạng mục "[${s.room}] - ${s.item}"?\nHành động này không thể hoàn tác.`)) {
+            DB.deleteScopeItem(projectId, idx, user.id);
+            Toast.success('Đã xóa hạng mục.');
+            refreshScopeList();
+            if (onUpdate) onUpdate();
+          }
+        });
+      });
+    };
+
+    bindScopeManager();
+    // ── END SCOPE MANAGER BINDINGS ──────────────────────────────────────
 
     // Bind timeline log clicks to detail view modal
     const timelineContainer = drawer.element.querySelector('#drawer-timeline-container');
@@ -3443,9 +3561,9 @@ export const UI = {
 
     const render = () => {
       container.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:block;">
           <!-- Add new Room inline panel -->
-          <div style="display:flex; gap:8px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; align-items:center; border:1px dashed rgba(255,255,255,0.15);">
+          <div style="display:flex; gap:8px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; align-items:center; border:1px dashed rgba(255,255,255,0.15); margin-bottom:12px;">
             <select id="scope-add-template" class="form-select" style="height:36px; font-size:0.75rem; padding:4px 8px; flex:1; margin:0;">
               <option value="Phòng ngủ">Mẫu: Phòng ngủ</option>
               <option value="Phòng khách">Mẫu: Phòng khách</option>
@@ -3458,8 +3576,8 @@ export const UI = {
             <button type="button" id="scope-btn-add-room" class="btn-primary" style="height:36px; padding:0 12px; font-size:0.75rem; width:auto; white-space:nowrap; margin:0;"><i class="fas fa-plus"></i> Thêm</button>
           </div>
 
-          <!-- Accordion list -->
-          <div id="scope-accordion-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding:2px;">
+          <!-- Accordion list: block layout so items never get squished -->
+          <div id="scope-accordion-list" style="max-height:300px; overflow-y:auto; padding:2px;">
             ${Object.keys(grouped).map(room => {
               // Deduce template type
               let templateType = 'Khác...';
@@ -3473,14 +3591,14 @@ export const UI = {
               const checkedItems = grouped[room] || [];
 
               return `
-                <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:rgba(0,0,0,0.1); margin-bottom:4px;">
-                  <div class="scope-room-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none;">
+                <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:rgba(0,0,0,0.1); margin-bottom:8px;">
+                  <div class="scope-room-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none; min-height:42px; box-sizing:border-box;">
                     <span style="font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                      <i class="fas fa-chevron-right scope-toggle-icon" style="font-size:0.7rem; transition:transform 0.2s;"></i>
-                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i>
-                      <span>${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
+                      <i class="fas fa-chevron-right scope-toggle-icon" style="font-size:0.7rem; transition:transform 0.2s; flex-shrink:0;"></i>
+                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem; flex-shrink:0;"></i>
+                      <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
                     </span>
-                    <button type="button" class="scope-btn-delete-room" data-room="${room}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.8rem; padding:4px;" title="Xóa phòng này">
+                    <button type="button" class="scope-btn-delete-room" data-room="${room}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.8rem; padding:4px; flex-shrink:0;" title="Xóa phòng này">
                       <i class="fas fa-trash-alt"></i>
                     </button>
                   </div>
@@ -3490,7 +3608,7 @@ export const UI = {
                         const isChecked = checkedItems.includes(item);
                         return `
                           <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
-                            <input type="checkbox" class="scope-checkbox-input" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary);">
+                            <input type="checkbox" class="scope-checkbox-input" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary); flex-shrink:0;">
                             <span>${item}</span>
                           </label>
                         `;

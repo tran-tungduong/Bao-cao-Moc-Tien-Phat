@@ -980,6 +980,62 @@ export const DB = {
     return null;
   },
 
+  // Add a scope item to a project
+  addScopeItem(projectId, room, item, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (project) {
+      if (!project.scope) project.scope = [];
+      project.scope.push({ room: room.trim(), item: item.trim() });
+      project.history.push({
+        timestamp: new Date().toISOString(),
+        action: `Thêm hạng mục thi công: [${room}] - ${item}`,
+        user: user ? user.name : 'Sếp'
+      });
+      this.save(db);
+      return project;
+    }
+    return null;
+  },
+
+  // Edit a scope item in a project (by index)
+  editScopeItem(projectId, scopeIndex, newRoom, newItem, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (project && project.scope && project.scope[scopeIndex] !== undefined) {
+      const old = project.scope[scopeIndex];
+      project.scope[scopeIndex] = { room: newRoom.trim(), item: newItem.trim() };
+      project.history.push({
+        timestamp: new Date().toISOString(),
+        action: `Sửa hạng mục: [${old.room} - ${old.item}] → [${newRoom} - ${newItem}]`,
+        user: user ? user.name : 'Sếp'
+      });
+      this.save(db);
+      return project;
+    }
+    return null;
+  },
+
+  // Delete a scope item from a project (by index)
+  deleteScopeItem(projectId, scopeIndex, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (project && project.scope && project.scope[scopeIndex] !== undefined) {
+      const removed = project.scope.splice(scopeIndex, 1)[0];
+      project.history.push({
+        timestamp: new Date().toISOString(),
+        action: `Xóa hạng mục thi công: [${removed.room}] - ${removed.item}`,
+        user: user ? user.name : 'Sếp'
+      });
+      this.save(db);
+      return project;
+    }
+    return null;
+  },
+
   // Delete daily log (Xóa báo cáo nhật ký hàng ngày)
   deleteDailyLog(projectId, logId, userId) {
     const db = this.load();
