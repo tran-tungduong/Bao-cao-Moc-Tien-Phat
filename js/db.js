@@ -340,7 +340,17 @@ export const DB = {
     if (user.role === 'marketing') {
       return activeProjects.filter(p => p.step <= 4 || (p.assignees && p.assignees.includes(user.id)));
     } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
-      return activeProjects.filter(p => p.assignees && p.assignees.includes(user.id));
+      // Get today's working project assignment via attendance
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecord = db.attendance ? db.attendance.find(a => a.userId === user.id && a.date === today) : null;
+      const todayProjectId = todayRecord && todayRecord.status === 'present' ? todayRecord.workingProjectId : '';
+
+      return activeProjects.filter(p => {
+        const isProjectAssignee = p.assignees && p.assignees.includes(user.id);
+        const hasAssignedSubtask = p.subtasks && p.subtasks.some(st => st.assignedTo === user.id);
+        const isTodayWorkingProject = p.id === todayProjectId;
+        return isProjectAssignee || hasAssignedSubtask || isTodayWorkingProject;
+      });
     }
 
     return activeProjects;
@@ -639,9 +649,17 @@ export const DB = {
       const logId = 'log_' + Math.random().toString(36).substr(2, 9);
       const isAssistant = user && user.role === 'assistant_worker';
 
+      // Check if they are marked as working at workshop today in attendance sheet
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecord = db.attendance ? db.attendance.find(a => a.userId === userId && a.date === today) : null;
+      const isWorkshopToday = todayRecord && (todayRecord.isWorkingAtWorkshop === true || todayRecord.isWorkingAtWorkshop === 'true');
+
+      // Needs approval if: is assistant, project step is 8 (installation) AND they are not assigned to work at workshop today
+      const needsApproval = isAssistant && project.step === 8 && !isWorkshopToday;
+
       const newLog = {
         id: logId,
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         reporterId: userId,
         reporterName: user ? user.name : 'Thợ thi công',
         reporterRole: user ? user.role : 'worker',
@@ -650,16 +668,16 @@ export const DB = {
         photos: photos,
         expectedCompletionDate: expectedCompletionDate,
         items: items,
-        approved: !isAssistant
+        approved: !needsApproval
       };
 
       project.dailyLogs.unshift(newLog);
 
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: isAssistant 
+        action: needsApproval 
           ? `Gửi báo cáo thợ phụ (Chờ thợ chính duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
-          : `Gửi báo cáo cuối ngày: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
+          : `Gửi báo cáo thợ phụ độc lập tại xưởng: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
         user: user ? user.name : 'Nhân viên'
       });
 
@@ -721,7 +739,8 @@ export const DB = {
         note: record ? record.note : '',
         workingProjectId: record ? (record.workingProjectId || '') : '',
         workingProjectName: record ? (record.workingProjectName || '') : '',
-        dailyWorkload: record ? (record.dailyWorkload || '') : ''
+        dailyWorkload: record ? (record.dailyWorkload || '') : '',
+        isWorkingAtWorkshop: record ? (record.isWorkingAtWorkshop === true || record.isWorkingAtWorkshop === 'true') : false
       };
     });
   },
@@ -761,7 +780,7 @@ export const DB = {
   },
 
   // Manager updates attendance
-  updateAttendance(userId, date, status, time, note, workingProjectId = '', workingProjectName = '', dailyWorkload = '') {
+  updateAttendance(userId, date, status, time, note, workingProjectId = '', workingProjectName = '', dailyWorkload = '', isWorkingAtWorkshop = false) {
     const db = this.load();
     if (!db.attendance) db.attendance = [];
 
@@ -773,6 +792,7 @@ export const DB = {
       existing.workingProjectId = workingProjectId;
       existing.workingProjectName = workingProjectName;
       existing.dailyWorkload = dailyWorkload;
+      existing.isWorkingAtWorkshop = isWorkingAtWorkshop;
     } else {
       db.attendance.push({
         userId,
@@ -782,7 +802,8 @@ export const DB = {
         note,
         workingProjectId,
         workingProjectName,
-        dailyWorkload
+        dailyWorkload,
+        isWorkingAtWorkshop
       });
     }
 

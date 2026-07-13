@@ -655,8 +655,11 @@ export const UI = {
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
         DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items);
-        if (user.role === 'assistant_worker') {
+        const prj = DB.getProject(prjId);
+        if (user.role === 'assistant_worker' && prj && prj.step === 8) {
           Toast.success('Đã gửi báo cáo chờ thợ chính phê duyệt.');
+        } else if (user.role === 'assistant_worker') {
+          Toast.success('Đã gửi báo cáo thi công tại xưởng thành công! (Không cần duyệt)');
         } else {
           Toast.success('Gửi báo cáo cuối ngày thành công!');
         }
@@ -1980,9 +1983,10 @@ export const UI = {
 
         let assignInfoHtml = '';
         if (r.status === 'present' && r.workingProjectName) {
+          const workshopBadge = r.isWorkingAtWorkshop ? ` <span style="background-color: var(--primary); color: var(--bg-primary); padding: 1px 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 700; margin-left: 6px;"><i class="fas fa-warehouse"></i> Độc lập tại xưởng</span>` : '';
           assignInfoHtml = `
             <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:8px; border:1px dashed var(--border-color); text-align: left;">
-              <span>Dự án hôm nay: <strong style="color:var(--primary);">${r.workingProjectName}</strong></span>
+              <span>Dự án hôm nay: <strong style="color:var(--primary);">${r.workingProjectName}</strong>${workshopBadge}</span>
               ${r.dailyWorkload ? `<span>Nhiệm vụ: <span style="color:var(--text-primary); font-weight:500;">${r.dailyWorkload}</span></span>` : ''}
             </div>
           `;
@@ -2074,6 +2078,13 @@ export const UI = {
             <label class="form-label">Khối lượng công việc giao thợ trong ngày</label>
             <textarea id="edit-att-workload" class="form-textarea" placeholder="Ví dụ: Đo đạc và ráp tủ áo master, bắn silicone hoàn thiện..." style="height: 60px; padding-left:14px;">${record.dailyWorkload || ''}</textarea>
           </div>
+
+          <div style="margin-top: 4px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="edit-att-is-workshop" ${record.isWorkingAtWorkshop ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+              <span>Làm việc độc lập tại xưởng (Tự động duyệt báo cáo hôm nay)</span>
+            </label>
+          </div>
         </div>
 
         <div>
@@ -2098,6 +2109,25 @@ export const UI = {
       }
     });
 
+    // Toggle is_workshop on project selection change
+    const selectProject = document.getElementById('edit-att-project-id');
+    const cbWorkshop = document.getElementById('edit-att-is-workshop');
+    if (selectProject && cbWorkshop) {
+      selectProject.addEventListener('change', () => {
+        const prjId = selectProject.value;
+        if (prjId) {
+          const matched = activeProjects.find(p => p.id === prjId);
+          if (matched && matched.step < 8) {
+            cbWorkshop.checked = true;
+          } else {
+            cbWorkshop.checked = false;
+          }
+        } else {
+          cbWorkshop.checked = false;
+        }
+      });
+    }
+
     // Initial check
     if (record.status !== 'present') {
       timeBox.style.display = 'none';
@@ -2112,15 +2142,17 @@ export const UI = {
       let workingProjectId = '';
       let workingProjectName = '';
       let dailyWorkload = '';
+      let isWorkingAtWorkshop = false;
 
       if (status === 'present') {
         workingProjectId = document.getElementById('edit-att-project-id').value;
         dailyWorkload = document.getElementById('edit-att-workload').value;
+        isWorkingAtWorkshop = cbWorkshop ? cbWorkshop.checked : false;
         const matched = activeProjects.find(p => p.id === workingProjectId);
         workingProjectName = matched ? matched.name : '';
       }
 
-      DB.updateAttendance(record.userId, record.date, status, time, note, workingProjectId, workingProjectName, dailyWorkload);
+      DB.updateAttendance(record.userId, record.date, status, time, note, workingProjectId, workingProjectName, dailyWorkload, isWorkingAtWorkshop);
       Toast.success('Đã lưu thay đổi chấm công!');
       modal.close();
       onSaved();
