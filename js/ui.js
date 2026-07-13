@@ -13,6 +13,14 @@ export const STEPS = [
   { num: 9, title: 'Nghiệm Thu & Bàn Giao', icon: 'fa-file-signature', desc: 'Vệ sinh, ký bàn giao hoàn thiện' }
 ];
 
+export const DEFAULT_SCOPE_TEMPLATE = {
+  'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+  'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+  'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+  'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+  'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
+};
+
 export const UI = {
   // Main container
   getAppContainer() {

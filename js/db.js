@@ -927,8 +927,7 @@ export const DB = {
     return false;
   },
 
-  // Edit project info (Sửa thông tin công trình)
-  updateProjectInfo(projectId, newName, newDeadline, userId, assignees = null) {
+  updateProjectInfo(projectId, newName, newDeadline, userId, assignees = null, scope = null) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     if (project) {
@@ -941,13 +940,16 @@ export const DB = {
       if (assignees !== null) {
         project.assignees = assignees;
       }
+      if (scope !== null) {
+        project.scope = scope;
+      }
 
       const user = db.users.find(u => u.id === userId);
       const assigneesText = assignees ? ` | Giao phụ trách: [${assignees.map(id => db.users.find(u => u.id === id)?.name || id).join(', ')}]` : '';
 
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"${assigneesText}`,
+        action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"${assigneesText}${scope ? ' | Cập nhật hạng mục thi công' : ''}`,
         user: user ? user.name : 'Sếp'
       });
 
