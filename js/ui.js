@@ -2440,68 +2440,117 @@ export const UI = {
       const itemsHtml = scopeItems.length === 0
         ? `<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa có hạng mục nào. Nhấn "+ Thêm Hạng Mục" để bắt đầu.</p>`
         : scopeItems.map((s, idx) => {
-            const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
-            const matchedItem = latestLog ? latestLog.items.find(it => it.room === s.room && it.item === s.item) : null;
-
+            // --- Subtasks linked to this scope item ---
             const matchedSubtasks = (proj.subtasks || []).filter(st => {
               const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
               const stRoom = match ? match[1].trim() : '';
               const stItem = match ? match[2].trim() : '';
               return stRoom === s.room && stItem === s.item;
             });
-            const hasSubtasks = matchedSubtasks.length > 0;
-            const allSubtasksCompleted = hasSubtasks && matchedSubtasks.every(st => st.status === 'completed');
-            const latestSubtask = hasSubtasks ? matchedSubtasks[matchedSubtasks.length - 1] : null;
+            const totalTasks = matchedSubtasks.length;
+            const doneTasks = matchedSubtasks.filter(st => st.status === 'completed').length;
 
+            // --- Log-based status ---
+            const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
+            const matchedItem = latestLog ? latestLog.items.find(it => it.room === s.room && it.item === s.item) : null;
             const isCompletedByLog = matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true');
-            const isCompletedBySubtask = allSubtasksCompleted;
-            const isDoing = !isCompletedByLog && !isCompletedBySubtask && (matchedItem || hasSubtasks);
 
-            let statusText, badgeStyle, sourceInfoHtml;
-            if (isCompletedByLog || isCompletedBySubtask) {
+            // --- Compute status badge ---
+            let statusText, badgeStyle;
+            if (isCompletedByLog && totalTasks === 0) {
+              // Only log says done, no subtasks
               statusText = 'Hoàn thành ✅';
               badgeStyle = 'background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
-              if (isCompletedByLog) {
-                sourceInfoHtml = `<i class="fas fa-user-edit" style="font-size:0.6rem;"></i> ${latestLog.reporterName} · ${latestLog.date}`;
+            } else if (totalTasks > 0) {
+              if (doneTasks === totalTasks) {
+                statusText = `${doneTasks}/${totalTasks} xong ✅`;
+                badgeStyle = 'background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+              } else if (doneTasks > 0) {
+                statusText = `${doneTasks}/${totalTasks} xong ⏱️`;
+                badgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
               } else {
-                const completedBy = latestSubtask?.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
-                sourceInfoHtml = `<i class="fas fa-tasks" style="font-size:0.6rem;"></i> ${completedBy}`;
+                statusText = `0/${totalTasks} chưa xong ⏱️`;
+                badgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
               }
-            } else if (isDoing) {
+            } else if (matchedItem) {
               statusText = 'Đang làm ⏱️';
               badgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
-              if (matchedItem) {
-                sourceInfoHtml = `<i class="fas fa-user-edit" style="font-size:0.6rem;"></i> ${latestLog.reporterName} · ${latestLog.date}`;
-              } else {
-                const assignedToName = latestSubtask?.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
-                sourceInfoHtml = `<i class="fas fa-tasks" style="font-size:0.6rem;"></i> ${assignedToName}`;
-              }
             } else {
               statusText = 'Chờ triển khai ⏳';
               badgeStyle = 'background:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
-              sourceInfoHtml = `<i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo`;
             }
 
+            // --- Subtask rows for expandable panel ---
+            const subtaskRowsHtml = totalTasks === 0
+              ? `<p style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin:8px 0;">Chưa có công việc nào được giao cho hạng mục này.</p>`
+              : matchedSubtasks.map(st => {
+                  const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
+                  const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
+                  const isDone = st.status === 'completed';
+                  const taskBadge = isDone
+                    ? `<span style="font-size:0.65rem; font-weight:600; padding:2px 7px; border-radius:5px; white-space:nowrap; background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);">Xong ✅</span>`
+                    : `<span style="font-size:0.65rem; font-weight:600; padding:2px 7px; border-radius:5px; white-space:nowrap; background:rgba(245,158,11,0.1); color:var(--status-pending); border:1px solid rgba(245,158,11,0.25);">Đang làm</span>`;
+                  return `
+                    <div style="display:flex; align-items:flex-start; gap:8px; padding:7px 10px; background:rgba(0,0,0,0.12); border-radius:8px; border-left:3px solid ${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:0.77rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.4;">${taskDesc}</div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
+                          <i class="fas fa-user" style="font-size:0.55rem;"></i>
+                          ${assignedUser ? assignedUser.name : 'Chưa giao'}
+                          ${isDone && st.completedAt ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}` : ''}
+                        </div>
+                      </div>
+                      ${taskBadge}
+                    </div>
+                  `;
+                }).join('');
+
             const canEdit = isManagementRole && !proj.isCompleted;
+            const hasActivity = latestLog && matchedItem;
+            let sourceInfoHtml = '';
+            if (hasActivity) {
+              sourceInfoHtml = `<i class="fas fa-user-edit" style="font-size:0.55rem;"></i> ${latestLog.reporterName} · ${latestLog.date}`;
+            } else if (totalTasks > 0) {
+              const lastSt = matchedSubtasks[matchedSubtasks.length - 1];
+              const lastAssignee = lastSt?.assignedTo ? (dbUsers.find(u => u.id === lastSt.assignedTo)?.name || 'Thợ') : 'Thợ';
+              sourceInfoHtml = `<i class="fas fa-tasks" style="font-size:0.55rem;"></i> ${lastAssignee}`;
+            } else {
+              sourceInfoHtml = `<i class="fas fa-clock" style="font-size:0.55rem;"></i> Chưa có báo cáo`;
+            }
 
             return `
-              <div class="scope-item-row" data-scope-idx="${idx}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; box-shadow:var(--shadow-sm);">
-                <div style="flex:1; min-width:0;">
-                  <div style="font-size:0.8rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:5px;">
-                    <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.7rem; flex-shrink:0;"></i>
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.room}</span>
-                    <span style="color:var(--text-muted); font-weight:400;">›</span>
-                    <span style="color:var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.item}</span>
+              <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; box-shadow:var(--shadow-sm); overflow:hidden;" data-scope-idx="${idx}">
+                <!-- Header row: click to expand subtasks -->
+                <div class="scope-item-header" data-idx="${idx}" style="padding:10px 12px; display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                  <i class="fas fa-chevron-right scope-expand-icon" style="font-size:0.65rem; color:var(--text-muted); margin-top:5px; flex-shrink:0; transition:transform 0.2s;"></i>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.8rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:5px; flex-wrap:wrap; line-height:1.4;">
+                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.7rem; flex-shrink:0;"></i>
+                      <span style="word-break:break-word;">${s.room}</span>
+                    </div>
+                    <div style="font-size:0.78rem; color:var(--primary); font-weight:600; margin-top:2px; word-break:break-word; line-height:1.4;">↳ ${s.item}</div>
+                    <div style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;">${sourceInfoHtml}</div>
                   </div>
-                  <div style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;">${sourceInfoHtml}</div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                    <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; ${badgeStyle}">${statusText}</span>
+                    ${canEdit ? `
+                      <div style="display:flex; gap:4px;" onclick="event.stopPropagation()">
+                        <button class="btn-scope-edit" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--primary); cursor:pointer; font-size:0.75rem;" title="Sửa hạng mục"><i class="fas fa-edit"></i></button>
+                        <button class="btn-scope-delete" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--status-rejected); cursor:pointer; font-size:0.75rem;" title="Xóa hạng mục"><i class="fas fa-trash-alt"></i></button>
+                      </div>
+                    ` : ''}
+                  </div>
                 </div>
-                <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0; ${badgeStyle}">${statusText}</span>
-                ${canEdit ? `
-                  <div style="display:flex; gap:4px; flex-shrink:0;">
-                    <button class="btn-scope-edit" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--primary); cursor:pointer; font-size:0.75rem;" title="Sửa hạng mục"><i class="fas fa-edit"></i></button>
-                    <button class="btn-scope-delete" data-idx="${idx}" style="background:none; border:1px solid var(--border-color); padding:4px 8px; border-radius:6px; color:var(--status-rejected); cursor:pointer; font-size:0.75rem;" title="Xóa hạng mục"><i class="fas fa-trash-alt"></i></button>
+
+                <!-- Expandable subtask list (hidden by default) -->
+                <div class="scope-subtask-panel" style="display:none; border-top:1px solid var(--border-color); padding:10px 12px; background:rgba(0,0,0,0.1);">
+                  <div style="font-size:0.72rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                    <i class="fas fa-list-ul"></i> Danh sách công việc (${totalTasks} việc · ${doneTasks} xong)
                   </div>
-                ` : ''}
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    ${subtaskRowsHtml}
+                  </div>
+                </div>
               </div>
             `;
           }).join('');
@@ -2540,6 +2589,7 @@ export const UI = {
         </div>
       `;
     };
+
 
     const scopeManagerHtml = buildScopeManagerHtml(project);
     const html = `
@@ -2860,6 +2910,19 @@ export const UI = {
             refreshScopeList();
             if (onUpdate) onUpdate();
           }
+        });
+      });
+
+      // Accordion: click header to toggle subtask panel
+      section.querySelectorAll('.scope-item-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const card = header.closest('[data-scope-idx]');
+          const panel = card.querySelector('.scope-subtask-panel');
+          const icon = header.querySelector('.scope-expand-icon');
+          if (!panel) return;
+          const isOpen = panel.style.display !== 'none';
+          panel.style.display = isOpen ? 'none' : 'block';
+          if (icon) icon.style.transform = isOpen ? 'none' : 'rotate(90deg)';
         });
       });
     };
@@ -3727,29 +3790,12 @@ export const UI = {
   },
 
   openCreateProjectModal(user, onCreateSuccess) {
-    const db = DB.load();
-    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
 
     const html = `
       <form id="create-project-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
           <label class="form-label">Tên công trình nội thất</label>
           <input type="text" id="new-prj-name" class="form-input" placeholder="Ví dụ: Mandarin Garden - Căn A10" required style="padding-left:14px;">
-        </div>
-
-        <div>
-          <label class="form-label">Nhân sự phụ trách công trình</label>
-          <div style="max-height: 120px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
-            ${workers.map(w => {
-              const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-              return `
-                <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-                  <span style="font-size:0.8rem; color:var(--text-primary);">${w.name} (${roleLabel})</span>
-                  <input type="checkbox" name="new-prj-assignee" value="${w.id}" style="width:16px; height:16px; accent-color:var(--primary);">
-                </label>
-              `;
-            }).join('')}
-          </div>
         </div>
 
         <!-- 2-level Scope of work collapsible accordion editor -->
@@ -3783,8 +3829,7 @@ export const UI = {
       const name = document.getElementById('new-prj-name').value;
       const deadline = document.getElementById('new-prj-deadline').value;
 
-      const selectedCheckboxes = document.querySelectorAll('input[name="new-prj-assignee"]:checked');
-      const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const assignees = [];
 
       const scope = scopeEditor.getSelectedScope();
 
