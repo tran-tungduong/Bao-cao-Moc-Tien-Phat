@@ -2431,6 +2431,66 @@ export const UI = {
     const nextStepInfo = STEPS.find(s => s.num === project.step + 1);
     const isManagementRole = ['manager', 'kts', 'sales', 'marketing'].includes(user.role);
 
+    // Calculate Scope Progress list dynamically from daily reports
+    let scopeProgressHtml = '';
+    if (project.scope && project.scope.length > 0) {
+      scopeProgressHtml = `
+        <div style="margin-top: 8px;">
+          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:6px; color:var(--primary);">
+            <i class="fas fa-list-check"></i> Trạng thái Hạng mục thi công (Scope Progress)
+          </h5>
+          <div style="background-color:rgba(0,0,0,0.15); border-radius:12px; padding:12px; border:1px solid var(--border-color); display:flex; flex-direction:column; gap:8px;">
+            ${project.scope.map(s => {
+              const approvedLogs = (project.dailyLogs || []).filter(l => l.approved === true || l.approved === 'true');
+              const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
+              
+              let statusText = '';
+              let badgeClass = 'pending';
+              let badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted);';
+
+              if (latestLog) {
+                const matchedItem = latestLog.items.find(it => it.room === s.room && it.item === s.item);
+                if (matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true')) {
+                  statusText = 'Hoàn thành ✅';
+                  badgeClass = 'approved';
+                  badgeStyle = 'background-color:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+                } else {
+                  const details = matchedItem && matchedItem.pendingNotes ? `: ${matchedItem.pendingNotes}` : '';
+                  statusText = `Đang làm ⏱️ (${STEPS[project.step-1].title}${details})`;
+                  badgeClass = 'pending';
+                  badgeStyle = 'background-color:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+                }
+              } else {
+                statusText = `Chờ triển khai ⏳ (${STEPS[project.step-1].title})`;
+                badgeClass = 'pending';
+                badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
+              }
+
+              let sourceInfoHtml = '';
+              if (latestLog) {
+                sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Cập nhật bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
+              } else {
+                sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo ghi nhận</span>`;
+              }
+
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; gap:12px; box-shadow:var(--shadow-sm); width:100%; box-sizing:border-box;">
+                  <div style="display:flex; flex-direction:column; text-align:left; flex:1;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${s.room}</span>
+                    <span style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">Nội thất: <strong>${s.item}</strong></span>
+                    ${sourceInfoHtml}
+                  </div>
+                  <span class="status-badge ${badgeClass}" style="font-size:0.7rem; font-weight:600; padding:4px 8px; border-radius:6px; line-height:1.2; text-align:right; max-width:60%; word-break:break-word; ${badgeStyle}">
+                    ${statusText}
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
     const html = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
@@ -2524,6 +2584,9 @@ export const UI = {
             : ''
           }
         </div>
+
+        <!-- Scope Progress -->
+        ${scopeProgressHtml}
 
         <!-- Project Assignees (Người phụ trách) -->
         <div>
