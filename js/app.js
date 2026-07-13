@@ -46,8 +46,8 @@ function checkSessionAndRoute() {
       }
     );
 
-    // Route based on role
-    if (user.role === 'manager') {
+    // Route based on role (Manager, KTS, Sales, Marketing see overview. Workers see worker view)
+    if (['manager', 'kts', 'sales', 'marketing'].includes(user.role)) {
       UI.renderManagerView(user);
     } else {
       UI.renderWorkerView(user);

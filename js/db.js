@@ -718,7 +718,10 @@ export const DB = {
         date: date,
         time: record ? record.time : '',
         status: record ? record.status : 'no_record', // 'present' | 'absent' | 'no_record'
-        note: record ? record.note : ''
+        note: record ? record.note : '',
+        workingProjectId: record ? (record.workingProjectId || '') : '',
+        workingProjectName: record ? (record.workingProjectName || '') : '',
+        dailyWorkload: record ? (record.dailyWorkload || '') : ''
       };
     });
   },
@@ -758,7 +761,7 @@ export const DB = {
   },
 
   // Manager updates attendance
-  updateAttendance(userId, date, status, time, note) {
+  updateAttendance(userId, date, status, time, note, workingProjectId = '', workingProjectName = '', dailyWorkload = '') {
     const db = this.load();
     if (!db.attendance) db.attendance = [];
 
@@ -767,13 +770,19 @@ export const DB = {
       existing.status = status;
       existing.time = time;
       existing.note = note;
+      existing.workingProjectId = workingProjectId;
+      existing.workingProjectName = workingProjectName;
+      existing.dailyWorkload = dailyWorkload;
     } else {
       db.attendance.push({
         userId,
         date,
         status,
         time,
-        note
+        note,
+        workingProjectId,
+        workingProjectName,
+        dailyWorkload
       });
     }
 

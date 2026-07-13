@@ -268,8 +268,49 @@ export const UI = {
     const body = document.getElementById('app-body-content');
     const projects = DB.getProjects();
 
+    const todayRecord = DB.getUserAttendanceToday(user.id);
+    let assignmentBannerHtml = '';
+    if (todayRecord) {
+      if (todayRecord.status === 'present') {
+        const prjName = todayRecord.workingProjectName || 'Chưa phân công';
+        const workload = todayRecord.dailyWorkload || 'Chưa phân công khối lượng cụ thể';
+        const linkAttr = todayRecord.workingProjectId ? `data-projectid="${todayRecord.workingProjectId}" style="cursor:pointer;" class="btn-goto-work-project"` : '';
+        assignmentBannerHtml = `
+          <div class="material-stats-card fade-in" style="background: linear-gradient(135deg, rgba(197, 168, 128, 0.12) 0%, rgba(0, 0, 0, 0.25) 100%); border: 1px solid var(--primary); border-left: 5px solid var(--primary); margin-bottom: 16px; padding: 16px; border-radius: 16px;">
+            <h4 style="font-family: var(--font-title); font-size: 0.95rem; color: var(--primary); display:flex; align-items:center; gap:6px; margin-bottom: 8px;">
+              <i class="fas fa-hammer"></i> CÔNG VIỆC ĐƯỢC GIAO HÔM NAY
+            </h4>
+            <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; display:flex; flex-direction:column; gap:6px;">
+              <div ${linkAttr}>
+                Công trình: <strong style="text-decoration: ${todayRecord.workingProjectId ? 'underline' : 'none'}; color:var(--primary); font-weight:700;">${prjName}</strong> 
+                ${todayRecord.workingProjectId ? ' <i class="fas fa-external-link-alt" style="font-size:0.7rem; opacity:0.8;"></i>' : ''}
+              </div>
+              <div>Nhiệm vụ thi công: <span style="font-weight: 500; color: var(--text-secondary); background:rgba(0,0,0,0.15); padding:4px 10px; border-radius:8px; display:inline-block; margin-top:2px; line-height: 1.4; border: 1px solid var(--border-color);">${workload}</span></div>
+            </div>
+          </div>
+        `;
+      } else if (todayRecord.status === 'absent') {
+        assignmentBannerHtml = `
+          <div class="material-stats-card fade-in" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-left: 5px solid var(--status-rejected); margin-bottom: 16px; padding: 14px 16px; border-radius: 16px;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); display:flex; align-items:center; gap:8px;">
+              <i class="fas fa-bed" style="color:var(--status-rejected);"></i>
+              <span>Hôm nay bạn được duyệt nghỉ phép 😴 ${todayRecord.note ? `(Lý do: "${todayRecord.note}")` : ''}</span>
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      assignmentBannerHtml = `
+        <div class="material-stats-card fade-in" style="background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-left: 5px solid var(--text-muted); margin-bottom: 16px; padding: 14px 16px; border-radius: 16px;">
+          <div style="font-size: 0.85rem; color: var(--text-muted); display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-clock"></i>
+            <span>Chờ KTS Nhật Long hoặc Sếp phân công công việc hôm nay... ⏳</span>
+          </div>
+        </div>
+      `;
+    }
+
     // Filter projects relevant to worker role
-    // KTS sees steps 1-9 to coordinate tasks. Sales/Marketing see steps 1-4. Workers see steps 5-9.
     let relevantProjects = DB.getProjectsForUser(user);
 
     body.innerHTML = `
@@ -277,6 +318,8 @@ export const UI = {
         <div class="welcome-user">Chào ${user.name} 🛠️</div>
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
+
+      ${assignmentBannerHtml}
 
       <div class="stats-grid fade-in" style="display:grid; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
         <div class="stat-mini-card" id="stat-projects-btn" style="cursor:pointer; border-color:var(--primary); transition:all var(--transition-fast);">
@@ -390,6 +433,18 @@ export const UI = {
         this.openAssignedProjectsModal(user);
       });
     }
+
+    // Bind banner link to project drawer click
+    body.querySelectorAll('.btn-goto-work-project').forEach(link => {
+      link.addEventListener('click', () => {
+        const prjId = link.getAttribute('data-projectid');
+        if (prjId) {
+          this.openProjectDetailsDrawer(prjId, user, () => {
+            this.renderWorkerView(user);
+          });
+        }
+      });
+    });
 
     // Bind click on pending tasks statistics card
     const btnPendingTasks = document.getElementById('stat-pending-tasks-btn');
@@ -1527,10 +1582,12 @@ export const UI = {
   // 7. RENDER MANAGER PORTAL
   renderManagerView(user) {
     const body = document.getElementById('app-body-content');
+    const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
+    const roleIcon = user.role === 'manager' ? '💼' : user.role === 'kts' ? '📐' : user.role === 'sales' ? '🤝' : '📢';
 
     body.innerHTML = `
       <div class="welcome-section fade-in">
-        <div class="welcome-user">Chào Sếp ${user.name} 💼</div>
+        <div class="welcome-user">Chào ${roleTitle} ${user.name} ${roleIcon}</div>
         <div class="welcome-date">Bảng giám sát tổng quan thời gian thực</div>
       </div>
 
@@ -1539,6 +1596,7 @@ export const UI = {
         <button class="tab-btn active" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Tiến Độ</button>
         <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
+        <button class="tab-btn" id="tab-attendance-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-user-clock"></i> Trạng Thái Nhân Sự</button>
         <button class="tab-btn" id="tab-dashboard-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Báo Cáo</button>
       </div>
 
@@ -1581,10 +1639,13 @@ export const UI = {
     const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
     const btnLogs = document.getElementById('tab-logs-btn');
+    const btnAttendance = document.getElementById('tab-attendance-btn');
     const btnDashboard = document.getElementById('tab-dashboard-btn');
 
     const setActiveTab = (activeBtn) => {
-      [btnKanban, btnCompleted, btnLogs, btnDashboard].forEach(btn => btn.classList.remove('active'));
+      [btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].forEach(btn => {
+        if (btn) btn.classList.remove('active');
+      });
       activeBtn.classList.add('active');
     };
 
@@ -1603,6 +1664,11 @@ export const UI = {
       this.renderManagerLogs(user);
     };
 
+    const loadAttendance = () => {
+      setActiveTab(btnAttendance);
+      this.renderManagerAttendance(user);
+    };
+
     const loadDashboard = () => {
       setActiveTab(btnDashboard);
       this.renderManagerDashboard();
@@ -1611,6 +1677,7 @@ export const UI = {
     btnKanban.addEventListener('click', loadKanban);
     btnCompleted.addEventListener('click', loadCompleted);
     btnLogs.addEventListener('click', loadLogs);
+    if (btnAttendance) btnAttendance.addEventListener('click', loadAttendance);
     btnDashboard.addEventListener('click', loadDashboard);
 
     // Initial load
@@ -1829,6 +1896,18 @@ export const UI = {
           badgeHtml = `<span class="status-badge pending" style="background-color:rgba(255,255,255,0.05); color:var(--text-muted); font-weight:600; font-size:0.7rem;"><i class="fas fa-question-circle"></i> Chưa chấm công</span>`;
         }
 
+        let assignInfoHtml = '';
+        if (r.status === 'present' && r.workingProjectName) {
+          assignInfoHtml = `
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:8px; border:1px dashed var(--border-color); text-align: left;">
+              <span>Dự án hôm nay: <strong style="color:var(--primary);">${r.workingProjectName}</strong></span>
+              ${r.dailyWorkload ? `<span>Nhiệm vụ: <span style="color:var(--text-primary); font-weight:500;">${r.dailyWorkload}</span></span>` : ''}
+            </div>
+          `;
+        } else if (r.note) {
+          assignInfoHtml = `<div style="font-size:0.75rem; color:var(--primary); margin-top:4px; font-style:italic;">"${r.note}"</div>`;
+        }
+
         return `
                 <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:20px; padding:16px; display:flex; justify-content:space-between; align-items:center;">
                   <div style="display:flex; align-items:center; gap:12px;">
@@ -1836,7 +1915,7 @@ export const UI = {
                     <div>
                       <strong style="font-size:0.85rem; color:var(--text-primary);">${r.userName}</strong>
                       <div style="font-size:0.7rem; color:var(--text-muted);">${roleDisplay}</div>
-                      ${r.note ? `<div style="font-size:0.75rem; color:var(--primary); margin-top:4px; font-style:italic;">"${r.note}"</div>` : ''}
+                      ${assignInfoHtml}
                     </div>
                   </div>
                   <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
@@ -1877,6 +1956,8 @@ export const UI = {
 
   // 7.3 OPEN ATTENDANCE EDIT MODAL DIALOG (FOR MANAGER)
   openEditAttendanceModal(record, onSaved) {
+    const activeProjects = DB.getProjects().filter(p => !p.isCompleted);
+
     const html = `
       <form id="edit-attendance-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
@@ -1897,6 +1978,19 @@ export const UI = {
           <div>
             <label class="form-label">Giờ vào làm</label>
             <input type="text" id="edit-att-time" class="form-input" value="${record.time || '08:00'}" placeholder="Ví dụ: 08:00" style="padding-left:14px; height:40px;">
+          </div>
+
+          <div>
+            <label class="form-label">Phân công công trình hôm nay</label>
+            <select id="edit-att-project-id" class="form-select" style="height:42px;">
+              <option value="">-- Chưa phân công --</option>
+              ${activeProjects.map(p => `<option value="${p.id}" ${record.workingProjectId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label">Khối lượng công việc giao thợ trong ngày</label>
+            <textarea id="edit-att-workload" class="form-textarea" placeholder="Ví dụ: Đo đạc và ráp tủ áo master, bắn silicone hoàn thiện..." style="height: 60px; padding-left:14px;">${record.dailyWorkload || ''}</textarea>
           </div>
         </div>
 
@@ -1933,7 +2027,18 @@ export const UI = {
       const time = status === 'present' ? document.getElementById('edit-att-time').value : '';
       const note = document.getElementById('edit-att-note').value;
 
-      DB.updateAttendance(record.userId, record.date, status, time, note);
+      let workingProjectId = '';
+      let workingProjectName = '';
+      let dailyWorkload = '';
+
+      if (status === 'present') {
+        workingProjectId = document.getElementById('edit-att-project-id').value;
+        dailyWorkload = document.getElementById('edit-att-workload').value;
+        const matched = activeProjects.find(p => p.id === workingProjectId);
+        workingProjectName = matched ? matched.name : '';
+      }
+
+      DB.updateAttendance(record.userId, record.date, status, time, note, workingProjectId, workingProjectName, dailyWorkload);
       Toast.success('Đã lưu thay đổi chấm công!');
       modal.close();
       onSaved();
@@ -2210,6 +2315,7 @@ export const UI = {
     const project = DB.getProject(projectId);
     const stepInfo = STEPS.find(s => s.num === project.step);
     const nextStepInfo = STEPS.find(s => s.num === project.step + 1);
+    const isManagementRole = ['manager', 'kts', 'sales', 'marketing'].includes(user.role);
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:20px;">
@@ -2261,39 +2367,39 @@ export const UI = {
 
         <!-- System state & action buttons -->
         <div style="display:flex; flex-direction:column; gap:8px;">
-          ${project.isFrozen
-        ? `<button class="btn-approve" id="drawer-btn-unfreeze" style="padding:14px 16px; font-size:0.85rem; width:100%; background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Hủy Đóng Băng (Mở Đếm Ngược)</button>`
-        : ''
-      }
-          ${project.step < 9 && !project.isFrozen && nextStepInfo
-        ? `
+          ${isManagementRole && project.isFrozen
+            ? `<button class="btn-approve" id="drawer-btn-unfreeze" style="padding:14px 16px; font-size:0.85rem; width:100%; background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Hủy Đóng Băng (Mở Đếm Ngược)</button>`
+            : ''
+          }
+          ${isManagementRole && project.step < 9 && !project.isFrozen && nextStepInfo
+            ? `
               <button class="btn-primary" id="drawer-btn-advance" style="padding:12px 16px; font-size:0.88rem; width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; height:auto; line-height:1.3; background:linear-gradient(135deg, #4F46E5, #4338CA); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;">
                 <span style="font-weight:700;"><i class="fas fa-step-forward"></i> Phê Duyệt Sang Bước Tiếp Theo</span>
                 <span style="font-size:0.7rem; opacity:0.85; font-weight:normal;">Lên: Bước ${nextStepInfo.num} - ${nextStepInfo.title}</span>
               </button>
             `
-        : ''
-      }
-          ${project.step === 9 && !project.isCompleted
-        ? `
+            : ''
+          }
+          ${isManagementRole && project.step === 9 && !project.isCompleted
+            ? `
               <button class="btn-primary" id="drawer-btn-complete-project" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
                 <i class="fas fa-check-double"></i> Hoàn Thành Công Trình
               </button>
             `
-        : ''
-      }
+            : ''
+          }
           ${!project.isCompleted && !project.isFrozen
-        ? `
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
-                <button class="btn-action" id="drawer-btn-freeze" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-snowflake"></i> Đóng Băng</button>
+            ? `
+              <div style="display:grid; grid-template-columns:${isManagementRole ? '1fr 1fr' : '1fr'}; gap:8px; width:100%;">
+                ${isManagementRole ? `<button class="btn-action" id="drawer-btn-freeze" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-snowflake"></i> Đóng Băng</button>` : ''}
                 <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
               </div>
               <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
             `
-        : ''
-      }
-          ${project.isCompleted
-        ? `
+            : ''
+          }
+          ${isManagementRole && project.isCompleted
+            ? `
               <div style="background-color:rgba(78, 141, 124, 0.15); border:1px solid var(--status-approved); color:var(--status-approved); padding:12px; border-radius:12px; font-size:0.85rem; font-weight:600; width:100%; text-align:center; margin-bottom:8px;">
                 <i class="fas fa-check-double"></i> Dự án này đã hoàn thành toàn bộ và lưu trữ
               </div>
@@ -2301,8 +2407,8 @@ export const UI = {
                 <i class="fas fa-file-excel"></i> Xuất Báo Cáo Excel (.CSV)
               </button>
             `
-        : ''
-      }
+            : ''
+          }
         </div>
 
         <!-- Project Assignees (Người phụ trách) -->
@@ -2792,19 +2898,30 @@ export const UI = {
   openAssignTaskModal(projectId, user, onTaskAdded) {
     const db = DB.load();
     const workers = db.users.filter(u => u.role !== 'manager');
+    const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
 
     const html = `
-      <form id="assign-task-form" style="display:flex; flex-direction:column; gap:16px;">
-        <div>
-          <label class="form-label">Tên nhiệm vụ</label>
-          <input type="text" id="assign-task-title" class="form-input" placeholder="Ví dụ: Đo đạc chi tiết bếp, Vẽ 2D..." required style="padding-left:14px;">
+      <form id="assign-task-form" style="display:flex; flex-direction:column; gap:16px; max-height:80vh; overflow-y:auto; padding:4px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);"><i class="fas fa-plus-circle"></i> Giao Nhiệm Vụ Mới</h4>
         </div>
 
         <div>
           <label class="form-label">Giao nhân sự phụ trách</label>
-          <select id="assign-task-worker" class="form-select" required>
+          <select id="assign-task-worker" class="form-select" required style="padding-left:14px; height:42px;">
             ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
           </select>
+        </div>
+
+        <!-- 3-level checklist builder for tasks -->
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+            <span>Chi tiết hạng mục giao việc</span>
+            <button type="button" id="btn-assign-add-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
+              <i class="fas fa-plus"></i> Thêm hạng mục
+            </button>
+          </label>
+          <div id="assign-checklist-list" style="display:flex; flex-direction:column; gap:12px;"></div>
         </div>
 
         <button type="submit" class="btn-primary" style="margin-top:12px;">Giao Nhiệm Vụ</button>
@@ -2813,32 +2930,135 @@ export const UI = {
 
     const modal = Modal.create('Giao Nhiệm Vụ Mới', html);
 
+    const addRow = (container) => {
+      const row = document.createElement('div');
+      row.className = 'checklist-item-row';
+      row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
+
+      const rooms = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
+      const furnitures = ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Bếp trên', 'Bếp dưới', 'Tủ giày', 'Vách trang trí', 'Lavabo', 'Khác...'];
+
+      row.innerHTML = `
+        <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa">
+          <i class="fas fa-times-circle"></i>
+        </button>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
+            <select class="form-select select-chk-room" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
+              <option value="" disabled selected>-- Chọn phòng --</option>
+              ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
+            </select>
+            <input type="text" class="form-input txt-chk-custom-room" placeholder="Tên phòng khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
+          </div>
+
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
+            <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
+              <option value="" disabled selected>-- Chọn nội thất --</option>
+              ${furnitures.map(f => `<option value="${f}">${f}</option>`).join('')}
+            </select>
+            <input type="text" class="form-input txt-chk-custom-item" placeholder="Nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Cấp 3: Chi tiết công việc giao thợ</label>
+          <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: đo đạc, lắp ráp hoàn thiện, đi silicone..." required style="height: 36px; font-size: 0.8rem; padding-left: 10px;">
+        </div>
+      `;
+
+      container.appendChild(row);
+
+      const selectRoom = row.querySelector('.select-chk-room');
+      const customRoom = row.querySelector('.txt-chk-custom-room');
+      selectRoom.addEventListener('change', () => {
+        if (selectRoom.value === 'Khác...') {
+          customRoom.style.display = 'block';
+          customRoom.required = true;
+        } else {
+          customRoom.style.display = 'none';
+          customRoom.required = false;
+          customRoom.value = '';
+        }
+      });
+
+      const selectItem = row.querySelector('.select-chk-item');
+      const customItem = row.querySelector('.txt-chk-custom-item');
+      selectItem.addEventListener('change', () => {
+        if (selectItem.value === 'Khác...') {
+          customItem.style.display = 'block';
+          customItem.required = true;
+        } else {
+          customItem.style.display = 'none';
+          customItem.required = false;
+          customItem.value = '';
+        }
+      });
+
+      row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
+        row.remove();
+      });
+    };
+
+    const container = document.getElementById('assign-checklist-list');
+    if (container) {
+      addRow(container); // Seed one row by default
+    }
+
+    const btnAddItem = document.getElementById('btn-assign-add-item');
+    if (btnAddItem && container) {
+      btnAddItem.addEventListener('click', () => {
+        addRow(container);
+      });
+    }
+
     document.getElementById('assign-task-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const title = document.getElementById('assign-task-title').value;
       const workerId = document.getElementById('assign-task-worker').value;
+
+      const rows = document.querySelectorAll('#assign-checklist-list .checklist-item-row');
+      if (rows.length === 0) {
+        Toast.error('Vui lòng thêm ít nhất 1 hạng mục giao việc.');
+        return;
+      }
 
       const loadedDb = DB.load();
       const project = loadedDb.projects.find(p => p.id === projectId);
 
       if (project) {
-        const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
-        project.subtasks.push({
-          id: subtaskId,
-          title: title,
-          assignedTo: workerId,
-          status: 'pending',
-          type: 'normal'
-        });
+        rows.forEach(row => {
+          const selectRoom = row.querySelector('.select-chk-room').value;
+          const customRoom = row.querySelector('.txt-chk-custom-room').value;
+          const room = selectRoom === 'Khác...' ? customRoom.trim() : selectRoom;
 
-        project.history.push({
-          timestamp: new Date().toISOString(),
-          action: `${user.role === 'manager' ? 'Sếp' : 'Kỹ thuật 3D'} giao nhiệm vụ: "${title}"`,
-          user: user.name
+          const selectItem = row.querySelector('.select-chk-item').value;
+          const customItem = row.querySelector('.txt-chk-custom-item').value;
+          const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
+
+          const notes = row.querySelector('.txt-chk-pending-notes').value.trim();
+
+          const title = `[${room} - ${item}]: ${notes}`;
+          const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
+          
+          project.subtasks.push({
+            id: subtaskId,
+            title: title,
+            assignedTo: workerId,
+            status: 'pending',
+            type: 'normal'
+          });
+
+          project.history.push({
+            timestamp: new Date().toISOString(),
+            action: `${roleTitle} giao việc: "${title}" (Giao cho: ${loadedDb.users.find(u => u.id === workerId)?.name || 'Thợ'})`,
+            user: user.name
+          });
         });
 
         DB.save(loadedDb);
-        Toast.success('Giao nhiệm vụ thành công!');
+        Toast.success(`Đã giao thành công ${rows.length} nhiệm vụ.`);
         modal.close();
         onTaskAdded();
       }
