@@ -158,6 +158,111 @@ export const UI = {
     });
   },
 
+  // 2.1 HELPER FOR DYNAMIC 3-LEVEL CHECKLIST ROW
+  addChecklistItemRow(container, initialData = null) {
+    const rowId = 'chk_' + Math.random().toString(36).substr(2, 9);
+    const row = document.createElement('div');
+    row.id = rowId;
+    row.className = 'checklist-item-row';
+    row.style.cssText = 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative;';
+
+    const rooms = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
+    const furnitures = ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Bếp trên', 'Bếp dưới', 'Tủ giày', 'Vách trang trí', 'Lavabo', 'Khác...'];
+
+    const roomVal = initialData ? initialData.room : '';
+    const itemVal = initialData ? initialData.item : '';
+    const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true') : false;
+    const pendingNotes = initialData ? initialData.pendingNotes : '';
+
+    const isCustomRoom = roomVal && !rooms.includes(roomVal);
+    const isCustomItem = itemVal && !furnitures.includes(itemVal);
+
+    row.innerHTML = `
+      <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa hạng mục này">
+        <i class="fas fa-times-circle"></i>
+      </button>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
+          <select class="form-select select-chk-room" required style="height: 38px; font-size: 0.82rem;">
+            <option value="" disabled ${!roomVal ? 'selected' : ''}>-- Chọn phòng --</option>
+            ${rooms.map(r => `<option value="${r}" ${roomVal === r || (r === 'Khác...' && isCustomRoom) ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+          <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: ${isCustomRoom ? 'block' : 'none'}; padding-left: 10px;" value="${isCustomRoom ? roomVal : ''}" ${isCustomRoom ? 'required' : ''}>
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
+          <select class="form-select select-chk-item" required style="height: 38px; font-size: 0.82rem;">
+            <option value="" disabled ${!itemVal ? 'selected' : ''}>-- Chọn nội thất --</option>
+            ${furnitures.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
+          </select>
+          <input type="text" class="form-input txt-chk-custom-item" placeholder="Nhập nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: ${isCustomItem ? 'block' : 'none'}; padding-left: 10px;" value="${isCustomItem ? itemVal : ''}" ${isCustomItem ? 'required' : ''}>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; width: max-content;">
+          <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--status-approved);">
+          <span>Đã hoàn thành xong hoàn toàn</span>
+        </label>
+        
+        <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'block'}; margin-top: 2px;">
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Cấp 3: Việc còn lại cần làm (Nếu chưa xong)</label>
+          <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone, vỡ kính..." style="height: 36px; font-size: 0.8rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(row);
+
+    // Bind event listeners for dynamic UI behaviour
+    const selectRoom = row.querySelector('.select-chk-room');
+    const customRoom = row.querySelector('.txt-chk-custom-room');
+    selectRoom.addEventListener('change', () => {
+      if (selectRoom.value === 'Khác...') {
+        customRoom.style.display = 'block';
+        customRoom.required = true;
+      } else {
+        customRoom.style.display = 'none';
+        customRoom.required = false;
+        customRoom.value = '';
+      }
+    });
+
+    const selectItem = row.querySelector('.select-chk-item');
+    const customItem = row.querySelector('.txt-chk-custom-item');
+    selectItem.addEventListener('change', () => {
+      if (selectItem.value === 'Khác...') {
+        customItem.style.display = 'block';
+        customItem.required = true;
+      } else {
+        customItem.style.display = 'none';
+        customItem.required = false;
+        customItem.value = '';
+      }
+    });
+
+    const isCompletedCheckbox = row.querySelector('.chk-item-completed');
+    const pendingNotesWrapper = row.querySelector('.chk-pending-notes-wrapper');
+    const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
+    isCompletedCheckbox.addEventListener('change', () => {
+      if (isCompletedCheckbox.checked) {
+        pendingNotesWrapper.style.display = 'none';
+        pendingNotesInput.required = false;
+        pendingNotesInput.value = '';
+      } else {
+        pendingNotesWrapper.style.display = 'block';
+        pendingNotesInput.required = true;
+      }
+    });
+
+    row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
+      row.remove();
+    });
+  },
+
   // 3. RENDER WORKER VIEWS (DAILY WORK LOGS & ASSIGNED PROJECTS)
   renderWorkerView(user) {
     const body = document.getElementById('app-body-content');
@@ -199,6 +304,16 @@ export const UI = {
         ` : ''}
       </div>
 
+      <!-- Pending reports section for lead worker -->
+      ${user.role === 'lead_worker' ? `
+        <div class="lead-approval-section fade-in" style="margin-top: 12px; display: none;" id="lead-approval-container">
+          <div class="section-header" style="margin-bottom:12px;">
+            <h3 class="section-title" style="color: var(--status-pending);"><i class="fas fa-tasks"></i> Báo cáo thợ phụ chờ duyệt</h3>
+          </div>
+          <div id="lead-approval-list" style="display:flex; flex-direction:column; gap:12px; margin-bottom: 24px;"></div>
+        </div>
+      ` : ''}
+
       <div class="section-header fade-in">
         <h3 class="section-title">Báo Cáo Nhanh Cuối Ngày</h3>
       </div>
@@ -228,10 +343,23 @@ export const UI = {
             </div>
           </div>
 
-          <div>
-            <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
-            <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
-          </div>
+          ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
+            <!-- 3-level dynamic checklist for workers -->
+            <div id="checklist-builder-container" style="display:flex; flex-direction:column; gap:12px;">
+              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+                <span>Hạng mục thi công chi tiết trong ngày</span>
+                <button type="button" id="btn-add-checklist-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
+                  <i class="fas fa-plus"></i> Thêm hạng mục
+                </button>
+              </label>
+              <div id="checklist-items-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+            </div>
+          ` : `
+            <div>
+              <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
+              <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
+            </div>
+          `}
 
           <div>
             <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
@@ -249,7 +377,7 @@ export const UI = {
           </div>
 
           <button type="submit" class="btn-primary" style="margin-top:8px;" ${relevantProjects.length === 0 ? 'disabled' : ''}>
-            <i class="fas fa-paper-plane"></i> Gửi Báo Cáo (1 Phút)
+            <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
           </button>
         </form>
       </div>
@@ -320,22 +448,344 @@ export const UI = {
       expDateInput.value = d.toISOString().split('T')[0];
     }
 
+    // Seed one checklist item row by default if the user is a worker
+    const checklistList = document.getElementById('checklist-items-list');
+    if (checklistList) {
+      this.addChecklistItemRow(checklistList);
+    }
+
+    const btnAddChecklistItem = document.getElementById('btn-add-checklist-item');
+    if (btnAddChecklistItem && checklistList) {
+      btnAddChecklistItem.addEventListener('click', () => {
+        this.addChecklistItemRow(checklistList);
+      });
+    }
+
     // Form Submit Daily Log
     document.getElementById('daily-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const prjId = document.getElementById('log-project-id').value;
       const status = document.querySelector('input[name="log-status"]:checked').value;
-      const note = document.getElementById('log-note').value;
       const expectedDate = document.getElementById('log-expected-completion').value;
+
+      let note = '';
+      let items = [];
+
+      const isWorker = ['lead_worker', 'assistant_worker'].includes(user.role);
+      if (isWorker) {
+        const rows = document.querySelectorAll('.checklist-item-row');
+        if (rows.length === 0) {
+          Toast.error('Vui lòng thêm ít nhất 1 hạng mục báo cáo.');
+          return;
+        }
+
+        let hasError = false;
+        rows.forEach(row => {
+          const selectRoom = row.querySelector('.select-chk-room').value;
+          const customRoom = row.querySelector('.txt-chk-custom-room').value;
+          const room = selectRoom === 'Khác...' ? customRoom.trim() : selectRoom;
+
+          const selectItem = row.querySelector('.select-chk-item').value;
+          const customItem = row.querySelector('.txt-chk-custom-item').value;
+          const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
+
+          const isCompleted = row.querySelector('.chk-item-completed').checked;
+          const pendingNotes = row.querySelector('.txt-chk-pending-notes').value.trim();
+
+          if (!room || !item) {
+            hasError = true;
+          }
+
+          items.push({
+            room,
+            item,
+            isCompleted,
+            pendingNotes: isCompleted ? '' : pendingNotes
+          });
+        });
+
+        if (hasError) {
+          Toast.error('Vui lòng nhập đầy đủ thông tin phòng và nội thất.');
+          return;
+        }
+
+        // Generate text note summary for old compatibility
+        note = items.map(it => {
+          return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
+        }).join('\n');
+
+      } else {
+        note = document.getElementById('log-note').value;
+      }
 
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
-        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate);
-        Toast.success('Gửi báo cáo cuối ngày thành công!');
+        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items);
+        if (user.role === 'assistant_worker') {
+          Toast.success('Đã gửi báo cáo chờ thợ chính phê duyệt.');
+        } else {
+          Toast.success('Gửi báo cáo cuối ngày thành công!');
+        }
         this.renderWorkerView(user); // refresh everything
       } catch (err) {
         Toast.error(err.message);
       }
+    });
+
+    // Populate pending logs list for lead worker review
+    if (user.role === 'lead_worker') {
+      const approvalContainer = document.getElementById('lead-approval-container');
+      const approvalList = document.getElementById('lead-approval-list');
+      if (approvalContainer && approvalList) {
+        const pendingItems = [];
+        relevantProjects.forEach(p => {
+          p.dailyLogs.forEach(l => {
+            if (l.approved === false) {
+              pendingItems.push({ project: p, log: l });
+            }
+          });
+        });
+
+        if (pendingItems.length > 0) {
+          approvalContainer.style.display = 'block';
+          approvalList.innerHTML = pendingItems.map(item => {
+            const numPhotos = item.log.photos ? item.log.photos.length : 0;
+            return `
+              <div class="material-stats-card" style="border-left: 4px solid var(--status-pending); display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: rgba(255, 255, 255, 0.01);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                  <div>
+                    <h5 style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 2px;">${item.project.name}</h5>
+                    <p style="font-size: 0.76rem; color: var(--text-secondary);">
+                      Người gửi: <strong>${item.log.reporterName}</strong> (Thợ phụ) | Ngày: ${item.log.date}
+                    </p>
+                  </div>
+                  <span class="status-badge" style="font-size: 0.7rem; font-weight: 700; background: rgba(210, 144, 98, 0.12); color: var(--status-pending); padding: 3px 8px; border-radius: 6px;">
+                    Chờ duyệt
+                  </span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${item.log.note}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted);">
+                    <i class="fas fa-camera"></i> ${numPhotos} ảnh | <i class="fas fa-calendar-alt"></i> Hạn: ${item.log.expectedCompletionDate ? new Date(item.log.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}
+                  </span>
+                  <button type="button" class="btn-primary btn-lead-review" data-projectid="${item.project.id}" data-logid="${item.log.id}" style="padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; height: auto; width: auto; display:flex; align-items:center; gap:4px;">
+                    <i class="fas fa-edit"></i> Sửa & Duyệt
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Bind review click actions
+          approvalList.querySelectorAll('.btn-lead-review').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const pId = btn.getAttribute('data-projectid');
+              const lId = btn.getAttribute('data-logid');
+              this.openLeadReviewModal(pId, lId, user, () => {
+                this.renderWorkerView(user);
+              });
+            });
+          });
+        } else {
+          approvalContainer.style.display = 'none';
+        }
+      }
+    }
+  },
+
+  // 3.1 OPEN LEAD WORKER REVIEW MODAL
+  openLeadReviewModal(projectId, logId, leadUser, onComplete) {
+    const project = DB.getProject(projectId);
+    if (!project) return;
+    const log = project.dailyLogs.find(l => l.id === logId);
+    if (!log) return;
+
+    const html = `
+      <form id="lead-review-form" style="display:flex; flex-direction:column; gap:16px; max-height: 80vh; overflow-y: auto; padding: 4px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <h4 style="font-family:var(--font-title); font-size:1rem; color:var(--text-primary);">${project.name}</h4>
+          <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">
+            Báo cáo gửi bởi: <strong>${log.reporterName}</strong> | Ngày: ${log.date}
+          </p>
+        </div>
+
+        <div>
+          <label class="form-label">Tình trạng tiến độ</label>
+          <div style="display:flex; gap:16px; margin-top:4px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="review-status" value="on_track" ${log.status === 'on_track' ? 'checked' : ''} style="accent-color:var(--status-approved); width:18px; height:18px;">
+              <span>Đúng tiến độ ✅</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="review-status" value="delayed" ${log.status === 'delayed' ? 'checked' : ''} style="accent-color:var(--status-rejected); width:18px; height:18px;">
+              <span>Bị chậm ⚠️</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3-level dynamic checklist -->
+        <div id="review-checklist-container" style="display:flex; flex-direction:column; gap:12px;">
+          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+            <span>Chi tiết hạng mục lắp ráp</span>
+            <button type="button" id="btn-review-add-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
+              <i class="fas fa-plus"></i> Thêm hạng mục
+            </button>
+          </label>
+          <div id="review-checklist-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+
+        <div>
+          <label class="form-label">Thời gian xong dự kiến</label>
+          <input type="date" id="review-expected-completion" class="form-input" required style="padding-left:14px; height:40px;" value="${log.expectedCompletionDate || ''}">
+        </div>
+
+        <div>
+          <label class="form-label">Hình ảnh thực tế đính kèm (Bắt buộc tối thiểu 1 ảnh)</label>
+          <div class="photo-uploader" id="review-photo-uploader">
+            <i class="fas fa-camera"></i>
+            <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm để thêm ảnh mới</p>
+            <input type="file" id="review-photo-file-input" accept="image/*" multiple style="display:none;">
+          </div>
+          <div class="upload-preview-container" id="review-preview-container"></div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:12px;">
+          <button type="button" class="btn-secondary modal-close-btn" style="flex:1;">Hủy bỏ</button>
+          <button type="submit" class="btn-primary" style="flex:2;">
+            <i class="fas fa-check-circle"></i> Phê Duyệt & Gửi
+          </button>
+        </div>
+      </form>
+    `;
+
+    const modal = Modal.create('Sửa & Duyệt Báo Cáo', html);
+
+    // Seed checklist rows from log.items
+    const checklistList = document.getElementById('review-checklist-list');
+    if (checklistList) {
+      if (log.items && log.items.length > 0) {
+        log.items.forEach(it => {
+          this.addChecklistItemRow(checklistList, it);
+        });
+      } else {
+        this.addChecklistItemRow(checklistList);
+      }
+    }
+
+    const btnAddReviewItem = document.getElementById('btn-review-add-item');
+    if (btnAddReviewItem && checklistList) {
+      btnAddReviewItem.addEventListener('click', () => {
+        this.addChecklistItemRow(checklistList);
+      });
+    }
+
+    // Photo preview bindings
+    const previewContainer = document.getElementById('review-preview-container');
+    const uploader = document.getElementById('review-photo-uploader');
+    const fileInput = document.getElementById('review-photo-file-input');
+    let selectedPhotos = [...(log.photos || [])];
+
+    this.updatePhotoPreviews(selectedPhotos, previewContainer);
+
+    uploader.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (selectedPhotos.length + files.length > 5) {
+        Toast.info('Tải lên tối đa 5 hình ảnh.');
+        return;
+      }
+
+      Toast.info('Đang nén và xử lý hình ảnh...');
+      for (const file of files) {
+        try {
+          const base64Img = await this.compressImage(file);
+          selectedPhotos.push(base64Img);
+        } catch (err) {
+          console.error(err);
+          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
+        }
+      }
+      this.updatePhotoPreviews(selectedPhotos, previewContainer);
+      fileInput.value = '';
+    });
+
+    // Handle photo removal in modal preview container
+    previewContainer.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('.upload-preview-remove');
+      if (removeBtn) {
+        const index = parseInt(removeBtn.getAttribute('data-index'));
+        selectedPhotos.splice(index, 1);
+        this.updatePhotoPreviews(selectedPhotos, previewContainer);
+      }
+    });
+
+    // Form submit
+    document.getElementById('lead-review-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const status = document.querySelector('input[name="review-status"]:checked').value;
+      const expectedDate = document.getElementById('review-expected-completion').value;
+
+      const rows = document.querySelectorAll('#review-checklist-list .checklist-item-row');
+      if (rows.length === 0) {
+        Toast.error('Vui lòng thêm ít nhất 1 hạng mục báo cáo.');
+        return;
+      }
+
+      let items = [];
+      let hasError = false;
+      rows.forEach(row => {
+        const selectRoom = row.querySelector('.select-chk-room').value;
+        const customRoom = row.querySelector('.txt-chk-custom-room').value;
+        const room = selectRoom === 'Khác...' ? customRoom.trim() : selectRoom;
+
+        const selectItem = row.querySelector('.select-chk-item').value;
+        const customItem = row.querySelector('.txt-chk-custom-item').value;
+        const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
+
+        const isCompleted = row.querySelector('.chk-item-completed').checked;
+        const pendingNotes = row.querySelector('.txt-chk-pending-notes').value.trim();
+
+        if (!room || !item) {
+          hasError = true;
+        }
+
+        items.push({
+          room,
+          item,
+          isCompleted,
+          pendingNotes: isCompleted ? '' : pendingNotes
+        });
+      });
+
+      if (hasError) {
+        Toast.error('Vui lòng điền đầy đủ thông tin phòng và nội thất.');
+        return;
+      }
+
+      if (selectedPhotos.length === 0) {
+        Toast.error('Vui lòng đính kèm ít nhất 1 hình ảnh thực tế.');
+        return;
+      }
+
+      const note = items.map(it => {
+        return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
+      }).join('\n');
+
+      try {
+        DB.approveDailyLog(projectId, logId, status, note, expectedDate, items, selectedPhotos, leadUser.id);
+        Toast.success('Phê duyệt báo cáo thành công!');
+        modal.close();
+        onComplete();
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    });
+
+    modal.element.querySelectorAll('.modal-close-btn').forEach(btn => {
+      btn.addEventListener('click', () => modal.close());
     });
   },
 
@@ -1178,11 +1628,13 @@ export const UI = {
     let allLogs = [];
     projects.forEach(p => {
       p.dailyLogs.forEach(l => {
-        allLogs.push({
-          ...l,
-          projectId: p.id,
-          projectName: p.name
-        });
+        if (l.approved !== false) {
+          allLogs.push({
+            ...l,
+            projectId: p.id,
+            projectName: p.name
+          });
+        }
       });
     });
 
@@ -1899,21 +2351,21 @@ export const UI = {
           </div>
         </div>
 
-        <!-- Daily report history (Daily Log) -->
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.length})</span>
+            <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.filter(l => l.approved !== false).length})</span>
             ${user.role === 'manager' && !project.isCompleted
               ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
               : ''
             }
           </h5>
           <div style="display:flex; flex-direction:column; gap:10px;" id="drawer-timeline-container">
-            ${project.dailyLogs.map((l, idx) => {
+            ${project.dailyLogs.filter(l => l.approved !== false).map((l, idx) => {
               const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : l.reporterRole === 'manager' ? 'Sếp' : 'Khác';
+              const actualIdx = project.dailyLogs.findIndex(dl => dl.id === l.id);
               return `
                 <div style="background-color:rgba(0,0,0,0.15); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; box-sizing:border-box;">
-                  <div class="btn-view-log-item" data-log-index="${idx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
+                  <div class="btn-view-log-item" data-log-index="${actualIdx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
                       <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName}</div>
@@ -1921,7 +2373,7 @@ export const UI = {
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <div class="btn-view-log-item" data-log-index="${idx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
+                    <div class="btn-view-log-item" data-log-index="${actualIdx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
                     ${user.role === 'manager' ? `
                       <button class="btn-delete-log-item" data-log-id="${l.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa báo cáo"><i class="fas fa-trash-alt"></i></button>
                     ` : ''}
@@ -1929,7 +2381,7 @@ export const UI = {
                 </div>
               `;
             }).join('')}
-            ${project.dailyLogs.length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted);">Chưa có nhật ký cuối ngày nào được gửi.</p>' : ''}
+            ${project.dailyLogs.filter(l => l.approved !== false).length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted);">Chưa có nhật ký cuối ngày nào được gửi.</p>' : ''}
           </div>
         </div>
 
@@ -2141,7 +2593,7 @@ export const UI = {
           <div>
             <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);">Chi Tiết Báo Cáo Ngày: ${log.date}</h4>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-              Người gửi: <strong>${log.reporterName}</strong> (${roleDisplay})
+              Người gửi: <strong>${log.reporterName}</strong> (${roleDisplay}) ${log.approvedBy ? ` | Duyệt bởi: <strong>${log.approvedBy}</strong>` : ''}
             </p>
           </div>
           <span class="status-badge ${log.status === 'on_track' ? 'approved' : 'rejected'}" style="font-weight:600; padding:6px 12px;">
@@ -2149,10 +2601,39 @@ export const UI = {
           </span>
         </div>
 
-        <div>
-          <label class="form-label" style="font-size:0.75rem;">Nội dung công việc đã làm</label>
-          <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${log.note}</div>
-        </div>
+        ${log.items && log.items.length > 0 ? `
+          <div>
+            <label class="form-label" style="font-size:0.75rem; margin-bottom:8px;">Hạng mục chi tiết báo cáo</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              ${log.items.map(it => {
+                const statusColor = it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)';
+                const statusIcon = it.isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
+                return `
+                  <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
+                        ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>
+                      </span>
+                      <span style="font-size:0.75rem; font-weight:600; color:${statusColor}; display:flex; align-items:center; gap:4px;">
+                        ${statusIcon} ${it.isCompleted ? 'Đã xong' : 'Chưa xong'}
+                      </span>
+                    </div>
+                    ${!it.isCompleted ? `
+                      <div style="font-size:0.75rem; color:var(--status-pending); background:rgba(210, 144, 98, 0.05); border:1px dashed rgba(210, 144, 98, 0.2); padding:6px 10px; border-radius:6px; margin-top:4px;">
+                        <strong>Việc cần làm:</strong> ${it.pendingNotes}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : `
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">Nội dung ghi chú báo cáo</label>
+            <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${log.note}</div>
+          </div>
+        `}
 
         ${log.expectedCompletionDate ? `
           <div>

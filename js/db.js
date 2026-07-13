@@ -23,7 +23,9 @@ const DEFAULT_USERS = [
   { id: 'usr_long', username: 'long.tran', password: '123', name: 'Trần Hữu Nhật Long (3D/Kỹ thuật)', role: 'kts', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_duong', username: 'duong.tran', password: '123', name: 'Trần Tùng Dương (Marketing)', role: 'marketing', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_cuong', username: 'cuong.tran', password: '123', name: 'Trần Nhật Cường (Thợ chính)', role: 'lead_worker', avatar: 'https://images.unsplash.com/photo-1489980508314-941910ded1f4?w=100&auto=format&fit=crop&q=60' },
-  { id: 'usr_ut', username: 'ut.ut', password: '123', name: 'Út Út (Thợ chính)', role: 'lead_worker', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=60' }
+  { id: 'usr_ut', username: 'ut.ut', password: '123', name: 'Út Út (Thợ chính)', role: 'lead_worker', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=60' },
+  { id: 'usr_minhnhat', username: 'minh.nhat', password: '123', name: 'Minh Nhật (Thợ phụ)', role: 'assistant_worker', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60' },
+  { id: 'usr_bom', username: 'bom', password: '123', name: 'Bom (Thợ phụ)', role: 'assistant_worker', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=60' }
 ];
 
 const DEFAULT_PROJECTS = [];
@@ -249,6 +251,24 @@ export const DB = {
       localStorage.removeItem('furni_session'); // Clear session
       return db;
     }
+    
+    // Auto-update: Ensure the 2 new assistant workers exist in db.users
+    const targetAssistants = [
+      { id: 'usr_minhnhat', username: 'minh.nhat', password: '123', name: 'Minh Nhật (Thợ phụ)', role: 'assistant_worker', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60' },
+      { id: 'usr_bom', username: 'bom', password: '123', name: 'Bom (Thợ phụ)', role: 'assistant_worker', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=60' }
+    ];
+    let dbChanged = false;
+    targetAssistants.forEach(a => {
+      if (!db.users.some(u => u.id === a.id)) {
+        db.users.push(a);
+        dbChanged = true;
+      }
+    });
+    if (dbChanged) {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      this.pushToServer(db);
+    }
+    
     return db;
   },
 
@@ -589,7 +609,7 @@ export const DB = {
   },
 
   // Submit Daily Log (Báo cáo cuối ngày)
-  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '') {
+  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '', items = []) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -600,6 +620,8 @@ export const DB = {
       }
 
       const logId = 'log_' + Math.random().toString(36).substr(2, 9);
+      const isAssistant = user && user.role === 'assistant_worker';
+
       const newLog = {
         id: logId,
         date: new Date().toISOString().split('T')[0],
@@ -609,19 +631,54 @@ export const DB = {
         status: status, // 'on_track' | 'delayed'
         note: note,
         photos: photos,
-        expectedCompletionDate: expectedCompletionDate
+        expectedCompletionDate: expectedCompletionDate,
+        items: items,
+        approved: !isAssistant
       };
 
       project.dailyLogs.unshift(newLog);
 
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: `Gửi báo cáo cuối ngày: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
+        action: isAssistant 
+          ? `Gửi báo cáo thợ phụ (Chờ thợ chính duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
+          : `Gửi báo cáo cuối ngày: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
         user: user ? user.name : 'Nhân viên'
       });
 
       this.save(db);
       return newLog;
+    }
+    return null;
+  },
+
+  // Phê duyệt báo cáo thợ phụ bởi thợ chính
+  approveDailyLog(projectId, logId, status, note, expectedCompletionDate, items, photos, leadUserId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const leadUser = db.users.find(u => u.id === leadUserId);
+
+    if (project) {
+      const log = project.dailyLogs.find(l => l.id === logId);
+      if (log) {
+        log.status = status;
+        log.note = note;
+        log.expectedCompletionDate = expectedCompletionDate;
+        log.items = items;
+        log.photos = photos;
+        log.approved = true;
+        log.approvedBy = leadUser ? leadUser.name : 'Thợ chính';
+        log.approvedAt = new Date().toISOString();
+
+        project.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Phê duyệt báo cáo của thợ phụ: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
+          user: leadUser ? leadUser.name : 'Thợ chính'
+        });
+
+        this.save(db);
+        return log;
+      }
     }
     return null;
   },
@@ -762,7 +819,7 @@ export const DB = {
 
       // Count notes
       p.dailyLogs.forEach(l => {
-        if (l.status === 'delayed' && l.note) {
+        if (l.approved !== false && l.status === 'delayed' && l.note) {
           const noteText = l.note.toLowerCase();
           if (noteText.includes('vật tư') || noteText.includes('thiếu') || noteText.includes('phụ kiện') || noteText.includes('chưa về') || noteText.includes('ray') || noteText.includes('gỗ') || noteText.includes('bản lề') || noteText.includes('trễ')) {
             delayReasons['Trễ vật tư/phụ kiện']++;
