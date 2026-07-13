@@ -164,7 +164,7 @@ export const UI = {
     const row = document.createElement('div');
     row.id = rowId;
     row.className = 'checklist-item-row';
-    row.style.cssText = 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative;';
+    row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
 
     const rooms = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
     const furnitures = ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Bếp trên', 'Bếp dưới', 'Tủ giày', 'Vách trang trí', 'Lavabo', 'Khác...'];
@@ -185,7 +185,7 @@ export const UI = {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
-          <select class="form-select select-chk-room" required style="height: 38px; font-size: 0.82rem;">
+          <select class="form-select select-chk-room" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
             <option value="" disabled ${!roomVal ? 'selected' : ''}>-- Chọn phòng --</option>
             ${rooms.map(r => `<option value="${r}" ${roomVal === r || (r === 'Khác...' && isCustomRoom) ? 'selected' : ''}>${r}</option>`).join('')}
           </select>
@@ -194,7 +194,7 @@ export const UI = {
 
         <div>
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
-          <select class="form-select select-chk-item" required style="height: 38px; font-size: 0.82rem;">
+          <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
             <option value="" disabled ${!itemVal ? 'selected' : ''}>-- Chọn nội thất --</option>
             ${furnitures.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
           </select>
@@ -2730,7 +2730,7 @@ export const UI = {
                 const statusColor = it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)';
                 const statusIcon = it.isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
                 return `
-                  <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px;">
+                  <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)'}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
                         ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>
