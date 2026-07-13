@@ -167,15 +167,15 @@ export const UI = {
   },
 
   // 2.1 HELPER FOR DYNAMIC 3-LEVEL CHECKLIST ROW
-  addChecklistItemRow(container, initialData = null) {
+  addChecklistItemRow(container, initialData = null, project = null) {
     const rowId = 'chk_' + Math.random().toString(36).substr(2, 9);
     const row = document.createElement('div');
     row.id = rowId;
     row.className = 'checklist-item-row';
     row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
 
-    const rooms = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
-    const furnitures = ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Bếp trên', 'Bếp dưới', 'Tủ giày', 'Vách trang trí', 'Lavabo', 'Khác...'];
+    const hasScope = project && project.scope && project.scope.length > 0;
+    const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
     const roomVal = initialData ? initialData.room : '';
     const itemVal = initialData ? initialData.item : '';
@@ -183,7 +183,31 @@ export const UI = {
     const pendingNotes = initialData ? initialData.pendingNotes : '';
 
     const isCustomRoom = roomVal && !rooms.includes(roomVal);
-    const isCustomItem = itemVal && !furnitures.includes(itemVal);
+
+    // Dynamic initial items list
+    let currentItemsList = [];
+    if (roomVal) {
+      if (hasScope) {
+        currentItemsList = project.scope.filter(s => s.room === roomVal).map(s => s.item);
+        if (itemVal && !currentItemsList.includes(itemVal)) {
+          currentItemsList.push(itemVal);
+        }
+      } else {
+        const fallbackMap = {
+          'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+          'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+          'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+          'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+          'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
+        };
+        currentItemsList = fallbackMap[roomVal] || ['Khác...'];
+      }
+    }
+
+    const isCustomItem = itemVal && !currentItemsList.includes(itemVal);
+    if (isCustomItem && !currentItemsList.includes('Khác...')) {
+      currentItemsList.push('Khác...');
+    }
 
     row.innerHTML = `
       <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa hạng mục này">
@@ -204,7 +228,8 @@ export const UI = {
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
           <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
             <option value="" disabled ${!itemVal ? 'selected' : ''}>-- Chọn nội thất --</option>
-            ${furnitures.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
+            ${currentItemsList.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
+            ${(!roomVal) ? `<option value="" disabled selected>-- Chọn phòng trước --</option>` : ''}
           </select>
           <input type="text" class="form-input txt-chk-custom-item" placeholder="Nhập nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: ${isCustomItem ? 'block' : 'none'}; padding-left: 10px;" value="${isCustomItem ? itemVal : ''}" ${isCustomItem ? 'required' : ''}>
         </div>
@@ -228,19 +253,47 @@ export const UI = {
     // Bind event listeners for dynamic UI behaviour
     const selectRoom = row.querySelector('.select-chk-room');
     const customRoom = row.querySelector('.txt-chk-custom-room');
+    const selectItem = row.querySelector('.select-chk-item');
+    const customItem = row.querySelector('.txt-chk-custom-item');
+
     selectRoom.addEventListener('change', () => {
-      if (selectRoom.value === 'Khác...') {
+      const val = selectRoom.value;
+      if (val === 'Khác...') {
         customRoom.style.display = 'block';
         customRoom.required = true;
+
+        selectItem.innerHTML = `<option value="Khác...">Khác...</option>`;
+        customItem.style.display = 'block';
+        customItem.required = true;
       } else {
         customRoom.style.display = 'none';
         customRoom.required = false;
         customRoom.value = '';
+
+        let itemsList = [];
+        if (hasScope) {
+          itemsList = project.scope.filter(s => s.room === val).map(s => s.item);
+        } else {
+          const fallbackMap = {
+            'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+            'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+            'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+            'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+            'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
+          };
+          itemsList = fallbackMap[val] || ['Khác...'];
+        }
+
+        selectItem.innerHTML = `
+          <option value="" disabled selected>-- Chọn nội thất --</option>
+          ${itemsList.map(item => `<option value="${item}">${item}</option>`).join('')}
+        `;
+        customItem.style.display = 'none';
+        customItem.required = false;
+        customItem.value = '';
       }
     });
 
-    const selectItem = row.querySelector('.select-chk-item');
-    const customItem = row.querySelector('.txt-chk-custom-item');
     selectItem.addEventListener('change', () => {
       if (selectItem.value === 'Khác...') {
         customItem.style.display = 'block';
@@ -511,16 +564,34 @@ export const UI = {
       expDateInput.value = d.toISOString().split('T')[0];
     }
 
-    // Seed one checklist item row by default if the user is a worker
+    // Seed one checklist item row by default if the user is a worker, filtered by the selected project scope
+    const selectLogProject = document.getElementById('log-project-id');
     const checklistList = document.getElementById('checklist-items-list');
+    
+    const getSelectedProject = () => {
+      if (!selectLogProject || !selectLogProject.value) return null;
+      return DB.getProject(selectLogProject.value);
+    };
+
     if (checklistList) {
-      this.addChecklistItemRow(checklistList);
+      const currentPrj = getSelectedProject();
+      this.addChecklistItemRow(checklistList, null, currentPrj);
     }
 
     const btnAddChecklistItem = document.getElementById('btn-add-checklist-item');
     if (btnAddChecklistItem && checklistList) {
       btnAddChecklistItem.addEventListener('click', () => {
-        this.addChecklistItemRow(checklistList);
+        const currentPrj = getSelectedProject();
+        this.addChecklistItemRow(checklistList, null, currentPrj);
+      });
+    }
+
+    // Reset checklist items if project selection changes
+    if (selectLogProject && checklistList) {
+      selectLogProject.addEventListener('change', () => {
+        checklistList.innerHTML = '';
+        const currentPrj = getSelectedProject();
+        this.addChecklistItemRow(checklistList, null, currentPrj);
       });
     }
 
@@ -723,22 +794,22 @@ export const UI = {
 
     const modal = Modal.create('Sửa & Duyệt Báo Cáo', html);
 
-    // Seed checklist rows from log.items
+    // Seed checklist rows from log.items, passing project scope context
     const checklistList = document.getElementById('review-checklist-list');
     if (checklistList) {
       if (log.items && log.items.length > 0) {
         log.items.forEach(it => {
-          this.addChecklistItemRow(checklistList, it);
+          this.addChecklistItemRow(checklistList, it, project);
         });
       } else {
-        this.addChecklistItemRow(checklistList);
+        this.addChecklistItemRow(checklistList, null, project);
       }
     }
 
     const btnAddReviewItem = document.getElementById('btn-review-add-item');
     if (btnAddReviewItem && checklistList) {
       btnAddReviewItem.addEventListener('click', () => {
-        this.addChecklistItemRow(checklistList);
+        this.addChecklistItemRow(checklistList, null, project);
       });
     }
 
@@ -2908,6 +2979,7 @@ export const UI = {
   // 10. OPEN ASSIGN SUBTASK MODAL FOR MANAGER
   openAssignTaskModal(projectId, user, onTaskAdded) {
     const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
     const workers = db.users.filter(u => u.role !== 'manager');
     const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
 
@@ -2946,8 +3018,8 @@ export const UI = {
       row.className = 'checklist-item-row';
       row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
 
-      const rooms = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
-      const furnitures = ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Bếp trên', 'Bếp dưới', 'Tủ giày', 'Vách trang trí', 'Lavabo', 'Khác...'];
+      const hasScope = project && project.scope && project.scope.length > 0;
+      const roomsList = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
       row.innerHTML = `
         <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa">
@@ -2959,7 +3031,7 @@ export const UI = {
             <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
             <select class="form-select select-chk-room" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
               <option value="" disabled selected>-- Chọn phòng --</option>
-              ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
+              ${roomsList.map(r => `<option value="${r}">${r}</option>`).join('')}
             </select>
             <input type="text" class="form-input txt-chk-custom-room" placeholder="Tên phòng khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
           </div>
@@ -2967,8 +3039,7 @@ export const UI = {
           <div>
             <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
             <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
-              <option value="" disabled selected>-- Chọn nội thất --</option>
-              ${furnitures.map(f => `<option value="${f}">${f}</option>`).join('')}
+              <option value="" disabled selected>-- Chọn phòng trước --</option>
             </select>
             <input type="text" class="form-input txt-chk-custom-item" placeholder="Nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
           </div>
@@ -2984,19 +3055,47 @@ export const UI = {
 
       const selectRoom = row.querySelector('.select-chk-room');
       const customRoom = row.querySelector('.txt-chk-custom-room');
+      const selectItem = row.querySelector('.select-chk-item');
+      const customItem = row.querySelector('.txt-chk-custom-item');
+
       selectRoom.addEventListener('change', () => {
-        if (selectRoom.value === 'Khác...') {
+        const val = selectRoom.value;
+        if (val === 'Khác...') {
           customRoom.style.display = 'block';
           customRoom.required = true;
+          
+          selectItem.innerHTML = `<option value="Khác...">Khác...</option>`;
+          customItem.style.display = 'block';
+          customItem.required = true;
         } else {
           customRoom.style.display = 'none';
           customRoom.required = false;
           customRoom.value = '';
+
+          let itemsList = [];
+          if (hasScope) {
+            itemsList = project.scope.filter(s => s.room === val).map(s => s.item);
+          } else {
+            const fallbackMap = {
+              'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+              'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+              'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+              'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+              'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
+            };
+            itemsList = fallbackMap[val] || ['Khác...'];
+          }
+
+          selectItem.innerHTML = `
+            <option value="" disabled selected>-- Chọn nội thất --</option>
+            ${itemsList.map(item => `<option value="${item}">${item}</option>`).join('')}
+          `;
+          customItem.style.display = 'none';
+          customItem.required = false;
+          customItem.value = '';
         }
       });
 
-      const selectItem = row.querySelector('.select-chk-item');
-      const customItem = row.querySelector('.txt-chk-custom-item');
       selectItem.addEventListener('change', () => {
         if (selectItem.value === 'Khác...') {
           customItem.style.display = 'block';
@@ -3197,7 +3296,6 @@ export const UI = {
     });
   },
 
-  // 11. OPEN NEW PROJECT CREATION FORM FOR MANAGER
   openCreateProjectModal(user, onCreateSuccess) {
     const db = DB.load();
     const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
@@ -3211,7 +3309,7 @@ export const UI = {
 
         <div>
           <label class="form-label">Nhân sự phụ trách công trình</label>
-          <div style="max-height: 140px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
+          <div style="max-height: 120px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
             ${workers.map(w => {
               const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
               return `
@@ -3221,6 +3319,26 @@ export const UI = {
                 </label>
               `;
             }).join('')}
+          </div>
+        </div>
+
+        <!-- 2-level Scope of work checkboxes -->
+        <div>
+          <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
+          <div style="max-height: 180px; overflow-y: auto; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border-color); border-radius:10px; padding:12px; background-color:rgba(0,0,0,0.1);">
+            ${Object.entries(DEFAULT_SCOPE_TEMPLATE).map(([room, items]) => `
+              <div>
+                <div style="font-weight:700; font-size:0.8rem; color:var(--text-primary); margin-bottom:4px;"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${room}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; padding-left:12px;">
+                  ${items.map(item => `
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
+                      <input type="checkbox" class="new-prj-scope-item" data-room="${room}" data-item="${item}" style="width:14px; height:14px; accent-color:var(--primary);">
+                      <span>${item}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
 
@@ -3248,6 +3366,12 @@ export const UI = {
       const selectedCheckboxes = document.querySelectorAll('input[name="new-prj-assignee"]:checked');
       const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
 
+      const scopeCheckboxes = document.querySelectorAll('.new-prj-scope-item:checked');
+      const scope = Array.from(scopeCheckboxes).map(cb => ({
+        room: cb.getAttribute('data-room'),
+        item: cb.getAttribute('data-item')
+      }));
+
       const loadedDb = DB.load();
       
       // Get assignees names for history action text
@@ -3271,6 +3395,7 @@ export const UI = {
         subtasks: [],
         dailyLogs: [],
         assignees: assignees,
+        scope: scope,
         history: [
           { timestamp: new Date().toISOString(), action: `Khởi tạo công trình. Nhân sự phụ trách: [${namesStr}]`, user: user.name }
         ]
@@ -3302,7 +3427,7 @@ export const UI = {
 
         <div>
           <label class="form-label">Nhân sự phụ trách công trình</label>
-          <div style="max-height: 140px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
+          <div style="max-height: 120px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
             ${workers.map(w => {
               const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
               const isChecked = currentAssignees.includes(w.id);
@@ -3313,6 +3438,29 @@ export const UI = {
                 </label>
               `;
             }).join('')}
+          </div>
+        </div>
+
+        <!-- 2-level Scope of work checkboxes -->
+        <div>
+          <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
+          <div style="max-height: 180px; overflow-y: auto; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border-color); border-radius:10px; padding:12px; background-color:rgba(0,0,0,0.1);">
+            ${Object.entries(DEFAULT_SCOPE_TEMPLATE).map(([room, items]) => `
+              <div>
+                <div style="font-weight:700; font-size:0.8rem; color:var(--text-primary); margin-bottom:4px;"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${room}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; padding-left:12px;">
+                  ${items.map(item => {
+                    const isChecked = project.scope && project.scope.some(s => s.room === room && s.item === item);
+                    return `
+                      <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
+                        <input type="checkbox" class="edit-prj-scope-item" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary);">
+                        <span>${item}</span>
+                      </label>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
 
@@ -3337,7 +3485,13 @@ export const UI = {
       const selectedCheckboxes = document.querySelectorAll('input[name="edit-prj-assignee"]:checked');
       const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-      const updated = DB.updateProjectInfo(projectId, name, deadline, user.id, assignees);
+      const scopeCheckboxes = document.querySelectorAll('.edit-prj-scope-item:checked');
+      const scope = Array.from(scopeCheckboxes).map(cb => ({
+        room: cb.getAttribute('data-room'),
+        item: cb.getAttribute('data-item')
+      }));
+
+      const updated = DB.updateProjectInfo(projectId, name, deadline, user.id, assignees, scope);
       if (updated) {
         Toast.success('Cập nhật thông tin công trình thành công!');
         modal.close();
