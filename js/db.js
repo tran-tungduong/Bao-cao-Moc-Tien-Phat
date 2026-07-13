@@ -264,7 +264,20 @@ export const DB = {
         dbChanged = true;
       }
     });
-    if (dbChanged) {
+
+    // Auto-update: Ensure assignees exists on all projects
+    let assigneesChanged = false;
+    if (db.projects) {
+      db.projects.forEach(p => {
+        if (!p.assignees) {
+          const uniqueAssignees = [...new Set(p.subtasks.map(st => st.assignedTo).filter(id => id))];
+          p.assignees = uniqueAssignees;
+          assigneesChanged = true;
+        }
+      });
+    }
+
+    if (dbChanged || assigneesChanged) {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       this.pushToServer(db);
     }
@@ -325,9 +338,9 @@ export const DB = {
     }
 
     if (user.role === 'marketing') {
-      return activeProjects.filter(p => p.step <= 4 || p.subtasks.some(st => st.assignedTo === user.id));
+      return activeProjects.filter(p => p.step <= 4 || (p.assignees && p.assignees.includes(user.id)));
     } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
-      return activeProjects.filter(p => p.subtasks.some(st => st.assignedTo === user.id));
+      return activeProjects.filter(p => p.assignees && p.assignees.includes(user.id));
     }
 
     return activeProjects;
@@ -580,6 +593,9 @@ export const DB = {
     const db = this.load();
     const user = db.users.find(u => u.id === userId);
 
+    const parentProject = db.projects.find(p => p.name === parentProjectName);
+    const parentAssignees = parentProject ? [...(parentProject.assignees || [])] : [];
+
     const newProject = {
       id: 'prj_ps_' + Math.random().toString(36).substr(2, 9),
       name: `[PHÁT SINH] - ${parentProjectName} - ${categoryName}`,
@@ -594,6 +610,7 @@ export const DB = {
       isSmallScope: false,
       subtasks: [],
       dailyLogs: [],
+      assignees: parentAssignees,
       history: [
         {
           timestamp: new Date().toISOString(),
@@ -902,7 +919,7 @@ export const DB = {
   },
 
   // Edit project info (Sửa thông tin công trình)
-  updateProjectInfo(projectId, newName, newDeadline, userId) {
+  updateProjectInfo(projectId, newName, newDeadline, userId, assignees = null) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     if (project) {
@@ -912,10 +929,16 @@ export const DB = {
       project.name = newName;
       project.deadline = newDeadline;
 
+      if (assignees !== null) {
+        project.assignees = assignees;
+      }
+
       const user = db.users.find(u => u.id === userId);
+      const assigneesText = assignees ? ` | Giao phụ trách: [${assignees.map(id => db.users.find(u => u.id === id)?.name || id).join(', ')}]` : '';
+
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"`,
+        action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"${assigneesText}`,
         user: user ? user.name : 'Sếp'
       });
 

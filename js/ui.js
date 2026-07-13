@@ -2305,6 +2305,33 @@ export const UI = {
       }
         </div>
 
+        <!-- Project Assignees (Người phụ trách) -->
+        <div>
+          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Nhân sự phụ trách công trình</span>
+            ${(user.role === 'manager' || user.role === 'kts' || user.role === 'sales') && !project.isCompleted
+              ? `<button id="drawer-assign-project-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-user-plus"></i> GIAO CÔNG TRÌNH</button>`
+              : ''
+            }
+          </h5>
+          <div style="background-color:rgba(0,0,0,0.15); border-radius:12px; padding:12px; border:1px solid var(--border-color); display:flex; flex-wrap:wrap; gap:8px;" id="project-assignees-list">
+            ${project.assignees && project.assignees.length > 0
+              ? project.assignees.map(uId => {
+                  const assignedUser = DB.load().users.find(u => u.id === uId);
+                  if (!assignedUser) return '';
+                  const roleLabel = assignedUser.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+                  return `
+                    <div style="display:flex; align-items:center; gap:6px; background-color:var(--bg-secondary); border:1px solid var(--border-color); padding:6px 10px; border-radius:20px; font-size:0.75rem;">
+                      <img src="${assignedUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">
+                      <span><strong>${assignedUser.name}</strong> (${roleLabel})</span>
+                    </div>
+                  `;
+                }).join('')
+              : '<p style="font-size:0.75rem; color:var(--text-muted); width:100%; margin:0; text-align:center;">Chưa gán nhân sự phụ trách công trình.</p>'
+            }
+          </div>
+        </div>
+
         <!-- Subtasks summary -->
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
@@ -2581,6 +2608,100 @@ export const UI = {
         });
       });
     }
+
+    // Assign project owners click
+    const btnAssignProject = document.getElementById('drawer-assign-project-btn');
+    if (btnAssignProject) {
+      btnAssignProject.addEventListener('click', () => {
+        this.openAssignProjectOwnersModal(projectId, user, () => {
+          drawer.close();
+          onUpdate();
+          setTimeout(() => {
+            this.openProjectDetailsDrawer(projectId, user, onUpdate);
+          }, 100);
+        });
+      });
+    }
+  },
+
+  // 9.2 OPEN EDIT PROJECT ASSIGNEES MODAL
+  openAssignProjectOwnersModal(projectId, user, onComplete) {
+    const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    // Filter workers (lead and assistant workers)
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
+    const currentAssignees = project.assignees || [];
+
+    const html = `
+      <form id="assign-project-owners-form" style="display:flex; flex-direction:column; gap:16px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <h4 style="font-family:var(--font-title); font-size:1rem; color:var(--text-primary);"><i class="fas fa-user-check"></i> Giao Nhân Sự Phụ Trách</h4>
+          <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Công trình: <strong>${project.name}</strong></p>
+        </div>
+
+        <div style="max-height: 280px; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding:4px;">
+          ${workers.map(w => {
+            const isChecked = currentAssignees.includes(w.id);
+            const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+            return `
+              <label style="display:flex; align-items:center; justify-content:space-between; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); padding:10px 14px; border-radius:12px; cursor:pointer; transition:background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.01)'" onmouseout="this.style.backgroundColor='transparent'">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <img src="${w.avatar}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;">
+                  <div>
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary);">${w.name}</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">${roleLabel}</div>
+                  </div>
+                </div>
+                <input type="checkbox" name="project-assignee" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--primary);">
+              </label>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:12px;">
+          <button type="button" class="btn-secondary modal-close-btn" style="flex:1;">Hủy bỏ</button>
+          <button type="submit" class="btn-primary" style="flex:1;">Lưu thay đổi</button>
+        </div>
+      </form>
+    `;
+
+    const modal = Modal.create('Giao Công Trình', html);
+
+    document.getElementById('assign-project-owners-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const selectedCheckboxes = document.querySelectorAll('input[name="project-assignee"]:checked');
+      const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+      // Save to DB
+      const loadedDb = DB.load();
+      const prj = loadedDb.projects.find(p => p.id === projectId);
+      if (prj) {
+        prj.assignees = selectedIds;
+        
+        // Add project history action
+        const namesStr = selectedIds.map(id => {
+          const u = loadedDb.users.find(usr => usr.id === id);
+          return u ? u.name : id;
+        }).join(', ') || 'Không có ai';
+
+        prj.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Cập nhật nhân sự phụ trách công trình: [${namesStr}]`,
+          user: user.name
+        });
+
+        DB.save(loadedDb);
+        Toast.success('Cập nhật nhân sự phụ trách công trình thành công!');
+        modal.close();
+        onComplete();
+      }
+    });
+
+    modal.element.querySelectorAll('.modal-close-btn').forEach(btn => {
+      btn.addEventListener('click', () => modal.close());
+    });
   },
 
   // 9.1 OPEN INDIVIDUAL DAILY LOG DETAILS MODAL
@@ -2847,11 +2968,29 @@ export const UI = {
 
   // 11. OPEN NEW PROJECT CREATION FORM FOR MANAGER
   openCreateProjectModal(user, onCreateSuccess) {
+    const db = DB.load();
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
+
     const html = `
       <form id="create-project-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
           <label class="form-label">Tên công trình nội thất</label>
           <input type="text" id="new-prj-name" class="form-input" placeholder="Ví dụ: Mandarin Garden - Căn A10" required style="padding-left:14px;">
+        </div>
+
+        <div>
+          <label class="form-label">Nhân sự phụ trách công trình</label>
+          <div style="max-height: 140px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
+            ${workers.map(w => {
+              const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+              return `
+                <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                  <span style="font-size:0.8rem; color:var(--text-primary);">${w.name} (${roleLabel})</span>
+                  <input type="checkbox" name="new-prj-assignee" value="${w.id}" style="width:16px; height:16px; accent-color:var(--primary);">
+                </label>
+              `;
+            }).join('')}
+          </div>
         </div>
 
         <div>
@@ -2875,7 +3014,17 @@ export const UI = {
       const name = document.getElementById('new-prj-name').value;
       const deadline = document.getElementById('new-prj-deadline').value;
 
+      const selectedCheckboxes = document.querySelectorAll('input[name="new-prj-assignee"]:checked');
+      const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
+
       const loadedDb = DB.load();
+      
+      // Get assignees names for history action text
+      const namesStr = assignees.map(id => {
+        const u = loadedDb.users.find(usr => usr.id === id);
+        return u ? u.name : id;
+      }).join(', ') || 'Chưa gán';
+
       const newPrj = {
         id: 'prj_' + Math.random().toString(36).substr(2, 9),
         name: name,
@@ -2890,8 +3039,9 @@ export const UI = {
         isSmallScope: false,
         subtasks: [],
         dailyLogs: [],
+        assignees: assignees,
         history: [
-          { timestamp: new Date().toISOString(), action: 'Khởi tạo công trình', user: user.name }
+          { timestamp: new Date().toISOString(), action: `Khởi tạo công trình. Nhân sự phụ trách: [${namesStr}]`, user: user.name }
         ]
       };
 
@@ -2905,14 +3055,34 @@ export const UI = {
 
   // 11.1 OPEN EDIT PROJECT MODAL FOR MANAGER
   openEditProjectModal(projectId, user, onComplete) {
-    const project = DB.getProject(projectId);
+    const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
     if (!project) return;
+
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
+    const currentAssignees = project.assignees || [];
 
     const html = `
       <form id="edit-project-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
           <label class="form-label">Tên công trình nội thất</label>
           <input type="text" id="edit-prj-name" class="form-input" value="${project.name}" required style="padding-left:14px;">
+        </div>
+
+        <div>
+          <label class="form-label">Nhân sự phụ trách công trình</label>
+          <div style="max-height: 140px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
+            ${workers.map(w => {
+              const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+              const isChecked = currentAssignees.includes(w.id);
+              return `
+                <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                  <span style="font-size:0.8rem; color:var(--text-primary);">${w.name} (${roleLabel})</span>
+                  <input type="checkbox" name="edit-prj-assignee" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);">
+                </label>
+              `;
+            }).join('')}
+          </div>
         </div>
 
         <div>
@@ -2933,7 +3103,10 @@ export const UI = {
       const name = document.getElementById('edit-prj-name').value;
       const deadline = document.getElementById('edit-prj-deadline').value;
 
-      const updated = DB.updateProjectInfo(projectId, name, deadline, user.id);
+      const selectedCheckboxes = document.querySelectorAll('input[name="edit-prj-assignee"]:checked');
+      const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+      const updated = DB.updateProjectInfo(projectId, name, deadline, user.id, assignees);
       if (updated) {
         Toast.success('Cập nhật thông tin công trình thành công!');
         modal.close();
