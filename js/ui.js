@@ -904,6 +904,7 @@ export const UI = {
 
   renderWorkerProjects(projects, user, listContainer = document.getElementById('modal-project-list-container'), onUpdate = null) {
     if (!listContainer) return;
+    const isManagementRole = ['manager', 'kts', 'sales', 'marketing'].includes(user.role);
 
     if (projects.length === 0) {
       listContainer.innerHTML = `
@@ -996,25 +997,27 @@ export const UI = {
           <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-top:12px;">
             
             <!-- Advance step -->
-            <button class="btn-advance-step btn-action" data-project="${p.id}" 
-              style="background: ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700;"
-              ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 9 ? 'disabled' : ''}>
-              <i class="fas fa-arrow-circle-right"></i> Qua Bước Tiếp Theo
-            </button>
+            ${isManagementRole ? `
+              <button class="btn-advance-step btn-action" data-project="${p.id}" 
+                style="background: ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700;"
+                ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 9 ? 'disabled' : ''}>
+                <i class="fas fa-arrow-circle-right"></i> Qua Bước Tiếp Theo
+              </button>
+            ` : ''}
 
             <!-- Freeze Project -->
-            ${p.isFrozen
-          ? `<button class="btn-unfreeze-project btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; font-weight:700;"><i class="fas fa-play"></i> Bỏ Đóng Băng</button>`
-          : `<button class="btn-freeze-project-modal btn-action" data-project="${p.id}" data-step="${p.step}" style="background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; font-weight:700;"><i class="fas fa-snowflake"></i> Đóng Băng</button>`
-        }
+            ${isManagementRole ? (p.isFrozen
+              ? `<button class="btn-unfreeze-project btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; font-weight:700;"><i class="fas fa-play"></i> Bỏ Đóng Băng</button>`
+              : `<button class="btn-freeze-project-modal btn-action" data-project="${p.id}" data-step="${p.step}" style="background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; font-weight:700;"><i class="fas fa-snowflake"></i> Đóng Băng</button>`
+            ) : ''}
 
             <!-- Rework -->
-            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700;">
+            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; ${!isManagementRole ? 'grid-column: span 1;' : ''}">
               <i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi
             </button>
 
             <!-- Add Scope -->
-            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700;">
+            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; ${!isManagementRole ? 'grid-column: span 1;' : ''}">
               <i class="fas fa-plus"></i> Phát Sinh Thêm
             </button>
 
