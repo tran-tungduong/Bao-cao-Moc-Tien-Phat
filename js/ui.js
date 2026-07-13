@@ -2443,34 +2443,60 @@ export const UI = {
             ${project.scope.map(s => {
               const approvedLogs = (project.dailyLogs || []).filter(l => l.approved === true || l.approved === 'true');
               const latestLog = approvedLogs.find(l => l.items && l.items.some(it => it.room === s.room && it.item === s.item));
-              
+              const matchedItem = latestLog ? latestLog.items.find(it => it.room === s.room && it.item === s.item) : null;
+
+              // Find subtasks for this item
+              const matchedSubtasks = (project.subtasks || []).filter(st => {
+                const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
+                const stRoom = match ? match[1].trim() : '';
+                const stItem = match ? match[2].trim() : '';
+                return stRoom === s.room && stItem === s.item;
+              });
+              const hasSubtasks = matchedSubtasks.length > 0;
+              const allSubtasksCompleted = hasSubtasks && matchedSubtasks.every(st => st.status === 'completed');
+              const latestSubtask = hasSubtasks ? matchedSubtasks[matchedSubtasks.length - 1] : null;
+
               let statusText = '';
               let badgeClass = 'pending';
               let badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted);';
+              let sourceInfoHtml = '';
 
-              if (latestLog) {
-                const matchedItem = latestLog.items.find(it => it.room === s.room && it.item === s.item);
-                if (matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true')) {
-                  statusText = 'Hoàn thành ✅';
-                  badgeClass = 'approved';
-                  badgeStyle = 'background-color:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+              // Determine if completed (either by thợ report or by completing all subtasks assigned to it)
+              const isCompletedByLog = matchedItem && (matchedItem.isCompleted === true || matchedItem.isCompleted === 'true');
+              const isCompletedBySubtask = allSubtasksCompleted;
+
+              if (isCompletedByLog || isCompletedBySubtask) {
+                statusText = 'Hoàn thành ✅';
+                badgeClass = 'approved';
+                badgeStyle = 'background-color:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+                
+                if (isCompletedByLog) {
+                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Báo cáo bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
                 } else {
-                  const details = matchedItem && matchedItem.pendingNotes ? `: ${matchedItem.pendingNotes}` : '';
+                  const dbUsers = DB.load().users;
+                  const completedBy = latestSubtask && latestSubtask.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
+                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-tasks" style="font-size:0.6rem;"></i> Nhiệm vụ hoàn thành bởi: <strong>${completedBy}</strong></span>`;
+                }
+              } else {
+                if (matchedItem) {
+                  const details = matchedItem.pendingNotes ? `: ${matchedItem.pendingNotes}` : '';
                   statusText = `Đang làm ⏱️ (${STEPS[project.step-1].title}${details})`;
                   badgeClass = 'pending';
                   badgeStyle = 'background-color:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Báo cáo bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
+                } else if (hasSubtasks) {
+                  statusText = `Đang làm ⏱️ (${STEPS[project.step-1].title}: Đang làm nhiệm vụ)`;
+                  badgeClass = 'pending';
+                  badgeStyle = 'background-color:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+                  const dbUsers = DB.load().users;
+                  const assignedToName = latestSubtask && latestSubtask.assignedTo ? (dbUsers.find(u => u.id === latestSubtask.assignedTo)?.name || 'Thợ') : 'Thợ';
+                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-tasks" style="font-size:0.6rem;"></i> Giao thợ: <strong>${assignedToName}</strong></span>`;
+                } else {
+                  statusText = `Chờ triển khai ⏳ (${STEPS[project.step-1].title})`;
+                  badgeClass = 'pending';
+                  badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
+                  sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo ghi nhận</span>`;
                 }
-              } else {
-                statusText = `Chờ triển khai ⏳ (${STEPS[project.step-1].title})`;
-                badgeClass = 'pending';
-                badgeStyle = 'background-color:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
-              }
-
-              let sourceInfoHtml = '';
-              if (latestLog) {
-                sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-user-edit" style="font-size:0.6rem;"></i> Cập nhật bởi: <strong>${latestLog.reporterName}</strong> ngày ${latestLog.date}</span>`;
-              } else {
-                sourceInfoHtml = `<span style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;"><i class="fas fa-clock" style="font-size:0.6rem;"></i> Chưa có báo cáo ghi nhận</span>`;
               }
 
               return `
@@ -3391,6 +3417,197 @@ export const UI = {
     });
   },
 
+  initScopeEditor(container, initialScope = null) {
+    // Group items by room
+    const grouped = {};
+    if (initialScope && initialScope.length > 0) {
+      initialScope.forEach(s => {
+        if (!grouped[s.room]) grouped[s.room] = [];
+        grouped[s.room].push(s.item);
+      });
+    } else {
+      // Default set of rooms
+      grouped['Phòng ngủ'] = [];
+      grouped['Phòng khách'] = [];
+      grouped['Phòng bếp'] = [];
+    }
+
+    const templateItems = {
+      'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+      'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+      'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+      'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+      'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...'],
+      'Khác...': ['Hạng mục 1', 'Hạng mục 2', 'Khác...']
+    };
+
+    const render = () => {
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <!-- Add new Room inline panel -->
+          <div style="display:flex; gap:8px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; align-items:center; border:1px dashed rgba(255,255,255,0.15);">
+            <select id="scope-add-template" class="form-select" style="height:36px; font-size:0.75rem; padding:4px 8px; flex:1; margin:0;">
+              <option value="Phòng ngủ">Mẫu: Phòng ngủ</option>
+              <option value="Phòng khách">Mẫu: Phòng khách</option>
+              <option value="Phòng bếp">Mẫu: Phòng bếp</option>
+              <option value="Phòng thờ">Mẫu: Phòng thờ</option>
+              <option value="Phòng tắm">Mẫu: Phòng tắm</option>
+              <option value="Khác...">Mẫu: Khác...</option>
+            </select>
+            <input type="text" id="scope-add-name" class="form-input" placeholder="Tên phòng (VD: Phòng ngủ con)" style="height:36px; font-size:0.75rem; padding-left:10px; flex:1.5; margin:0;">
+            <button type="button" id="scope-btn-add-room" class="btn-primary" style="height:36px; padding:0 12px; font-size:0.75rem; width:auto; white-space:nowrap; margin:0;"><i class="fas fa-plus"></i> Thêm</button>
+          </div>
+
+          <!-- Accordion list -->
+          <div id="scope-accordion-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding:2px;">
+            ${Object.keys(grouped).map(room => {
+              // Deduce template type
+              let templateType = 'Khác...';
+              if (room.includes('Phòng ngủ')) templateType = 'Phòng ngủ';
+              else if (room.includes('Phòng khách')) templateType = 'Phòng khách';
+              else if (room.includes('Phòng bếp')) templateType = 'Phòng bếp';
+              else if (room.includes('Phòng thờ')) templateType = 'Phòng thờ';
+              else if (room.includes('Phòng tắm') || room.includes('Toilet') || room.includes('WC')) templateType = 'Phòng tắm';
+
+              const items = templateItems[templateType] || templateItems['Khác...'];
+              const checkedItems = grouped[room] || [];
+
+              return `
+                <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:rgba(0,0,0,0.1); margin-bottom:4px;">
+                  <div class="scope-room-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none;">
+                    <span style="font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                      <i class="fas fa-chevron-right scope-toggle-icon" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i>
+                      <span>${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
+                    </span>
+                    <button type="button" class="scope-btn-delete-room" data-room="${room}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.8rem; padding:4px;" title="Xóa phòng này">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </div>
+                  <div class="scope-room-body" style="display:none; padding:12px; border-top:1px solid var(--border-color); background:rgba(0,0,0,0.15);">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
+                      ${items.map(item => {
+                        const isChecked = checkedItems.includes(item);
+                        return `
+                          <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
+                            <input type="checkbox" class="scope-checkbox-input" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary);">
+                            <span>${item}</span>
+                          </label>
+                        `;
+                      }).join('')}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            ${Object.keys(grouped).length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa thiết lập phòng nào.</p>' : ''}
+          </div>
+        </div>
+      `;
+
+      // Bind Accordion headers toggle
+      container.querySelectorAll('.scope-room-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+          if (e.target.closest('.scope-btn-delete-room')) return;
+
+          const card = header.closest('.scope-room-card');
+          const body = card.querySelector('.scope-room-body');
+          const icon = card.querySelector('.scope-toggle-icon');
+          
+          if (body.style.display === 'none') {
+            body.style.display = 'block';
+            icon.style.transform = 'rotate(90deg)';
+          } else {
+            body.style.display = 'none';
+            icon.style.transform = 'none';
+          }
+        });
+      });
+
+      // Bind Delete Room button
+      container.querySelectorAll('.scope-btn-delete-room').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const room = btn.getAttribute('data-room');
+          if (confirm(`Bạn có chắc chắn muốn XÓA phòng "${room}" khỏi danh sách thi công?`)) {
+            delete grouped[room];
+            render();
+          }
+        });
+      });
+
+      // Bind checkbox change
+      container.querySelectorAll('.scope-checkbox-input').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const room = cb.getAttribute('data-room');
+          const item = cb.getAttribute('data-item');
+          if (!grouped[room]) grouped[room] = [];
+
+          if (cb.checked) {
+            if (!grouped[room].includes(item)) grouped[room].push(item);
+          } else {
+            grouped[room] = grouped[room].filter(x => x !== item);
+          }
+
+          // Update count label in header
+          const card = cb.closest('.scope-room-card');
+          const label = card.querySelector('.scope-room-count-label');
+          if (label) {
+            label.textContent = `(${grouped[room].length} đã chọn)`;
+          }
+        });
+      });
+
+      // Bind Add Room Button
+      const btnAdd = document.getElementById('scope-btn-add-room');
+      const inputName = document.getElementById('scope-add-name');
+      const selectTemplate = document.getElementById('scope-add-template');
+      if (btnAdd && inputName && selectTemplate) {
+        btnAdd.addEventListener('click', () => {
+          const template = selectTemplate.value;
+          let name = inputName.value.trim();
+          if (!name) {
+            const existingCount = Object.keys(grouped).filter(k => k.startsWith(template)).length;
+            name = existingCount > 0 ? `${template} ${existingCount + 1}` : template;
+          }
+
+          if (grouped[name]) {
+            Toast.error('Phòng này đã tồn tại!');
+            return;
+          }
+
+          grouped[name] = [];
+          render();
+          
+          // Automatically expand the newly added room
+          const newCard = container.querySelector(`.scope-room-card[data-room="${name}"]`);
+          if (newCard) {
+            const body = newCard.querySelector('.scope-room-body');
+            const icon = newCard.querySelector('.scope-toggle-icon');
+            if (body && icon) {
+              body.style.display = 'block';
+              icon.style.transform = 'rotate(90deg)';
+            }
+          }
+        });
+      }
+    };
+
+    render();
+
+    return {
+      getSelectedScope() {
+        const list = [];
+        container.querySelectorAll('.scope-checkbox-input:checked').forEach(cb => {
+          list.push({
+            room: cb.getAttribute('data-room'),
+            item: cb.getAttribute('data-item')
+          });
+        });
+        return list;
+      }
+    };
+  },
+
   openCreateProjectModal(user, onCreateSuccess) {
     const db = DB.load();
     const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
@@ -3417,24 +3634,10 @@ export const UI = {
           </div>
         </div>
 
-        <!-- 2-level Scope of work checkboxes -->
+        <!-- 2-level Scope of work collapsible accordion editor -->
         <div>
           <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
-          <div style="max-height: 180px; overflow-y: auto; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border-color); border-radius:10px; padding:12px; background-color:rgba(0,0,0,0.1);">
-            ${Object.entries(DEFAULT_SCOPE_TEMPLATE).map(([room, items]) => `
-              <div>
-                <div style="font-weight:700; font-size:0.8rem; color:var(--text-primary); margin-bottom:4px;"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${room}</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; padding-left:12px;">
-                  ${items.map(item => `
-                    <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
-                      <input type="checkbox" class="new-prj-scope-item" data-room="${room}" data-item="${item}" style="width:14px; height:14px; accent-color:var(--primary);">
-                      <span>${item}</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
+          <div id="new-project-scope-container"></div>
         </div>
 
         <div>
@@ -3447,6 +3650,10 @@ export const UI = {
     `;
 
     const modal = Modal.create('Thêm Mới Công Trình', html);
+
+    // Initialize scope editor
+    const scopeContainer = document.getElementById('new-project-scope-container');
+    const scopeEditor = this.initScopeEditor(scopeContainer);
 
     // Default date is today + 10 days
     const d = new Date();
@@ -3461,11 +3668,7 @@ export const UI = {
       const selectedCheckboxes = document.querySelectorAll('input[name="new-prj-assignee"]:checked');
       const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-      const scopeCheckboxes = document.querySelectorAll('.new-prj-scope-item:checked');
-      const scope = Array.from(scopeCheckboxes).map(cb => ({
-        room: cb.getAttribute('data-room'),
-        item: cb.getAttribute('data-item')
-      }));
+      const scope = scopeEditor.getSelectedScope();
 
       const loadedDb = DB.load();
       
@@ -3536,27 +3739,10 @@ export const UI = {
           </div>
         </div>
 
-        <!-- 2-level Scope of work checkboxes -->
+        <!-- 2-level Scope of work collapsible accordion editor -->
         <div>
           <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
-          <div style="max-height: 180px; overflow-y: auto; display:flex; flex-direction:column; gap:12px; border:1px solid var(--border-color); border-radius:10px; padding:12px; background-color:rgba(0,0,0,0.1);">
-            ${Object.entries(DEFAULT_SCOPE_TEMPLATE).map(([room, items]) => `
-              <div>
-                <div style="font-weight:700; font-size:0.8rem; color:var(--text-primary); margin-bottom:4px;"><i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem;"></i> ${room}</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; padding-left:12px;">
-                  ${items.map(item => {
-                    const isChecked = project.scope && project.scope.some(s => s.room === room && s.item === item);
-                    return `
-                      <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
-                        <input type="checkbox" class="edit-prj-scope-item" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary);">
-                        <span>${item}</span>
-                      </label>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
+          <div id="edit-project-scope-container"></div>
         </div>
 
         <div>
@@ -3572,6 +3758,10 @@ export const UI = {
 
     const modal = Modal.create('Chỉnh Sửa Công Trình', html);
 
+    // Initialize scope editor with existing project scope
+    const scopeContainer = document.getElementById('edit-project-scope-container');
+    const scopeEditor = this.initScopeEditor(scopeContainer, project.scope || []);
+
     document.getElementById('edit-project-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const name = document.getElementById('edit-prj-name').value;
@@ -3580,11 +3770,7 @@ export const UI = {
       const selectedCheckboxes = document.querySelectorAll('input[name="edit-prj-assignee"]:checked');
       const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-      const scopeCheckboxes = document.querySelectorAll('.edit-prj-scope-item:checked');
-      const scope = Array.from(scopeCheckboxes).map(cb => ({
-        room: cb.getAttribute('data-room'),
-        item: cb.getAttribute('data-item')
-      }));
+      const scope = scopeEditor.getSelectedScope();
 
       const updated = DB.updateProjectInfo(projectId, name, deadline, user.id, assignees, scope);
       if (updated) {
