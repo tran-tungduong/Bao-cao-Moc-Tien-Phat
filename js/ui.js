@@ -1716,7 +1716,6 @@ export const UI = {
         <button class="tab-btn active" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Tiến Độ</button>
         <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
-        <button class="tab-btn" id="tab-attendance-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-user-clock"></i> Trạng Thái Nhân Sự</button>
         <button class="tab-btn" id="tab-dashboard-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Báo Cáo</button>
       </div>
 
