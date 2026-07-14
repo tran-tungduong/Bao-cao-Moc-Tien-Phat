@@ -2,15 +2,10 @@ import { DB } from './db.js';
 import { Toast, Modal, MockImages } from './components.js';
 
 export const STEPS = [
-  { num: 1, title: 'Khảo Sát', icon: 'fa-compass', desc: 'Sales/KTS tiếp nhận & đo đạc' },
-  { num: 2, title: 'Thiết Kế Sơ Bộ', icon: 'fa-drafting-compass', desc: 'Lên phương án bố trí + Khái toán giá' },
-  { num: 3, title: 'Concept 2D/3D', icon: 'fa-cube', desc: 'Triển khai phối cảnh không gian 3D' },
-  { num: 4, title: 'Bóc Tách & Báo Giá', icon: 'fa-calculator', desc: 'Bổ kỹ thuật + Chốt khối lượng chính thức' },
-  { num: 5, title: 'Chờ Vật Tư', icon: 'fa-boxes', desc: 'Đặt hàng ván, phụ kiện về xưởng' },
-  { num: 6, title: 'Cắt CNC & Dán', icon: 'fa-industry', desc: 'Gia công thô tấm cấu kiện gỗ' },
-  { num: 7, title: 'Ráp Thử Tại Xưởng', icon: 'fa-tools', desc: 'Lắp dựng kiểm tra kết cấu tại xưởng' },
-  { num: 8, title: 'Lắp Đặt Công Trình', icon: 'fa-truck-moving', desc: 'Lắp đặt hoàn thiện tại nhà khách' },
-  { num: 9, title: 'Nghiệm Thu & Bàn Giao', icon: 'fa-file-signature', desc: 'Vệ sinh, ký bàn giao hoàn thiện' }
+  { num: 1, title: 'Thiết Kế', icon: 'fa-drafting-compass', desc: 'Lên phương án phối cảnh 2D/3D & chốt báo giá' },
+  { num: 2, title: 'Gia Công Tại Xưởng', icon: 'fa-industry', desc: 'Sản xuất, cắt CNC, dán cạnh và ráp thử tại xưởng' },
+  { num: 3, title: 'Lắp Ráp Tại Công Trình', icon: 'fa-truck-moving', desc: 'Vận chuyển & lắp ráp hoàn thiện tại công trình' },
+  { num: 4, title: 'Đã Bàn Giao', icon: 'fa-file-signature', desc: 'Vệ sinh, nghiệm thu bàn giao cho chủ nhà' }
 ];
 
 export const DEFAULT_SCOPE_TEMPLATE = {
@@ -1008,10 +1003,10 @@ export const UI = {
       });
 
       // Check deadline
-      const isOverdue = new Date(p.deadline) < new Date() && p.step < 9 && !p.isFrozen;
+      const isOverdue = new Date(p.deadline) < new Date() && p.step < 4;
 
       return `
-        <div class="report-card ${p.isFrozen ? 'frozen-card' : ''}" style="${p.isFrozen ? 'border-left: 4px solid var(--primary);' : ''}">
+        <div class="report-card" style="border-left: 1px solid var(--border-color);">
           <div class="report-card-header">
             <div>
               <div class="report-project">${p.name}</div>
@@ -1022,19 +1017,18 @@ export const UI = {
             </div>
             <div style="text-align:right;">
               <span class="status-badge approved" style="font-weight: 700;">
-                <i class="fas ${stepInfo.icon}"></i> Bước ${p.step}/9
+                <i class="fas ${stepInfo.icon}"></i> GĐ ${p.step}/4
               </span>
               <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-top:4px;">${stepInfo.title}</div>
             </div>
           </div>
 
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            ${p.isFrozen ? `<span class="status-badge pending" style="background-color:rgba(210, 144, 98, 0.2); font-weight:700;"><i class="fas fa-snowflake"></i> ĐÓNG BĂNG: ${p.freezeReason}</span>` : ''}
             ${p.isRework ? '<span class="status-badge rejected" style="font-weight:700;"><i class="fas fa-exclamation-triangle"></i> [SỬA HÀNG LỖI]</span>' : ''}
           </div>
 
           <div class="report-content" style="font-size:0.85rem;">
-            <strong>Mô tả bước:</strong> ${stepInfo.desc}
+            <strong>Mô tả giai đoạn:</strong> ${stepInfo.desc}
           </div>
 
           <!-- Subtasks assigned to this user -->
@@ -1081,25 +1075,19 @@ export const UI = {
             <!-- Advance step -->
             ${isManagementRole ? `
               <button class="btn-advance-step btn-action" data-project="${p.id}" 
-                style="background: ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700;"
-                ${p.isFrozen || (p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 9 ? 'disabled' : ''}>
-                <i class="fas fa-arrow-circle-right"></i> Qua Bước Tiếp Theo
+                style="background: ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700; grid-column: span 2;"
+                ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 4 ? 'disabled' : ''}>
+                <i class="fas fa-arrow-circle-right"></i> Qua Giai Đoạn Tiếp Theo
               </button>
             ` : ''}
 
-            <!-- Freeze Project -->
-            ${isManagementRole ? (p.isFrozen
-              ? `<button class="btn-unfreeze-project btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; font-weight:700;"><i class="fas fa-play"></i> Bỏ Đóng Băng</button>`
-              : `<button class="btn-freeze-project-modal btn-action" data-project="${p.id}" data-step="${p.step}" style="background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; font-weight:700;"><i class="fas fa-snowflake"></i> Đóng Băng</button>`
-            ) : ''}
-
             <!-- Rework -->
-            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; ${!isManagementRole ? 'grid-column: span 1;' : ''}">
+            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span 1;">
               <i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi
             </button>
 
             <!-- Add Scope -->
-            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; ${!isManagementRole ? 'grid-column: span 1;' : ''}">
+            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; grid-column: span 1;">
               <i class="fas fa-plus"></i> Phát Sinh Thêm
             </button>
 
@@ -1164,30 +1152,12 @@ export const UI = {
         try {
           const prj = DB.advanceProject(prjId, user.id);
           if (prj) {
-            Toast.success(`Chúc mừng! Công trình đã sang bước ${prj.step}: ${STEPS.find(s => s.num === prj.step).title}`);
+            Toast.success(`Chúc mừng! Công trình đã sang giai đoạn ${prj.step}: ${STEPS.find(s => s.num === prj.step).title}`);
             if (onUpdate) onUpdate(); else this.renderWorkerView(user);
           }
         } catch (err) {
           Toast.error(err.message);
         }
-      });
-    });
-
-    listContainer.querySelectorAll('.btn-unfreeze-project').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const prjId = btn.getAttribute('data-project');
-        DB.unfreezeProject(prjId, user.id);
-        Toast.success('Đã gỡ đóng băng, tiếp tục tính thời gian.');
-        if (onUpdate) onUpdate(); else this.renderWorkerView(user);
-      });
-    });
-
-    // Modal forms triggers
-    listContainer.querySelectorAll('.btn-freeze-project-modal').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const prjId = btn.getAttribute('data-project');
-        const step = parseInt(btn.getAttribute('data-step'));
-        this.openFreezeModal(prjId, step, user, onUpdate);
       });
     });
 
@@ -1401,85 +1371,7 @@ export const UI = {
     });
   },
 
-  // 4. OPEN FREEZE MODAL DIALOG
-  openFreezeModal(projectId, step, user, onUpdate = null) {
-    const html = `
-      <form id="freeze-form" style="display:flex; flex-direction:column; gap:16px;">
-        <div>
-          <label class="form-label">Lý do đóng băng tiến độ</label>
-          <input type="text" id="freeze-reason" class="form-input" placeholder="Ví dụ: Khách chưa bàn giao mặt bằng, Chờ duyệt màu Acrylic..." required style="padding-left:14px;">
-        </div>
 
-        ${step === 8 ? `
-          <div id="freeze-photo-area">
-            <label class="form-label">Ảnh minh chứng hiện trường bị tắc (Bắt buộc)</label>
-            <div class="photo-uploader" id="freeze-photo-uploader">
-              <i class="fas fa-camera"></i>
-              <p style="font-size:0.85rem; margin-top:4px;">Chụp ảnh hiện trường tắc nghẽn</p>
-              <input type="file" id="freeze-photo-file-input" accept="image/*" style="display:none;">
-            </div>
-            <div class="upload-preview-container" id="freeze-preview-container"></div>
-          </div>
-        ` : ''}
-
-        <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--status-pending), #C27A4A);">
-          <i class="fas fa-snowflake"></i> Đóng Băng Tiến Độ
-        </button>
-      </form>
-    `;
-
-    const modal = Modal.create('Yêu Cầu Đóng Băng Tiến Độ', html);
-    let proofPhotoUrl = null;
-
-    if (step === 8) {
-      const uploader = document.getElementById('freeze-photo-uploader');
-      const fileInput = document.getElementById('freeze-photo-file-input');
-      const preview = document.getElementById('freeze-preview-container');
-
-      uploader.addEventListener('click', () => {
-        fileInput.click();
-      });
-
-      fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          try {
-            Toast.info('Đang nén và xử lý hình ảnh...');
-            proofPhotoUrl = await this.compressImage(file);
-            preview.innerHTML = `
-              <div class="upload-preview-item" style="width:100px;">
-                <img src="${proofPhotoUrl}">
-                <button type="button" class="upload-preview-remove" id="remove-proof-photo">&times;</button>
-              </div>
-            `;
-            document.getElementById('remove-proof-photo').addEventListener('click', (e) => {
-              e.stopPropagation();
-              proofPhotoUrl = null;
-              preview.innerHTML = '';
-            });
-          } catch (err) {
-            console.error(err);
-            Toast.error('Không thể đọc file ảnh.');
-          }
-        }
-        fileInput.value = '';
-      });
-    }
-
-    document.getElementById('freeze-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const reason = document.getElementById('freeze-reason').value;
-
-      try {
-        DB.freezeProject(projectId, reason, proofPhotoUrl, user.id);
-        Toast.success('Dự án đã được đóng băng tiến độ thành công.');
-        modal.close();
-        if (onUpdate) onUpdate(); else this.renderWorkerView(user);
-      } catch (err) {
-        Toast.error(err.message);
-      }
-    });
-  },
 
   // 5. OPEN REWORK MODAL DIALOG (BÁO LỖI SỬA HÀNG)
   openReworkModal(projectId, user, onUpdate = null) {
@@ -2203,12 +2095,12 @@ export const UI = {
 
       cardsContainer.innerHTML = filtered.map(p => {
         const stepInfo = STEPS.find(s => s.num === p.step) || STEPS[0];
-        const isOverdue = new Date(p.deadline) < new Date() && p.step < 9 && !p.isFrozen;
+        const isOverdue = new Date(p.deadline) < new Date() && p.step < 4;
         const pendingRework = p.subtasks.filter(st => st.type === 'rework' && st.status === 'pending');
         const pendingScope = p.subtasks.filter(st => st.type === 'small_scope' && st.status === 'pending');
 
         return `
-          <div class="report-card manager-project-card ${p.isFrozen ? 'frozen-card' : ''}" data-id="${p.id}" style="cursor:pointer; position:relative; ${p.isFrozen ? 'border-left: 4px solid var(--primary);' : ''}">
+          <div class="report-card manager-project-card" data-id="${p.id}" style="cursor:pointer; position:relative; border-left: 1px solid var(--border-color);">
             <div class="report-card-header">
               <div>
                 <div class="report-project" style="font-size:1.05rem;">${p.name}</div>
@@ -2219,24 +2111,23 @@ export const UI = {
               </div>
               <div style="text-align:right;">
                 <span class="status-badge approved" style="font-weight:700;">
-                  Bước ${p.step}/9
+                  GĐ ${p.step}/4
                 </span>
                 <div style="font-size:0.75rem; font-weight:600; color:var(--primary); margin-top:4px;">${stepInfo.title}</div>
               </div>
             </div>
 
-            <!-- Mini progress segments segmenting the 9 steps -->
+            <!-- Mini progress segments segmenting the 4 steps -->
             <div style="display:flex; gap:3px; height:5px; margin-top:10px; background-color:rgba(255,255,255,0.02); border-radius:3px; overflow:hidden;">
-              ${Array.from({ length: 9 }).map((_, idx) => {
-          const isActive = (idx + 1) <= p.step;
-          const color = isActive ? 'var(--status-approved)' : 'rgba(255,255,255,0.06)';
-          return `<div style="flex:1; background-color:${color}; transition:all 0.3s; border-radius:1px;"></div>`;
-        }).join('')}
+              ${Array.from({ length: 4 }).map((_, idx) => {
+                const isActive = (idx + 1) <= p.step;
+                const color = isActive ? 'var(--status-approved)' : 'rgba(255,255,255,0.06)';
+                return `<div style="flex:1; background-color:${color}; transition:all 0.3s; border-radius:1px;"></div>`;
+              }).join('')}
             </div>
 
             <!-- Tags section -->
             <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
-              ${p.isFrozen ? `<span class="status-badge pending" style="background-color:rgba(210, 144, 98, 0.15); font-size:0.7rem; font-weight:700;"><i class="fas fa-snowflake"></i> ĐÓNG BĂNG: ${p.freezeReason}</span>` : ''}
               ${p.isRework ? '<span class="status-badge rejected" style="font-size:0.7rem; font-weight:700;"><i class="fas fa-exclamation-triangle"></i> [SỬA HÀNG LỖI]</span>' : ''}
               ${p.dailyLogs.length > 0 && p.dailyLogs[0].status === 'delayed' ? '<span class="status-badge rejected" style="font-size:0.7rem; background-color:rgba(201, 91, 91, 0.08);"><i class="fas fa-clock"></i> Báo chậm gần nhất</span>' : ''}
             </div>
@@ -2599,7 +2490,7 @@ export const UI = {
           
           <!-- Visual Stepper: completed steps are filled -->
           <div style="margin: 12px 0 16px 0;">
-            <label class="form-label" style="font-size:0.75rem; margin-bottom:8px; display:block;">Trình tự các bước (9 Bước cố định):</label>
+            <label class="form-label" style="font-size:0.75rem; margin-bottom:8px; display:block;">Trình tự các giai đoạn (4 Giai đoạn):</label>
             <div class="stepper-scroll-container" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory;">
               ${STEPS.map((s, idx) => {
       const isCompleted = s.num < project.step;
@@ -2642,20 +2533,16 @@ export const UI = {
 
         <!-- System state & action buttons -->
         <div style="display:flex; flex-direction:column; gap:8px;">
-          ${isManagementRole && project.isFrozen
-            ? `<button class="btn-approve" id="drawer-btn-unfreeze" style="padding:14px 16px; font-size:0.85rem; width:100%; background:linear-gradient(135deg, #10B981, #059669); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Hủy Đóng Băng (Mở Đếm Ngược)</button>`
-            : ''
-          }
-          ${isManagementRole && project.step < 9 && !project.isFrozen && nextStepInfo
+          ${isManagementRole && project.step < 4 && nextStepInfo
             ? `
               <button class="btn-primary" id="drawer-btn-advance" style="padding:12px 16px; font-size:0.88rem; width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; height:auto; line-height:1.3; background:linear-gradient(135deg, #4F46E5, #4338CA); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;">
-                <span style="font-weight:700;"><i class="fas fa-step-forward"></i> Phê Duyệt Sang Bước Tiếp Theo</span>
-                <span style="font-size:0.7rem; opacity:0.85; font-weight:normal;">Lên: Bước ${nextStepInfo.num} - ${nextStepInfo.title}</span>
+                <span style="font-weight:700;"><i class="fas fa-step-forward"></i> Phê Duyệt Sang Giai Đoạn Tiếp Theo</span>
+                <span style="font-size:0.7rem; opacity:0.85; font-weight:normal;">Lên: GĐ ${nextStepInfo.num} - ${nextStepInfo.title}</span>
               </button>
             `
             : ''
           }
-          ${isManagementRole && project.step === 9 && !project.isCompleted
+          ${isManagementRole && project.step === 4 && !project.isCompleted
             ? `
               <button class="btn-primary" id="drawer-btn-complete-project" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
                 <i class="fas fa-check-double"></i> Hoàn Thành Công Trình
@@ -2663,12 +2550,9 @@ export const UI = {
             `
             : ''
           }
-          ${!project.isCompleted && !project.isFrozen
+          ${!project.isCompleted
             ? `
-              <div style="display:grid; grid-template-columns:${isManagementRole ? '1fr 1fr' : '1fr'}; gap:8px; width:100%;">
-                ${isManagementRole ? `<button class="btn-action" id="drawer-btn-freeze" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #3B82F6, #1D4ED8); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-snowflake"></i> Đóng Băng</button>` : ''}
-                <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
-              </div>
+              <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2; width:100%; margin-bottom:8px;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
               <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
             `
             : ''
@@ -2970,27 +2854,7 @@ export const UI = {
       });
     }
 
-    // Unfreeze click
-    const btnUnfreeze = document.getElementById('drawer-btn-unfreeze');
-    if (btnUnfreeze) {
-      btnUnfreeze.addEventListener('click', () => {
-        DB.unfreezeProject(projectId, user.id);
-        Toast.success('Đã gỡ đóng băng dự án.');
-        drawer.close();
-        onUpdate();
-      });
-    }
 
-    // Freeze click
-    const btnFreeze = document.getElementById('drawer-btn-freeze');
-    if (btnFreeze) {
-      btnFreeze.addEventListener('click', () => {
-        this.openFreezeModal(projectId, project.step, user, () => {
-          drawer.close();
-          onUpdate();
-        });
-      });
-    }
 
     // Rework click
     const btnRework = document.getElementById('drawer-btn-rework');
@@ -3021,7 +2885,7 @@ export const UI = {
         try {
           const prj = DB.advanceProject(projectId, user.id);
           if (prj) {
-            Toast.success('Đã duyệt chuyển bước thành công!');
+            Toast.success('Đã duyệt chuyển giai đoạn thành công!');
             drawer.close();
             onUpdate();
           }

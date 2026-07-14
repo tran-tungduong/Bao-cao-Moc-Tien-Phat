@@ -277,7 +277,31 @@ export const DB = {
       });
     }
 
-    if (dbChanged || assigneesChanged) {
+    // Auto-update: Migrate project.step from 9-step system to 4-phase system
+    let stepsMigrated = false;
+    if (db.projects) {
+      db.projects.forEach(p => {
+        if (!p._migratedToPhases) {
+          const oldStep = p.step || 1;
+          let newStep = 1;
+          if (oldStep <= 2) {
+            newStep = 1; // Thiết Kế
+          } else if (oldStep <= 5) {
+            newStep = 2; // Gia Công Tại Xưởng
+          } else if (oldStep <= 8) {
+            newStep = 3; // Lắp Ráp Tại Công Trình
+          } else {
+            newStep = 4; // Đã Bàn Giao
+          }
+          p.step = newStep;
+          p.isFrozen = false; // Unfreeze all projects during migration
+          p._migratedToPhases = true;
+          stepsMigrated = true;
+        }
+      });
+    }
+
+    if (dbChanged || assigneesChanged || stepsMigrated) {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
       this.pushToServer(db);
     }
@@ -368,10 +392,7 @@ export const DB = {
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
 
-    if (project && project.step < 9) {
-      if (project.isFrozen) {
-        throw new Error('Không thể tiến hành khi dự án đang bị ĐÓNG BĂNG.');
-      }
+    if (project && project.step < 4) {
       if (project.isRework && project.subtasks.some(st => st.type === 'rework' && st.status === 'pending')) {
         throw new Error('Không thể tiến hành khi có NHIỆM VỤ SỬA LỖI chưa hoàn thành.');
       }
@@ -379,69 +400,9 @@ export const DB = {
       project.step += 1;
       project.history.push({
         timestamp: new Date().toISOString(),
-        action: `Chuyển tiến độ sang Bước ${project.step}`,
+        action: `Chuyển tiến độ sang Giai đoạn ${project.step}`,
         user: user ? user.name : 'Nhân viên'
       });
-      this.save(db);
-      return project;
-    }
-    return null;
-  },
-
-  // Freeze project (Đóng băng tiến độ)
-  freezeProject(projectId, reason, proofPhoto = null, userId) {
-    const db = this.load();
-    const project = db.projects.find(p => p.id === projectId);
-    const user = db.users.find(u => u.id === userId);
-
-    if (project) {
-      if (project.step === 8 && !proofPhoto) {
-        throw new Error('Bắt buộc phải đính kèm ảnh bằng chứng khi báo cáo tắc nghẽn hiện trường ở Bước 8.');
-      }
-
-      project.isFrozen = true;
-      project.freezeReason = reason;
-      project.freezeStartedAt = new Date().toISOString();
-
-      project.history.push({
-        timestamp: new Date().toISOString(),
-        action: `Đóng băng dự án do: ${reason}`,
-        user: user ? user.name : 'Nhân viên'
-      });
-
-      this.save(db);
-      return project;
-    }
-    return null;
-  },
-
-  // Unfreeze project (Mở băng tiến độ)
-  unfreezeProject(projectId, userId) {
-    const db = this.load();
-    const project = db.projects.find(p => p.id === projectId);
-    const user = db.users.find(u => u.id === userId);
-
-    if (project && project.isFrozen) {
-      const start = new Date(project.freezeStartedAt).getTime();
-      const end = Date.now();
-      const elapsed = end - start;
-
-      project.totalFreezeTime = (project.totalFreezeTime || 0) + elapsed;
-      project.isFrozen = false;
-      project.freezeReason = null;
-      project.freezeStartedAt = null;
-
-      // Extend deadline by the frozen duration
-      const currentDeadlineObj = new Date(project.deadline);
-      const newDeadline = new Date(currentDeadlineObj.getTime() + elapsed);
-      project.deadline = newDeadline.toISOString().split('T')[0];
-
-      project.history.push({
-        timestamp: new Date().toISOString(),
-        action: `Mở băng dự án, tiếp tục đếm ngược tiến độ`,
-        user: user ? user.name : 'Nhân viên'
-      });
-
       this.save(db);
       return project;
     }
@@ -654,8 +615,8 @@ export const DB = {
       const todayRecord = db.attendance ? db.attendance.find(a => a.userId === userId && a.date === today) : null;
       const isWorkshopToday = todayRecord && (todayRecord.isWorkingAtWorkshop === true || todayRecord.isWorkingAtWorkshop === 'true');
 
-      // Needs approval if: is assistant, project step is 8 (installation) AND they are not assigned to work at workshop today
-      const needsApproval = isAssistant && project.step === 8 && !isWorkshopToday;
+      // Needs approval if: is assistant, project step is 3 (installation at site) AND they are not assigned to work at workshop today
+      const needsApproval = isAssistant && project.step === 3 && !isWorkshopToday;
 
       const newLog = {
         id: logId,
@@ -818,17 +779,17 @@ export const DB = {
 
     // 1. Biểu đồ luồng (Pipeline distribution)
     const pipeline = {
-      design: 0,    // Bước 1-4
-      workshop: 0,  // Bước 5-7
-      onsite: 0,    // Bước 8
-      completed: 0  // Bước 9
+      design: 0,    // Giai đoạn 1: Thiết Kế
+      workshop: 0,  // Giai đoạn 2: Gia Công Tại Xưởng
+      onsite: 0,    // Giai đoạn 3: Lắp Ráp Tại Công Trình
+      completed: 0  // Giai đoạn 4: Đã Bàn Giao
     };
 
     projects.forEach(p => {
-      if (p.step >= 1 && p.step <= 4) pipeline.design++;
-      else if (p.step >= 5 && p.step <= 7) pipeline.workshop++;
-      else if (p.step === 8) pipeline.onsite++;
-      else if (p.step === 9) pipeline.completed++;
+      if (p.step === 1) pipeline.design++;
+      else if (p.step === 2) pipeline.workshop++;
+      else if (p.step === 3) pipeline.onsite++;
+      else if (p.step === 4 || p.isCompleted) pipeline.completed++;
     });
 
     // 2. Tỷ lệ lỗi (Đỏ) & Phát sinh (Cam)
