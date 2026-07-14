@@ -356,14 +356,7 @@ export const UI = {
         `;
       }
     } else {
-      assignmentBannerHtml = `
-        <div class="material-stats-card fade-in" style="background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-left: 5px solid var(--text-muted); margin-bottom: 16px; padding: 14px 16px; border-radius: 16px;">
-          <div style="font-size: 0.85rem; color: var(--text-muted); display:flex; align-items:center; gap:8px;">
-            <i class="fas fa-clock"></i>
-            <span>Chờ KTS Nhật Long hoặc Sếp phân công công việc hôm nay... ⏳</span>
-          </div>
-        </div>
-      `;
+      assignmentBannerHtml = '';
     }
 
     // Filter projects relevant to worker role

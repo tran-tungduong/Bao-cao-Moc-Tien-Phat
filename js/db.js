@@ -684,8 +684,8 @@ export const DB = {
     const db = this.load();
     if (!db.attendance) db.attendance = [];
 
-    // Filter managers, only show other staff members
-    const targetUsers = db.users.filter(u => u.role !== 'manager');
+    // Temporarily only check attendance for workers (lead_worker and assistant_worker)
+    const targetUsers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
 
     return targetUsers.map(user => {
       const record = db.attendance.find(a => a.userId === user.id && a.date === date);
