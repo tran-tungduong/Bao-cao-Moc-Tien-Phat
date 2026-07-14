@@ -3854,11 +3854,6 @@ export const UI = {
         if (!grouped[s.room]) grouped[s.room] = [];
         grouped[s.room].push(s.item);
       });
-    } else {
-      // Default set of rooms
-      grouped['Phòng ngủ'] = [];
-      grouped['Phòng khách'] = [];
-      grouped['Phòng bếp'] = [];
     }
 
     const templateItems = {
@@ -3874,17 +3869,19 @@ export const UI = {
       container.innerHTML = `
         <div style="display:block;">
           <!-- Add new Room inline panel -->
-          <div style="display:flex; gap:8px; background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; align-items:center; border:1px dashed rgba(255,255,255,0.15); margin-bottom:12px;">
-            <select id="scope-add-template" class="form-select" style="height:36px; font-size:0.75rem; padding:4px 8px; flex:1; margin:0;">
-              <option value="Phòng ngủ">Mẫu: Phòng ngủ</option>
-              <option value="Phòng khách">Mẫu: Phòng khách</option>
-              <option value="Phòng bếp">Mẫu: Phòng bếp</option>
-              <option value="Phòng thờ">Mẫu: Phòng thờ</option>
-              <option value="Phòng tắm">Mẫu: Phòng tắm</option>
-              <option value="Khác...">Mẫu: Khác...</option>
-            </select>
-            <input type="text" id="scope-add-name" class="form-input" placeholder="Tên phòng (VD: Phòng ngủ con)" style="height:36px; font-size:0.75rem; padding-left:10px; flex:1.5; margin:0;">
-            <button type="button" id="scope-btn-add-room" class="btn-primary" style="height:36px; padding:0 12px; font-size:0.75rem; width:auto; white-space:nowrap; margin:0;"><i class="fas fa-plus"></i> Thêm</button>
+          <div style="display:flex; gap:10px; background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px dashed rgba(255,255,255,0.15); margin-bottom:12px; align-items:stretch;">
+            <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+              <select id="scope-add-template" class="form-select" style="height:40px; font-size:0.8rem; padding:4px 8px; margin:0;">
+                <option value="Phòng ngủ">Mẫu: Phòng ngủ</option>
+                <option value="Phòng khách">Mẫu: Phòng khách</option>
+                <option value="Phòng bếp">Mẫu: Phòng bếp</option>
+                <option value="Phòng thờ">Mẫu: Phòng thờ</option>
+                <option value="Phòng tắm">Mẫu: Phòng tắm</option>
+                <option value="Khác...">Mẫu: Khác...</option>
+              </select>
+              <input type="text" id="scope-add-name" class="form-input" placeholder="Tên phòng (VD: Phòng ngủ con)" style="height:40px; font-size:0.8rem; padding-left:10px; margin:0;">
+            </div>
+            <button type="button" id="scope-btn-add-room" class="btn-primary" style="width:75px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:0.8rem; margin:0; height:auto; padding:0;"><i class="fas fa-plus"></i> Thêm</button>
           </div>
 
           <!-- Accordion list: block layout so items never get squished -->
@@ -4043,18 +4040,18 @@ export const UI = {
       <form id="create-project-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
           <label class="form-label">Tên công trình nội thất</label>
-          <input type="text" id="new-prj-name" class="form-input" placeholder="Ví dụ: Mandarin Garden - Căn A10" required style="padding-left:14px;">
+          <input type="text" id="new-prj-name" class="form-input" placeholder="Mandarin Garden - Căn A10" required style="padding-left:14px;">
         </div>
 
         <!-- 2-level Scope of work collapsible accordion editor -->
         <div>
-          <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
+          <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công</label>
           <div id="new-project-scope-container"></div>
         </div>
 
-        <div>
-          <label class="form-label">Hạn hoàn thành tổng (Deadline)</label>
-          <input type="date" id="new-prj-deadline" class="form-input" required style="padding-left:14px;">
+        <div style="background-color: rgba(188, 156, 116, 0.08); padding: 14px; border-radius: 12px; border: 1px dashed var(--primary); margin-top: 4px;">
+          <label class="form-label" style="margin-bottom:6px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;"><i class="fas fa-calendar-alt"></i> Hạn hoàn thành tổng (Deadline)</label>
+          <input type="date" id="new-prj-deadline" class="form-input" required style="padding-left:14px; border-color: var(--primary);">
         </div>
 
         <button type="submit" class="btn-primary" style="margin-top:12px;">Tạo Thẻ Công Trình</button>
