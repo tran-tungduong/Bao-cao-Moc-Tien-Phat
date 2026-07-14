@@ -1,5 +1,5 @@
 // Simple Service Worker to make the app PWA-installable
-const CACHE_NAME = 'furni-report-cache-v71';
+const CACHE_NAME = 'furni-report-cache-v72';
 const ASSETS = [
   './',
   './index.html',

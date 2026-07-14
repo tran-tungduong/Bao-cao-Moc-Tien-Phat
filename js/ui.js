@@ -413,72 +413,87 @@ export const UI = {
         </div>
       ` : ''}
 
-      <div class="section-header fade-in">
-        <h3 class="section-title">Báo Cáo Nhanh Cuối Ngày</h3>
+      <!-- Tabs for worker daily report / edit reports -->
+      <div class="tabs-container fade-in" style="display:flex; border-bottom:2px solid var(--border-color); margin-top:20px; margin-bottom:16px;">
+        <button class="tab-btn active" id="tab-create-report" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--primary); border-bottom:2px solid var(--primary); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
+          <i class="fas fa-edit"></i> Báo Cáo Cuối Ngày
+        </button>
+        <button class="tab-btn" id="tab-edit-reports" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
+          <i class="fas fa-history"></i> Lịch Sử & Sửa Báo Cáo
+        </button>
       </div>
 
-      <!-- Compact Daily Log Form -->
-      <div class="material-stats-card fade-in" style="margin-bottom: 28px; background-color: var(--bg-secondary);">
-        <form id="daily-log-form" style="display:flex; flex-direction:column; gap:16px;">
-          <div>
-            <label class="form-label">Chọn công trình</label>
-            <select id="log-project-id" class="form-select" required>
-              ${relevantProjects.map(p => `<option value="${p.id}">${p.name} (Bước ${p.step})</option>`).join('')}
-              ${relevantProjects.length === 0 ? '<option value="" disabled>Không có công trình nào phù hợp</option>' : ''}
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Tình trạng tiến độ ngày hôm nay</label>
-            <div style="display:flex; gap:16px; margin-top:4px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="radio" name="log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
-                <span>Đúng tiến độ ✅</span>
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="radio" name="log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
-                <span>Bị chậm ⚠️</span>
-              </label>
-            </div>
-          </div>
-
-          ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
-            <!-- 3-level dynamic checklist for workers -->
-            <div id="checklist-builder-container" style="display:flex; flex-direction:column; gap:12px;">
-              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
-                <span>Hạng mục thi công chi tiết trong ngày</span>
-                <button type="button" id="btn-add-checklist-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
-                  <i class="fas fa-plus"></i> Thêm hạng mục
-                </button>
-              </label>
-              <div id="checklist-items-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-            </div>
-          ` : `
+      <!-- Tab Content: Create Report -->
+      <div id="tab-content-create-report" class="fade-in">
+        <div class="material-stats-card" style="margin-bottom: 28px; background-color: var(--bg-secondary); padding:16px; border-radius:16px; border:1px solid var(--border-color);">
+          <form id="daily-log-form" style="display:flex; flex-direction:column; gap:16px;">
             <div>
-              <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
-              <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
+              <label class="form-label">Chọn công trình</label>
+              <select id="log-project-id" class="form-select" required>
+                ${relevantProjects.map(p => `<option value="${p.id}">${p.name} (GĐ ${p.step})</option>`).join('')}
+                ${relevantProjects.length === 0 ? '<option value="" disabled>Không có công trình nào phù hợp</option>' : ''}
+              </select>
             </div>
-          `}
 
-          <div>
-            <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
-            <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
-          </div>
-
-          <div>
-            <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
-            <div class="photo-uploader" id="log-photo-uploader">
-              <i class="fas fa-camera"></i>
-              <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
-              <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
+            <div>
+              <label class="form-label">Tình trạng tiến độ ngày hôm nay</label>
+              <div style="display:flex; gap:16px; margin-top:4px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                  <input type="radio" name="log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
+                  <span>Đúng tiến độ ✅</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                  <input type="radio" name="log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
+                  <span>Bị chậm ⚠️</span>
+                </label>
+              </div>
             </div>
-            <div class="upload-preview-container" id="log-preview-container"></div>
-          </div>
 
-          <button type="submit" class="btn-primary" style="margin-top:8px;" ${relevantProjects.length === 0 ? 'disabled' : ''}>
-            <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
-          </button>
-        </form>
+            ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
+              <!-- 3-level dynamic checklist for workers -->
+              <div id="checklist-builder-container" style="display:flex; flex-direction:column; gap:12px;">
+                <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+                  <span>Hạng mục thi công chi tiết trong ngày</span>
+                  <button type="button" id="btn-add-checklist-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
+                    <i class="fas fa-plus"></i> Thêm hạng mục
+                  </button>
+                </label>
+                <div id="checklist-items-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+              </div>
+            ` : `
+              <div>
+                <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
+                <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
+              </div>
+            `}
+
+            <div>
+              <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
+              <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
+            </div>
+
+            <div>
+              <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
+              <div class="photo-uploader" id="log-photo-uploader">
+                <i class="fas fa-camera"></i>
+                <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
+                <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
+              </div>
+              <div class="upload-preview-container" id="log-preview-container"></div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="margin-top:8px;" ${relevantProjects.length === 0 ? 'disabled' : ''}>
+              <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Tab Content: Edit/History Reports -->
+      <div id="tab-content-edit-reports" class="fade-in" style="display:none;">
+        <div id="worker-history-reports-list" style="display:flex; flex-direction:column; gap:14px; margin-bottom:28px;">
+          <!-- Will be dynamically populated by renderWorkerHistoryReports -->
+        </div>
       </div>
     `;
 
@@ -651,7 +666,7 @@ export const UI = {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
         DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items);
         const prj = DB.getProject(prjId);
-        if (user.role === 'assistant_worker' && prj && prj.step === 8) {
+        if (user.role === 'assistant_worker' && prj && prj.step === 3) {
           Toast.success('Đã gửi báo cáo chờ thợ chính phê duyệt.');
         } else if (user.role === 'assistant_worker') {
           Toast.success('Đã gửi báo cáo thi công tại xưởng thành công! (Không cần duyệt)');
@@ -663,6 +678,141 @@ export const UI = {
         Toast.error(err.message);
       }
     });
+
+    // Helper function to render worker history reports
+    const renderWorkerHistoryReports = () => {
+      const historyListContainer = document.getElementById('worker-history-reports-list');
+      if (!historyListContainer) return;
+
+      const myLogs = [];
+      const db = DB.load();
+      db.projects.forEach(p => {
+        if (p.dailyLogs) {
+          p.dailyLogs.forEach(l => {
+            if (l.reporterId === user.id) {
+              myLogs.push({ project: p, log: l });
+            }
+          });
+        }
+      });
+
+      myLogs.sort((a, b) => b.log.date.localeCompare(a.log.date));
+
+      if (myLogs.length === 0) {
+        historyListContainer.innerHTML = `
+          <div style="text-align:center; padding: 32px; color:var(--text-muted); background-color:var(--bg-secondary); border-radius:20px; border:1px solid var(--border-color)">
+            <i class="fas fa-history" style="font-size:2rem; margin-bottom:8px;"></i>
+            <p style="font-size:0.85rem;">Bạn chưa gửi báo cáo nào.</p>
+          </div>
+        `;
+        return;
+      }
+
+      historyListContainer.innerHTML = myLogs.map(item => {
+        const p = item.project;
+        const l = item.log;
+        const isApproved = l.approved !== false;
+        
+        return `
+          <div class="material-stats-card" style="border-left: 4px solid ${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; padding: 14px 16px; background-color:var(--bg-secondary); display:flex; flex-direction:column; gap:8px; border-radius:16px; border:1px solid var(--border-color);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div>
+                <h5 style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 2px;">${p.name}</h5>
+                <p style="font-size: 0.76rem; color: var(--text-secondary);">
+                  Ngày báo cáo: <strong>${l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved);">Đã duyệt ✅</span>' : '<span style="color:var(--status-pending);">Chờ duyệt ⏳</span>'}
+                </p>
+              </div>
+              <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}" style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space:nowrap;">
+                ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
+              </span>
+            </div>
+            
+            <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${l.note}</div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px; flex-wrap:wrap; gap:8px;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);">
+                <i class="fas fa-camera"></i> ${l.photos ? l.photos.length : 0} ảnh | <i class="fas fa-calendar-alt"></i> Dự kiến xong: ${l.expectedCompletionDate ? new Date(l.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}
+              </span>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn-action btn-edit-my-log" data-projectid="${p.id}" data-logid="${l.id}" style="padding: 6px 12px; font-size: 0.75rem; background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; border-radius: 8px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;">
+                  <i class="fas fa-edit"></i> Sửa
+                </button>
+                <button type="button" class="btn-action btn-delete-my-log" data-projectid="${p.id}" data-logid="${l.id}" style="padding: 6px 12px; font-size: 0.75rem; background:linear-gradient(135deg, var(--status-rejected), #B91C1C); color:white; border:none; border-radius: 8px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;">
+                  <i class="fas fa-trash-alt"></i> Xóa
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Bind events for Edit/Delete buttons
+      historyListContainer.querySelectorAll('.btn-edit-my-log').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const prjId = btn.getAttribute('data-projectid');
+          const logId = btn.getAttribute('data-logid');
+          const prj = DB.getProject(prjId);
+          const logItem = prj ? prj.dailyLogs.find(x => x.id === logId) : null;
+          if (prj && logItem) {
+            this.openEditLogModal(prj, logItem, user, () => {
+              renderWorkerHistoryReports();
+            });
+          }
+        });
+      });
+
+      historyListContainer.querySelectorAll('.btn-delete-my-log').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const prjId = btn.getAttribute('data-projectid');
+          const logId = btn.getAttribute('data-logid');
+          if (confirm('Bạn có chắc chắn muốn xóa báo cáo này?')) {
+            const success = DB.deleteDailyLog(prjId, logId, user.id);
+            if (success) {
+              Toast.success('Đã xóa báo cáo.');
+              renderWorkerHistoryReports();
+            } else {
+              Toast.error('Không thể xóa báo cáo.');
+            }
+          }
+        });
+      });
+    };
+
+    // Tab switching event binding
+    const tabCreate = document.getElementById('tab-create-report');
+    const tabEdit = document.getElementById('tab-edit-reports');
+    const contentCreate = document.getElementById('tab-content-create-report');
+    const contentEdit = document.getElementById('tab-content-edit-reports');
+
+    if (tabCreate && tabEdit && contentCreate && contentEdit) {
+      tabCreate.addEventListener('click', () => {
+        tabCreate.classList.add('active');
+        tabCreate.style.color = 'var(--primary)';
+        tabCreate.style.borderBottom = '2px solid var(--primary)';
+        
+        tabEdit.classList.remove('active');
+        tabEdit.style.color = 'var(--text-muted)';
+        tabEdit.style.borderBottom = 'none';
+        
+        contentCreate.style.display = 'block';
+        contentEdit.style.display = 'none';
+      });
+
+      tabEdit.addEventListener('click', () => {
+        tabEdit.classList.add('active');
+        tabEdit.style.color = 'var(--primary)';
+        tabEdit.style.borderBottom = '2px solid var(--primary)';
+        
+        tabCreate.classList.remove('active');
+        tabCreate.style.color = 'var(--text-muted)';
+        tabCreate.style.borderBottom = 'none';
+        
+        contentCreate.style.display = 'none';
+        contentEdit.style.display = 'block';
+        
+        renderWorkerHistoryReports();
+      });
+    }
 
     // Populate pending logs list for lead worker review
     if (user.role === 'lead_worker') {
@@ -3140,6 +3290,184 @@ export const UI = {
     `;
 
     Modal.create('Chi Tiết Nhật Ký Báo Cáo', html);
+  },
+
+  openEditLogModal(project, log, user, onUpdate) {
+    const isWorker = log.items && log.items.length > 0;
+    let currentPhotos = [...(log.photos || [])];
+
+    const html = `
+      <form id="edit-log-form" style="display:flex; flex-direction:column; gap:16px; max-height:80vh; overflow-y:auto; padding:4px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);"><i class="fas fa-edit"></i> Chỉnh Sửa Báo Cáo</h4>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Công trình: <strong>${project.name}</strong> • Ngày: ${log.date}</p>
+        </div>
+
+        <div>
+          <label class="form-label">Tình trạng tiến độ</label>
+          <div style="display:flex; gap:16px; margin-top:4px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="edit-log-status" value="on_track" ${log.status === 'on_track' ? 'checked' : ''} style="accent-color:var(--status-approved); width:18px; height:18px;">
+              <span>Đúng tiến độ ✅</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="edit-log-status" value="delayed" ${log.status === 'delayed' ? 'checked' : ''} style="accent-color:var(--status-rejected); width:18px; height:18px;">
+              <span>Bị chậm ⚠️</span>
+            </label>
+          </div>
+        </div>
+
+        ${isWorker ? `
+          <div>
+            <label class="form-label">Cập nhật hạng mục thi công</label>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:6px;" id="edit-log-items-container">
+              ${log.items.map((it, idx) => `
+                <div class="edit-log-item-row" data-idx="${idx}" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">${it.room} ➔ <span style="color:var(--primary);">${it.item}</span></span>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; font-weight:600;">
+                      <input type="checkbox" class="edit-chk-completed" ${it.isCompleted ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--status-approved);">
+                      <span>Đã xong</span>
+                    </label>
+                  </div>
+                  <div class="edit-pending-notes-wrapper" style="display: ${it.isCompleted ? 'none' : 'block'};">
+                    <input type="text" class="edit-txt-pending-notes" value="${it.pendingNotes || ''}" class="form-input" placeholder="Việc cần làm còn lại..." style="font-size:0.75rem; height:32px; padding-left:8px; width:100%;">
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : `
+          <div>
+            <label class="form-label">Nội dung ghi chú báo cáo</label>
+            <textarea id="edit-log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required style="min-height:100px;">${log.note || ''}</textarea>
+          </div>
+        `}
+
+        <div>
+          <label class="form-label">Thời gian xong dự kiến</label>
+          <input type="date" id="edit-log-expected-completion" class="form-input" value="${log.expectedCompletionDate || ''}" required style="padding-left:14px; height:40px;">
+        </div>
+
+        <div>
+          <label class="form-label">Hình ảnh thực tế đính kèm (Bắt buộc tối thiểu 1 ảnh)</label>
+          <div class="photo-uploader" id="edit-log-photo-uploader" style="margin-bottom:8px;">
+            <i class="fas fa-camera"></i>
+            <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải thêm tệp</p>
+            <input type="file" id="edit-log-photo-file-input" accept="image/*" multiple style="display:none;">
+          </div>
+          <div class="upload-preview-container" id="edit-log-preview-container"></div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:12px;">
+          <i class="fas fa-save"></i> Lưu Thay Đổi
+        </button>
+      </form>
+    `;
+
+    const modal = Modal.create('Chỉnh Sửa Nhật Ký Báo Cáo', html);
+
+    if (isWorker) {
+      const rows = modal.element.querySelectorAll('.edit-log-item-row');
+      rows.forEach(row => {
+        const chk = row.querySelector('.edit-chk-completed');
+        const wrapper = row.querySelector('.edit-pending-notes-wrapper');
+        chk.addEventListener('change', () => {
+          wrapper.style.display = chk.checked ? 'none' : 'block';
+        });
+      });
+    }
+
+    const previewContainer = modal.element.querySelector('#edit-log-preview-container');
+    const uploader = modal.element.querySelector('#edit-log-photo-uploader');
+    const fileInput = modal.element.querySelector('#edit-log-photo-file-input');
+
+    const renderPreviews = () => {
+      previewContainer.innerHTML = currentPhotos.map((url, idx) => `
+        <div class="upload-preview-item" style="position:relative; width:80px; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--border-color);">
+          <img src="${url}" style="width:100%; height:100%; object-fit:cover;">
+          <button type="button" class="upload-preview-remove btn-remove-edit-photo" data-idx="${idx}" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px;">&times;</button>
+        </div>
+      `).join('');
+
+      previewContainer.querySelectorAll('.btn-remove-edit-photo').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-idx'));
+          currentPhotos.splice(idx, 1);
+          renderPreviews();
+        });
+      });
+    };
+
+    renderPreviews();
+
+    uploader.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      Toast.info('Đang nén và xử lý hình ảnh...');
+      for (const file of files) {
+        try {
+          const base64Img = await this.compressImage(file);
+          currentPhotos.push(base64Img);
+        } catch (err) {
+          console.error(err);
+          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
+        }
+      }
+      renderPreviews();
+      fileInput.value = '';
+    });
+
+    modal.element.querySelector('#edit-log-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const status = modal.element.querySelector('input[name="edit-log-status"]:checked').value;
+      const expectedDate = modal.element.querySelector('#edit-log-expected-completion').value;
+
+      if (currentPhotos.length < 1) {
+        Toast.error('Yêu cầu bắt buộc đính kèm tối thiểu 1 ảnh thực tế.');
+        return;
+      }
+
+      let note = '';
+      let items = undefined;
+
+      if (isWorker) {
+        items = [];
+        const rows = modal.element.querySelectorAll('.edit-log-item-row');
+        rows.forEach(row => {
+          const idx = parseInt(row.getAttribute('data-idx'));
+          const originalItem = log.items[idx];
+          const isCompleted = row.querySelector('.edit-chk-completed').checked;
+          const pendingNotes = row.querySelector('.edit-txt-pending-notes').value.trim();
+
+          items.push({
+            room: originalItem.room,
+            item: originalItem.item,
+            isCompleted: isCompleted,
+            pendingNotes: isCompleted ? '' : pendingNotes
+          });
+        });
+
+        note = items.map(it => {
+          return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
+        }).join('\n');
+      } else {
+        note = modal.element.querySelector('#edit-log-note').value;
+      }
+
+      const success = DB.editDailyLog(project.id, log.id, note, status, expectedDate, currentPhotos, items, user.id);
+      if (success) {
+        Toast.success('Cập nhật báo cáo thành công.');
+        modal.close();
+        onUpdate();
+      } else {
+        Toast.error('Chỉnh sửa báo cáo thất bại.');
+      }
+    });
   },
 
   // 10. OPEN ASSIGN SUBTASK MODAL FOR MANAGER

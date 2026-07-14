@@ -997,6 +997,33 @@ export const DB = {
     return null;
   },
 
+  // Edit daily log (Chỉnh sửa báo cáo nhật ký hàng ngày)
+  editDailyLog(projectId, logId, note, status, expectedCompletionDate, photos, items, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (project && project.dailyLogs) {
+      const log = project.dailyLogs.find(l => l.id === logId);
+      if (log) {
+        log.note = note;
+        log.status = status;
+        log.expectedCompletionDate = expectedCompletionDate;
+        if (photos !== undefined) log.photos = photos;
+        if (items !== undefined) log.items = items;
+        
+        project.history.push({
+          timestamp: new Date().toISOString(),
+          action: `Chỉnh sửa báo cáo của: ${log.reporterName} (Ngày: ${log.date})`,
+          user: user ? user.name : 'Nhân viên'
+        });
+
+        this.save(db);
+        return true;
+      }
+    }
+    return false;
+  },
+
   // Delete daily log (Xóa báo cáo nhật ký hàng ngày)
   deleteDailyLog(projectId, logId, userId) {
     const db = this.load();
