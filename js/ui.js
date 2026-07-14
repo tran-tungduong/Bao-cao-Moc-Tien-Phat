@@ -373,7 +373,7 @@ export const UI = {
       ${user.role === 'assistant_worker' ? `
         <div class="material-stats-card fade-in" style="margin-bottom: 16px; background-color: var(--bg-secondary); padding: 14px 16px; border-radius:16px; border:1px solid var(--border-color);">
           <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc cùng Thợ chính:</label>
-          <select id="worker-lead-selector" class="form-select" style="padding-left:14px; height:40px;">
+          <select id="worker-lead-selector" class="form-select">
             <option value="" disabled ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chọn Thợ chính đồng hành --</option>
             ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
           </select>
@@ -443,7 +443,7 @@ export const UI = {
             ${user.role === 'assistant_worker' ? `
               <div>
                 <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
-                <select id="log-approver-id" class="form-select" required style="padding-left:14px; height:40px;">
+                <select id="log-approver-id" class="form-select" required>
                   ${leadWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
                   ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
                 </select>
@@ -2138,7 +2138,7 @@ export const UI = {
 
           <div>
             <label class="form-label">Phân công công trình hôm nay</label>
-            <select id="edit-att-project-id" class="form-select" style="height:42px;">
+            <select id="edit-att-project-id" class="form-select">
               <option value="">-- Chưa phân công --</option>
               ${activeProjects.map(p => `<option value="${p.id}" ${record.workingProjectId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
             </select>
@@ -3336,7 +3336,7 @@ export const UI = {
         ${user.role === 'assistant_worker' ? `
           <div>
             <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
-            <select id="edit-log-approver-id" class="form-select" required style="padding-left:14px; height:40px;">
+            <select id="edit-log-approver-id" class="form-select" required>
               ${leadWorkers.map(w => `<option value="${w.id}" ${log.approverId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
               ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
             </select>
@@ -3527,7 +3527,7 @@ export const UI = {
 
         <div>
           <label class="form-label">Giao nhân sự phụ trách</label>
-          <select id="assign-task-worker" class="form-select" required style="padding-left:14px; height:42px;">
+          <select id="assign-task-worker" class="form-select" required>
             ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
           </select>
         </div>
