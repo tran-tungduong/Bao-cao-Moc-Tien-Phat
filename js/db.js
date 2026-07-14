@@ -597,7 +597,7 @@ export const DB = {
   },
 
   // Submit Daily Log (Báo cáo cuối ngày)
-  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '', items = []) {
+  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '', items = [], approverId = '') {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -629,7 +629,8 @@ export const DB = {
         photos: photos,
         expectedCompletionDate: expectedCompletionDate,
         items: items,
-        approved: !needsApproval
+        approved: !needsApproval,
+        approverId: approverId
       };
 
       project.dailyLogs.unshift(newLog);
@@ -998,7 +999,7 @@ export const DB = {
   },
 
   // Edit daily log (Chỉnh sửa báo cáo nhật ký hàng ngày)
-  editDailyLog(projectId, logId, note, status, expectedCompletionDate, photos, items, userId) {
+  editDailyLog(projectId, logId, note, status, expectedCompletionDate, photos, items, userId, approverId = undefined) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -1010,6 +1011,7 @@ export const DB = {
         log.expectedCompletionDate = expectedCompletionDate;
         if (photos !== undefined) log.photos = photos;
         if (items !== undefined) log.items = items;
+        if (approverId !== undefined) log.approverId = approverId;
         
         project.history.push({
           timestamp: new Date().toISOString(),

@@ -323,6 +323,8 @@ export const UI = {
   renderWorkerView(user) {
     const body = document.getElementById('app-body-content');
     const projects = DB.getProjects();
+    const db = DB.load();
+    const leadWorkers = db.users.filter(u => u.role === 'lead_worker');
 
     const todayRecord = DB.getUserAttendanceToday(user.id);
     let assignmentBannerHtml = '';
@@ -427,6 +429,16 @@ export const UI = {
                 ${relevantProjects.length === 0 ? '<option value="" disabled>Không có công trình nào phù hợp</option>' : ''}
               </select>
             </div>
+
+            ${user.role === 'assistant_worker' ? `
+              <div>
+                <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
+                <select id="log-approver-id" class="form-select" required style="padding-left:14px; height:40px;">
+                  ${leadWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                  ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
+                </select>
+              </div>
+            ` : ''}
 
             <div>
               <label class="form-label">Tình trạng tiến độ ngày hôm nay</label>
@@ -657,7 +669,9 @@ export const UI = {
 
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
-        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items);
+        const approverEl = document.getElementById('log-approver-id');
+        const approverId = approverEl ? approverEl.value : '';
+        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items, approverId);
         const prj = DB.getProject(prjId);
         if (user.role === 'assistant_worker' && prj && prj.step === 3) {
           Toast.success('Đã gửi báo cáo chờ thợ chính phê duyệt.');
@@ -815,7 +829,7 @@ export const UI = {
         const pendingItems = [];
         relevantProjects.forEach(p => {
           p.dailyLogs.forEach(l => {
-            if (l.approved === false) {
+            if (l.approved === false && (!l.approverId || l.approverId === user.id)) {
               pendingItems.push({ project: p, log: l });
             }
           });
@@ -3287,6 +3301,8 @@ export const UI = {
   openEditLogModal(project, log, user, onUpdate) {
     const isWorker = log.items && log.items.length > 0;
     let currentPhotos = [...(log.photos || [])];
+    const db = DB.load();
+    const leadWorkers = db.users.filter(u => u.role === 'lead_worker');
 
     const html = `
       <form id="edit-log-form" style="display:flex; flex-direction:column; gap:16px; max-height:80vh; overflow-y:auto; padding:4px;">
@@ -3294,6 +3310,16 @@ export const UI = {
           <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);"><i class="fas fa-edit"></i> Chỉnh Sửa Báo Cáo</h4>
           <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Công trình: <strong>${project.name}</strong> • Ngày: ${log.date}</p>
         </div>
+
+        ${user.role === 'assistant_worker' ? `
+          <div>
+            <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
+            <select id="edit-log-approver-id" class="form-select" required style="padding-left:14px; height:40px;">
+              ${leadWorkers.map(w => `<option value="${w.id}" ${log.approverId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+              ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
+            </select>
+          </div>
+        ` : ''}
 
         <div>
           <label class="form-label">Tình trạng tiến độ</label>
@@ -3451,7 +3477,9 @@ export const UI = {
         note = modal.element.querySelector('#edit-log-note').value;
       }
 
-      const success = DB.editDailyLog(project.id, log.id, note, status, expectedDate, currentPhotos, items, user.id);
+      const approverEl = modal.element.querySelector('#edit-log-approver-id');
+      const approverId = approverEl ? approverEl.value : undefined;
+      const success = DB.editDailyLog(project.id, log.id, note, status, expectedDate, currentPhotos, items, user.id, approverId);
       if (success) {
         Toast.success('Cập nhật báo cáo thành công.');
         modal.close();
