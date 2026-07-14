@@ -169,7 +169,14 @@ export const DB = {
 
         // Auto-migration check: If projects table is empty, look for monolithic table backups
         if (projects.length === 0) {
-          const { data: oldState } = await supabaseClient.from('app_state').select('data').eq('id', 1).maybeSingle();
+          let oldState = null;
+          try {
+            const { data } = await supabaseClient.from('app_state').select('data').eq('id', 1).maybeSingle();
+            oldState = data;
+          } catch (e) {
+            console.log('app_state table might already be deleted or not accessible:', e);
+          }
+
           if (oldState && oldState.data && oldState.data.projects && oldState.data.projects.length > 0) {
             await this.migrateMonolithicToRelational(oldState.data);
             return this.syncWithServer(onSyncComplete);
