@@ -40,184 +40,407 @@ export const DB = {
     return `${base}${endpoint}`;
   },
 
+  // Auto-migration helper from old monolithic table to the new tables
+  async migrateMonolithicToRelational(oldDb) {
+    try {
+      console.log('Migrating users to relational users table...');
+      if (oldDb.users && oldDb.users.length > 0) {
+        await supabaseClient.from('users').delete().neq('id', '');
+        await supabaseClient.from('users').insert(oldDb.users);
+      }
+
+      console.log('Migrating projects and nested structures to relational tables...');
+      if (oldDb.projects && oldDb.projects.length > 0) {
+        await supabaseClient.from('projects').delete().neq('id', '');
+        
+        for (const p of oldDb.projects) {
+          // Insert project
+          await supabaseClient.from('projects').insert({
+            id: p.id,
+            name: p.name,
+            step: p.step,
+            deadline: p.deadline,
+            original_deadline: p.originalDeadline,
+            is_completed: p.isCompleted || false,
+            is_rework: p.isRework || false,
+            is_small_scope: p.isSmallScope || false,
+            assignees: p.assignees || [],
+            scope: p.scope || []
+          });
+
+          // Insert subtasks
+          if (p.subtasks && p.subtasks.length > 0) {
+            const mappedSubtasks = p.subtasks.map(st => ({
+              id: st.id,
+              project_id: p.id,
+              title: st.title,
+              assigned_to: st.assignedTo,
+              status: st.status,
+              type: st.type || 'standard',
+              completed_at: st.completedAt || null,
+              items: st.items || []
+            }));
+            await supabaseClient.from('subtasks').insert(mappedSubtasks);
+          }
+
+          // Insert daily logs
+          if (p.dailyLogs && p.dailyLogs.length > 0) {
+            const mappedLogs = p.dailyLogs.map(dl => ({
+              id: dl.id,
+              project_id: p.id,
+              date: dl.date,
+              reporter_id: dl.reporterId,
+              reporter_name: dl.reporterName,
+              reporter_role: dl.reporterRole,
+              status: dl.status,
+              note: dl.note,
+              photos: dl.photos || [],
+              expected_completion_date: dl.expectedCompletionDate || null,
+              items: dl.items || [],
+              approved: dl.approved !== false,
+              approver_id: dl.approverId || null
+            }));
+            await supabaseClient.from('daily_logs').insert(mappedLogs);
+          }
+
+          // Insert history
+          if (p.history && p.history.length > 0) {
+            const mappedHistory = p.history.map(h => ({
+              project_id: p.id,
+              timestamp: h.timestamp,
+              action: h.action,
+              user: h.user
+            }));
+            await supabaseClient.from('project_history').insert(mappedHistory);
+          }
+        }
+      }
+
+      console.log('Migrating attendance...');
+      if (oldDb.attendance && oldDb.attendance.length > 0) {
+        await supabaseClient.from('attendance').delete().neq('id', 0);
+        const mappedAttendance = oldDb.attendance.map(a => ({
+          user_id: a.userId,
+          date: a.date,
+          time: a.time || null,
+          status: a.status,
+          note: a.note || null,
+          working_project_id: a.workingProjectId || null,
+          working_project_name: a.workingProjectName || null,
+          daily_workload: a.dailyWorkload || null,
+          is_working_at_workshop: a.isWorkingAtWorkshop || false
+        }));
+        await supabaseClient.from('attendance').insert(mappedAttendance);
+      }
+
+      // Clear monolithic app_state row to finalize migration
+      await supabaseClient.from('app_state').delete().eq('id', 1);
+      console.log('Relational migration completed successfully!');
+    } catch (err) {
+      console.error('Error during relational migration:', err);
+    }
+  },
+
   // Triggered in app.js on startup and periodically (polling)
   async syncWithServer(onSyncComplete = null) {
-    // 1. SUPABASE MODE
     if (supabaseClient) {
       try {
-        const { data, error } = await supabaseClient
-          .from('app_state')
-          .select('data')
-          .eq('id', 1)
-          .single();
+        // Fetch all tables from Supabase in parallel
+        const [
+          { data: users, error: errUsers },
+          { data: projects, error: errProjects },
+          { data: subtasks, error: errSubtasks },
+          { data: dailyLogs, error: errDailyLogs },
+          { data: attendance, error: errAttendance },
+          { data: history, error: errHistory }
+        ] = await Promise.all([
+          supabaseClient.from('users').select('*'),
+          supabaseClient.from('projects').select('*'),
+          supabaseClient.from('subtasks').select('*'),
+          supabaseClient.from('daily_logs').select('*'),
+          supabaseClient.from('attendance').select('*'),
+          supabaseClient.from('project_history').select('*')
+        ]);
 
-        if (error && error.code !== 'PGRST116') { // Ignore single-row empty result error code
-          console.warn('Supabase fetch error, fallback to local database.', error);
+        if (errUsers || errProjects || errSubtasks || errDailyLogs || errAttendance || errHistory) {
+          console.warn('Error fetching relational tables from Supabase. Relational tables might not exist yet.');
           return false;
         }
 
-        let serverDb = data ? data.data : null;
-        
-        // Self-seed if serverDb is empty or has no users
-        if (!serverDb || !serverDb.users || serverDb.users.length === 0) {
-          serverDb = {
-            users: DEFAULT_USERS,
-            projects: DEFAULT_PROJECTS,
-            attendance: DEFAULT_ATTENDANCE,
-            systemLogs: []
-          };
-
-          const { data: checkData } = await supabaseClient.from('app_state').select('id').eq('id', 1);
-          if (checkData && checkData.length > 0) {
-            await supabaseClient
-              .from('app_state')
-              .update({ data: serverDb, updated_at: new Date().toISOString() })
-              .eq('id', 1);
+        // Auto-migration check: If projects table is empty, look for monolithic table backups
+        if (projects.length === 0) {
+          const { data: oldState } = await supabaseClient.from('app_state').select('data').eq('id', 1).maybeSingle();
+          if (oldState && oldState.data && oldState.data.projects && oldState.data.projects.length > 0) {
+            await this.migrateMonolithicToRelational(oldState.data);
+            return this.syncWithServer(onSyncComplete);
           } else {
-            await supabaseClient
-              .from('app_state')
-              .insert({ id: 1, data: serverDb, updated_at: new Date().toISOString() });
-          }
-          console.log('Seeded default database to Supabase.');
-        }
-
-        const localData = localStorage.getItem(DB_KEY);
-        if (localData) {
-          const localDb = JSON.parse(localData);
-
-          // Auto-recovery: If Supabase DB is empty/no projects, but local cache has projects, push local to Supabase!
-          if (localDb && localDb.projects && localDb.projects.length > 0 && (!serverDb.projects || serverDb.projects.length === 0)) {
-            console.warn('Supabase projects are empty, but local has projects. Recovering to Supabase...');
-            try {
-              await supabaseClient
-                .from('app_state')
-                .update({ data: localDb, updated_at: new Date().toISOString() })
-                .eq('id', 1);
-              serverDb = localDb;
-            } catch (recoveryErr) {
-              console.error('Failed to auto-recover database to Supabase:', recoveryErr);
+            // Seed default users if users table is empty
+            if (users.length === 0) {
+              await supabaseClient.from('users').insert(DEFAULT_USERS);
+              return this.syncWithServer(onSyncComplete);
             }
           }
-
-          if (JSON.stringify(localDb) !== JSON.stringify(serverDb)) {
-            localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-            console.log('Database synced from Supabase.');
-            if (onSyncComplete) onSyncComplete(serverDb);
-          }
-        } else {
-          localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-          if (onSyncComplete) onSyncComplete(serverDb);
         }
+
+        // Assemble relational data into monolithic db structure for local storage
+        const assembledDb = {
+          users: users || [],
+          projects: (projects || []).map(p => {
+            return {
+              id: p.id,
+              name: p.name,
+              step: p.step,
+              deadline: p.deadline,
+              originalDeadline: p.original_deadline,
+              isCompleted: p.is_completed,
+              isRework: p.is_rework,
+              isSmallScope: p.is_small_scope,
+              assignees: p.assignees || [],
+              scope: p.scope || [],
+              subtasks: (subtasks || []).filter(st => st.project_id === p.id).map(st => ({
+                id: st.id,
+                title: st.title,
+                assignedTo: st.assigned_to,
+                status: st.status,
+                type: st.type,
+                completedAt: st.completed_at,
+                items: st.items || []
+              })),
+              dailyLogs: (dailyLogs || []).filter(dl => dl.project_id === p.id).map(dl => ({
+                id: dl.id,
+                date: dl.date,
+                reporterId: dl.reporter_id,
+                reporterName: dl.reporter_name,
+                reporterRole: dl.reporter_role,
+                status: dl.status,
+                note: dl.note,
+                photos: dl.photos || [],
+                expectedCompletionDate: dl.expected_completion_date,
+                items: dl.items || [],
+                approved: dl.approved,
+                approverId: dl.approver_id
+              })),
+              history: (history || []).filter(h => h.project_id === p.id).map(h => ({
+                timestamp: h.timestamp,
+                action: h.action,
+                user: h.user
+              }))
+            };
+          }),
+          attendance: (attendance || []).map(a => ({
+            userId: a.user_id,
+            date: a.date,
+            time: a.time,
+            status: a.status,
+            note: a.note,
+            workingProjectId: a.working_project_id,
+            workingProjectName: a.working_project_name,
+            dailyWorkload: a.daily_workload,
+            isWorkingAtWorkshop: a.is_working_at_workshop
+          })),
+          systemLogs: []
+        };
+
+        // Sort items chronologically
+        assembledDb.projects.forEach(p => {
+          p.history.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+          p.dailyLogs.sort((a, b) => b.date.localeCompare(a.date));
+        });
+
+        localStorage.setItem(DB_KEY, JSON.stringify(assembledDb));
+        console.log('Database synced from Supabase (relational tables).');
+        if (onSyncComplete) onSyncComplete(assembledDb);
         return true;
-      } catch (e) {
-        console.error('Error syncing from Supabase:', e);
+      } catch (err) {
+        console.error('Relational sync failed:', err);
       }
       return false;
-    }
-
-    // 2. LOCAL PYTHON SERVER MODE (FALLBACK)
-    try {
-      const res = await fetch(this.getApiUrl('/api/db'));
-      if (res.ok) {
-        const serverDb = await res.json();
-        if (serverDb && serverDb.users) {
-          const localData = localStorage.getItem(DB_KEY);
-          if (localData) {
-            const localDb = JSON.parse(localData);
-            if (JSON.stringify(localDb) !== JSON.stringify(serverDb)) {
-              localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-              console.log('Database synced from server.');
-              if (onSyncComplete) onSyncComplete(serverDb);
-            }
-          } else {
-            localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-            if (onSyncComplete) onSyncComplete(serverDb);
-          }
-          return true;
-        }
-      }
-    } catch (e) {
-      console.warn('API Server is offline or unreachable. Using offline LocalStorage mode.', e);
     }
     return false;
   },
 
-  // Push changes to server in background (non-blocking)
-  pushToServer(db) {
-    // 1. SUPABASE MODE
-    if (supabaseClient) {
-      supabaseClient
-        .from('app_state')
-        .update({ data: db, updated_at: new Date().toISOString() })
-        .eq('id', 1)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Failed to save to Supabase server:', error);
-          } else {
-            console.log('Database changes successfully saved to Supabase.');
-          }
-        })
-        .catch(err => {
-          console.error('Network error saving to Supabase:', err);
-        });
-      return;
+  // Relational writes helpers (Background, non-blocking)
+  async sbUpdateProject(projectId, fields) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('projects').update(fields).eq('id', projectId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
     }
+  },
 
-    // 2. LOCAL PYTHON SERVER MODE (FALLBACK)
-    fetch(this.getApiUrl('/api/db/save'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(db)
-    }).then(res => {
-      if (!res.ok) {
-        console.error('Failed to save to remote database server.');
+  async sbInsertProject(p) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('projects').insert({
+        id: p.id,
+        name: p.name,
+        step: p.step,
+        deadline: p.deadline,
+        original_deadline: p.originalDeadline,
+        is_completed: p.isCompleted || false,
+        is_rework: p.isRework || false,
+        is_small_scope: p.isSmallScope || false,
+        assignees: p.assignees || [],
+        scope: p.scope || []
+      });
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbDeleteProject(projectId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('projects').delete().eq('id', projectId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbInsertSubtask(st, projectId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('subtasks').insert({
+        id: st.id,
+        project_id: projectId,
+        title: st.title,
+        assigned_to: st.assignedTo,
+        status: st.status,
+        type: st.type,
+        completed_at: st.completedAt || null,
+        items: st.items || []
+      });
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbUpdateSubtask(subtaskId, fields) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('subtasks').update(fields).eq('id', subtaskId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbDeleteSubtask(subtaskId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('subtasks').delete().eq('id', subtaskId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbInsertDailyLog(dl, projectId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('daily_logs').insert({
+        id: dl.id,
+        project_id: projectId,
+        date: dl.date,
+        reporter_id: dl.reporterId,
+        reporter_name: dl.reporterName,
+        reporter_role: dl.reporterRole,
+        status: dl.status,
+        note: dl.note,
+        photos: dl.photos || [],
+        expected_completion_date: dl.expectedCompletionDate || null,
+        items: dl.items || [],
+        approved: dl.approved !== false,
+        approver_id: dl.approverId || null
+      });
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbUpdateDailyLog(logId, fields) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('daily_logs').update(fields).eq('id', logId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbDeleteDailyLog(logId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('daily_logs').delete().eq('id', logId);
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbUpsertAttendance(userId, date, fields) {
+    if (!supabaseClient) return;
+    try {
+      const { data } = await supabaseClient
+        .from('attendance')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('date', date);
+      
+      const payload = {
+        user_id: userId,
+        date: date,
+        time: fields.time || null,
+        status: fields.status,
+        note: fields.note || null,
+        working_project_id: fields.workingProjectId || null,
+        working_project_name: fields.workingProjectName || null,
+        daily_workload: fields.dailyWorkload || null,
+        is_working_at_workshop: fields.isWorkingAtWorkshop || false
+      };
+
+      if (data && data.length > 0) {
+        await supabaseClient.from('attendance').update(payload).eq('user_id', userId).eq('date', date);
       } else {
-        console.log('Database changes successfully saved to server.');
+        await supabaseClient.from('attendance').insert(payload);
       }
-    }).catch(err => {
-      console.warn('Unable to push changes to server (offline). Will sync when connection is restored.', err);
-    });
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
+  },
+
+  async sbInsertHistory(h, projectId) {
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from('project_history').insert({
+        project_id: projectId,
+        timestamp: h.timestamp,
+        action: h.action,
+        user: h.user
+      });
+    } catch (e) {
+      console.error('Supabase write error:', e);
+    }
   },
 
   // Remote reset database trigger
   async resetServerDb() {
-    const seedDb = {
-      users: DEFAULT_USERS,
-      projects: DEFAULT_PROJECTS,
-      attendance: DEFAULT_ATTENDANCE,
-      systemLogs: []
-    };
-
     if (supabaseClient) {
       try {
-        const { error } = await supabaseClient
-          .from('app_state')
-          .update({ data: seedDb, updated_at: new Date().toISOString() })
-          .eq('id', 1);
-
-        if (!error) {
-          localStorage.setItem(DB_KEY, JSON.stringify(seedDb));
-          localStorage.removeItem('furni_session');
-          return true;
-        }
+        await supabaseClient.from('projects').delete().neq('id', '');
+        await supabaseClient.from('attendance').delete().neq('id', 0);
+        await supabaseClient.from('users').delete().neq('id', '');
+        await supabaseClient.from('users').insert(DEFAULT_USERS);
+        
+        const seedDb = {
+          users: DEFAULT_USERS,
+          projects: [],
+          attendance: [],
+          systemLogs: []
+        };
+        localStorage.setItem(DB_KEY, JSON.stringify(seedDb));
+        localStorage.removeItem('furni_session');
+        return true;
       } catch (e) {
         console.error('Failed to reset database on Supabase.', e);
       }
-      return false;
-    }
-
-    try {
-      const res = await fetch(this.getApiUrl('/api/db/reset'), { method: 'POST' });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.status === 'success') {
-          localStorage.setItem(DB_KEY, JSON.stringify(result.db));
-          localStorage.removeItem('furni_session');
-          return true;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to reset remote database server.', e);
     }
     return false;
   },
@@ -303,7 +526,6 @@ export const DB = {
 
     if (dbChanged || assigneesChanged || stepsMigrated) {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
-      this.pushToServer(db);
     }
     
     return db;
@@ -312,7 +534,6 @@ export const DB = {
   // Save database to localStorage
   save(data) {
     localStorage.setItem(DB_KEY, JSON.stringify(data));
-    this.pushToServer(data);
   },
 
   // Get current user session
@@ -406,12 +627,16 @@ export const DB = {
       }
 
       project.step += 1;
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Chuyển tiến độ sang Giai đoạn ${project.step}`,
         user: user ? user.name : 'Nhân viên'
-      });
+      };
+      project.history.push(hist);
       this.save(db);
+      
+      this.sbUpdateProject(projectId, { step: project.step });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -426,12 +651,16 @@ export const DB = {
     if (project) {
       project.isCompleted = true;
       project.completedAt = new Date().toISOString();
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Hoàn thành công trình toàn bộ, đóng hồ sơ bàn giao`,
         user: user ? user.name : 'Sếp'
-      });
+      };
+      project.history.push(hist);
       this.save(db);
+      
+      this.sbUpdateProject(projectId, { is_completed: true });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -447,22 +676,28 @@ export const DB = {
     if (project) {
       project.isRework = true;
       const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
-
-      project.subtasks.push({
+      const st = {
         id: subtaskId,
         title: taskTitle,
         assignedTo: assignedWorkerId,
         status: 'pending',
         type: 'rework'
-      });
+      };
 
-      project.history.push({
+      project.subtasks.push(st);
+
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Báo lỗi & Yêu cầu sửa hàng: "${taskTitle}" (Giao cho: ${worker ? worker.name : 'Chưa rõ'})`,
         user: user ? user.name : 'Nhân viên'
-      });
+      };
+      project.history.push(hist);
 
       this.save(db);
+      
+      this.sbInsertSubtask(st, projectId);
+      this.sbUpdateProject(projectId, { is_rework: true });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -480,11 +715,12 @@ export const DB = {
         task.status = 'completed';
         task.completedAt = new Date().toISOString();
 
-        project.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Hoàn thành nhiệm vụ: "${task.title}"`,
           user: user ? user.name : 'Nhân viên'
-        });
+        };
+        project.history.push(hist);
 
         // Check if there are any pending rework tasks left
         const hasPendingRework = project.subtasks.some(st => st.type === 'rework' && st.status === 'pending');
@@ -493,6 +729,10 @@ export const DB = {
         }
 
         this.save(db);
+        
+        this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt });
+        this.sbUpdateProject(projectId, { is_rework: project.isRework });
+        this.sbInsertHistory(hist, projectId);
         return project;
       }
     }
@@ -517,13 +757,18 @@ export const DB = {
           project.isRework = false;
         }
 
-        project.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Xóa nhiệm vụ: "${task.title}"`,
           user: user ? user.name : 'Sếp'
-        });
+        };
+        project.history.push(hist);
 
         this.save(db);
+        
+        this.sbDeleteSubtask(subtaskId);
+        this.sbUpdateProject(projectId, { is_rework: project.isRework });
+        this.sbInsertHistory(hist, projectId);
         return project;
       }
     }
@@ -547,21 +792,27 @@ export const DB = {
 
       // Add subtask
       const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
-      project.subtasks.push({
+      const st = {
         id: subtaskId,
         title: `[PHÁT SINH NHỎ] ${description}`,
         assignedTo: assignedWorkerId,
         status: 'pending',
         type: 'small_scope'
-      });
+      };
+      project.subtasks.push(st);
 
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Thêm phát sinh nhỏ: "${description}" (+${extendDays} ngày deadline, Giao cho: ${worker ? worker.name : 'Chưa rõ'})`,
         user: user ? user.name : 'Nhân viên'
-      });
+      };
+      project.history.push(hist);
 
       this.save(db);
+      
+      this.sbInsertSubtask(st, projectId);
+      this.sbUpdateProject(projectId, { is_small_scope: true, deadline: project.deadline });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -601,6 +852,9 @@ export const DB = {
 
     db.projects.push(newProject);
     this.save(db);
+    
+    this.sbInsertProject(newProject);
+    this.sbInsertHistory(newProject.history[0], newProject.id);
     return newProject;
   },
 
@@ -643,15 +897,19 @@ export const DB = {
 
       project.dailyLogs.unshift(newLog);
 
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: needsApproval 
           ? `Gửi báo cáo thợ phụ (Chờ thợ chính duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
           : `Gửi báo cáo thợ phụ độc lập tại xưởng: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
         user: user ? user.name : 'Nhân viên'
-      });
+      };
+      project.history.push(hist);
 
       this.save(db);
+      
+      this.sbInsertDailyLog(newLog, projectId);
+      this.sbInsertHistory(hist, projectId);
       return newLog;
     }
     return null;
@@ -675,13 +933,25 @@ export const DB = {
         log.approvedBy = leadUser ? leadUser.name : 'Thợ chính';
         log.approvedAt = new Date().toISOString();
 
-        project.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Phê duyệt báo cáo của thợ phụ: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
           user: leadUser ? leadUser.name : 'Thợ chính'
-        });
+        };
+        project.history.push(hist);
 
         this.save(db);
+        
+        this.sbUpdateDailyLog(logId, {
+          status: log.status,
+          note: log.note,
+          expected_completion_date: log.expectedCompletionDate,
+          items: log.items,
+          photos: log.photos,
+          approved: true,
+          approver_id: leadUserId
+        });
+        this.sbInsertHistory(hist, projectId);
         return log;
       }
     }
@@ -746,6 +1016,12 @@ export const DB = {
     }
 
     this.save(db);
+    
+    this.sbUpsertAttendance(userId, today, {
+      time,
+      status: 'present',
+      note
+    });
     return today;
   },
 
@@ -778,6 +1054,16 @@ export const DB = {
     }
 
     this.save(db);
+    
+    this.sbUpsertAttendance(userId, date, {
+      status,
+      time,
+      note,
+      workingProjectId,
+      workingProjectName,
+      dailyWorkload,
+      isWorkingAtWorkshop
+    });
     return true;
   },
 
@@ -902,17 +1188,18 @@ export const DB = {
     const db = this.load();
     const prjIdx = db.projects.findIndex(p => p.id === projectId);
     if (prjIdx > -1) {
-      const prj = db.projects[prjIdx];
       db.projects.splice(prjIdx, 1);
       
       const user = db.users.find(u => u.id === userId);
       db.systemLogs.push({
         timestamp: new Date().toISOString(),
-        action: `Xóa hoàn toàn công trình: "${prj.name}"`,
+        action: `Xóa hoàn toàn công trình`,
         user: user ? user.name : 'Sếp'
       });
 
       this.save(db);
+      
+      this.sbDeleteProject(projectId);
       return true;
     }
     return false;
@@ -938,13 +1225,22 @@ export const DB = {
       const user = db.users.find(u => u.id === userId);
       const assigneesText = assignees ? ` | Giao phụ trách: [${assignees.map(id => db.users.find(u => u.id === id)?.name || id).join(', ')}]` : '';
 
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Sửa thông tin công trình: Tên "${oldName}" -> "${newName}", Hạn "${oldDeadline}" -> "${newDeadline}"${assigneesText}${scope ? ' | Cập nhật hạng mục thi công' : ''}`,
         user: user ? user.name : 'Sếp'
-      });
+      };
+      project.history.push(hist);
 
       this.save(db);
+      
+      this.sbUpdateProject(projectId, {
+        name: newName,
+        deadline: newDeadline,
+        assignees: project.assignees,
+        scope: project.scope
+      });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -958,12 +1254,16 @@ export const DB = {
     if (project) {
       if (!project.scope) project.scope = [];
       project.scope.push({ room: room.trim(), item: item.trim() });
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Thêm hạng mục thi công: [${room}] - ${item}`,
         user: user ? user.name : 'Sếp'
-      });
+      };
+      project.history.push(hist);
       this.save(db);
+      
+      this.sbUpdateProject(projectId, { scope: project.scope });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -977,12 +1277,16 @@ export const DB = {
     if (project && project.scope && project.scope[scopeIndex] !== undefined) {
       const old = project.scope[scopeIndex];
       project.scope[scopeIndex] = { room: newRoom.trim(), item: newItem.trim() };
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Sửa hạng mục: [${old.room} - ${old.item}] → [${newRoom} - ${newItem}]`,
         user: user ? user.name : 'Sếp'
-      });
+      };
+      project.history.push(hist);
       this.save(db);
+      
+      this.sbUpdateProject(projectId, { scope: project.scope });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -995,12 +1299,16 @@ export const DB = {
     const user = db.users.find(u => u.id === userId);
     if (project && project.scope && project.scope[scopeIndex] !== undefined) {
       const removed = project.scope.splice(scopeIndex, 1)[0];
-      project.history.push({
+      const hist = {
         timestamp: new Date().toISOString(),
         action: `Xóa hạng mục thi công: [${removed.room}] - ${removed.item}`,
         user: user ? user.name : 'Sếp'
-      });
+      };
+      project.history.push(hist);
       this.save(db);
+      
+      this.sbUpdateProject(projectId, { scope: project.scope });
+      this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
@@ -1021,13 +1329,24 @@ export const DB = {
         if (items !== undefined) log.items = items;
         if (approverId !== undefined) log.approverId = approverId;
         
-        project.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Chỉnh sửa báo cáo của: ${log.reporterName} (Ngày: ${log.date})`,
           user: user ? user.name : 'Nhân viên'
-        });
+        };
+        project.history.push(hist);
 
         this.save(db);
+        
+        this.sbUpdateDailyLog(logId, {
+          note: log.note,
+          status: log.status,
+          expected_completion_date: log.expectedCompletionDate,
+          photos: log.photos,
+          items: log.items,
+          approver_id: log.approverId
+        });
+        this.sbInsertHistory(hist, projectId);
         return true;
       }
     }
@@ -1045,13 +1364,17 @@ export const DB = {
         const removed = project.dailyLogs[idx];
         project.dailyLogs.splice(idx, 1);
         
-        project.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Xóa báo cáo của: ${removed.reporterName} (Ngày: ${removed.date})`,
           user: user ? user.name : 'Sếp'
-        });
+        };
+        project.history.push(hist);
 
         this.save(db);
+        
+        this.sbDeleteDailyLog(logId);
+        this.sbInsertHistory(hist, projectId);
         return true;
       }
     }

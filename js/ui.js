@@ -3218,13 +3218,16 @@ export const UI = {
           return u ? u.name : id;
         }).join(', ') || 'Không có ai';
 
-        prj.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Cập nhật nhân sự phụ trách công trình: [${namesStr}]`,
           user: user.name
-        });
+        };
+        prj.history.push(hist);
 
         DB.save(loadedDb);
+        DB.sbUpdateProject(prj.id, { assignees: prj.assignees });
+        DB.sbInsertHistory(hist, prj.id);
         Toast.success('Cập nhật nhân sự phụ trách công trình thành công!');
         modal.close();
         onComplete();
@@ -3704,6 +3707,11 @@ export const UI = {
         });
 
         DB.save(loadedDb);
+        rows.forEach((row, idx) => {
+          const st = project.subtasks[project.subtasks.length - rows.length + idx];
+          DB.sbInsertSubtask(st, project.id);
+        });
+        DB.sbInsertHistory(project.history[project.history.length - 1], project.id);
         Toast.success(`Đã giao thành công ${rows.length} nhiệm vụ.`);
         modal.close();
         onTaskAdded();
@@ -3755,13 +3763,16 @@ export const UI = {
 
       if (loadedTask && loadedProj) {
         loadedTask.assignedTo = workerId;
-        loadedProj.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Phân công nhiệm vụ "${loadedTask.title}" cho: ${worker ? worker.name : 'Chưa rõ'}`,
           user: DB.getCurrentUser().name
-        });
+        };
+        loadedProj.history.push(hist);
 
         DB.save(loadedDb);
+        DB.sbUpdateSubtask(loadedTask.id, { assigned_to: workerId });
+        DB.sbInsertHistory(hist, loadedProj.id);
         Toast.success('Đã giao nhiệm vụ thành công!');
         modal.close();
         onAssigned();
@@ -3818,13 +3829,16 @@ export const UI = {
         const oldWorkerName = oldAssigned ? (loadedDb.users.find(u => u.id === oldAssigned)?.name || 'Chưa rõ') : 'Chưa giao';
         const newWorkerName = workerId ? (loadedDb.users.find(u => u.id === workerId)?.name || 'Chưa rõ') : 'Chưa giao';
 
-        loadedProj.history.push({
+        const hist = {
           timestamp: new Date().toISOString(),
           action: `Sửa nhiệm vụ "${oldTitle}" -> "${title}" (Người làm: ${oldWorkerName} -> ${newWorkerName})`,
           user: user.name
-        });
+        };
+        loadedProj.history.push(hist);
 
         DB.save(loadedDb);
+        DB.sbUpdateSubtask(loadedTask.id, { title: title, assigned_to: workerId });
+        DB.sbInsertHistory(hist, loadedProj.id);
         Toast.success('Cập nhật nhiệm vụ thành công!');
         modal.close();
         onComplete();
@@ -4098,6 +4112,8 @@ export const UI = {
 
       loadedDb.projects.push(newPrj);
       DB.save(loadedDb);
+      DB.sbInsertProject(newPrj);
+      DB.sbInsertHistory(newPrj.history[0], newPrj.id);
       Toast.success('Đã thêm mới công trình ở Bước 1.');
       modal.close();
       onCreateSuccess();
@@ -4397,6 +4413,24 @@ export const UI = {
         });
 
         DB.save(db);
+        if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+          DB.sbInsertProject(project);
+          if (existingIdx > -1) {
+            supabaseClient.from('project_history').delete().eq('project_id', project.id).then(() => {
+              if (project.history) project.history.forEach(h => DB.sbInsertHistory(h, project.id));
+            });
+            supabaseClient.from('subtasks').delete().eq('project_id', project.id).then(() => {
+              if (project.subtasks) project.subtasks.forEach(st => DB.sbInsertSubtask(st, project.id));
+            });
+            supabaseClient.from('daily_logs').delete().eq('project_id', project.id).then(() => {
+              if (project.dailyLogs) project.dailyLogs.forEach(dl => DB.sbInsertDailyLog(dl, project.id));
+            });
+          } else {
+            if (project.history) project.history.forEach(h => DB.sbInsertHistory(h, project.id));
+            if (project.subtasks) project.subtasks.forEach(st => DB.sbInsertSubtask(st, project.id));
+            if (project.dailyLogs) project.dailyLogs.forEach(dl => DB.sbInsertDailyLog(dl, project.id));
+          }
+        }
         Toast.success('Khôi phục công trình thành công!');
         onComplete();
       } catch (err) {
@@ -4933,13 +4967,16 @@ export const UI = {
 
           proj.dailyLogs.unshift(newLog);
 
-          proj.history.push({
+          const hist = {
             timestamp: new Date().toISOString(),
             action: `Sếp gửi báo cáo: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}]`,
             user: user.name
-          });
+          };
+          proj.history.push(hist);
 
           DB.save(db);
+          DB.sbInsertDailyLog(newLog, proj.id);
+          DB.sbInsertHistory(hist, proj.id);
           Toast.success('Thêm báo cáo thành công!');
           modal.close();
           onComplete();
