@@ -3847,11 +3847,24 @@ export const UI = {
   },
 
   initScopeEditor(container, initialScope = null) {
+    const roomTemplates = {};
     // Group items by room
     const grouped = {};
     if (initialScope && initialScope.length > 0) {
       initialScope.forEach(s => {
-        if (!grouped[s.room]) grouped[s.room] = [];
+        if (!grouped[s.room]) {
+          grouped[s.room] = [];
+          
+          // Deduce template type
+          const nameLower = s.room.toLowerCase();
+          let deduced = 'Khác...';
+          if (nameLower.includes('ngủ') || nameLower.includes('bed')) deduced = 'Phòng ngủ';
+          else if (nameLower.includes('khách') || nameLower.includes('living')) deduced = 'Phòng khách';
+          else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) deduced = 'Phòng bếp';
+          else if (nameLower.includes('thờ') || nameLower.includes('altar')) deduced = 'Phòng thờ';
+          else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) deduced = 'Phòng tắm';
+          roomTemplates[s.room] = deduced;
+        }
         grouped[s.room].push(s.item);
       });
     }
@@ -3887,13 +3900,18 @@ export const UI = {
           <!-- Accordion list: block layout so items never get squished -->
           <div id="scope-accordion-list" style="max-height:300px; overflow-y:auto; padding:2px;">
             ${Object.keys(grouped).map(room => {
-              // Deduce template type
-              let templateType = 'Khác...';
-              if (room.includes('Phòng ngủ')) templateType = 'Phòng ngủ';
-              else if (room.includes('Phòng khách')) templateType = 'Phòng khách';
-              else if (room.includes('Phòng bếp')) templateType = 'Phòng bếp';
-              else if (room.includes('Phòng thờ')) templateType = 'Phòng thờ';
-              else if (room.includes('Phòng tắm') || room.includes('Toilet') || room.includes('WC')) templateType = 'Phòng tắm';
+              // Look up or deduce template type
+              let templateType = roomTemplates[room];
+              if (!templateType) {
+                const nameLower = room.toLowerCase();
+                templateType = 'Khác...';
+                if (nameLower.includes('ngủ') || nameLower.includes('bed')) templateType = 'Phòng ngủ';
+                else if (nameLower.includes('khách') || nameLower.includes('living')) templateType = 'Phòng khách';
+                else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) templateType = 'Phòng bếp';
+                else if (nameLower.includes('thờ') || nameLower.includes('altar')) templateType = 'Phòng thờ';
+                else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) templateType = 'Phòng tắm';
+                roomTemplates[room] = templateType;
+              }
 
               const items = templateItems[templateType] || templateItems['Khác...'];
               const checkedItems = grouped[room] || [];
@@ -4001,6 +4019,7 @@ export const UI = {
             return;
           }
 
+          roomTemplates[name] = template;
           grouped[name] = [];
           render();
           
@@ -4040,7 +4059,7 @@ export const UI = {
       <form id="create-project-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
           <label class="form-label">Tên công trình nội thất</label>
-          <input type="text" id="new-prj-name" class="form-input" placeholder="Mandarin Garden - Căn A10" required style="padding-left:14px;">
+          <input type="text" id="new-prj-name" class="form-input" placeholder="" required style="padding-left:14px;">
         </div>
 
         <!-- 2-level Scope of work collapsible accordion editor -->
