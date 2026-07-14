@@ -3522,201 +3522,305 @@ export const UI = {
     const workers = db.users.filter(u => u.role !== 'manager');
     const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
 
+    if (!project) return;
+
+    // Check if project has scope items
+    const hasScope = project.scope && project.scope.length > 0;
+
     const html = `
-      <form id="assign-task-form" style="display:flex; flex-direction:column; gap:16px; max-height:80vh; overflow-y:auto; padding:4px;">
-        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);"><i class="fas fa-plus-circle"></i> Giao Nhiệm Vụ Mới</h4>
+      <div style="display:flex; flex-direction:column; gap:16px; max-height:85vh; overflow-y:auto; padding:4px;">
+        <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary); margin:0;"><i class="fas fa-tasks"></i> Giao Nhiệm Vụ Theo Hạng Mục</h4>
         </div>
 
-        <div>
-          <label class="form-label">Giao nhân sự phụ trách</label>
-          <select id="assign-task-worker" class="form-select" required>
-            ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-          </select>
-        </div>
-
-        <!-- 3-level checklist builder for tasks -->
-        <div style="display:flex; flex-direction:column; gap:12px;">
-          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
-            <span>Chi tiết hạng mục giao việc</span>
-            <button type="button" id="btn-assign-add-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
-              <i class="fas fa-plus"></i> Thêm hạng mục
+        ${!hasScope ? `
+          <div style="text-align:center; padding:24px 12px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px dashed var(--border-color);">
+            <i class="fas fa-info-circle" style="font-size:2rem; color:var(--primary); margin-bottom:12px;"></i>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">Công trình này chưa được thiết lập hạng mục thi công (phòng/nội thất).</p>
+            <button type="button" id="btn-assign-goto-edit" class="btn-primary" style="width:auto; padding:8px 16px; font-size:0.8rem; height:auto;">
+              <i class="fas fa-edit"></i> Đi thiết lập hạng mục ngay
             </button>
-          </label>
-          <div id="assign-checklist-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-        </div>
+          </div>
+        ` : `
+          <!-- Search/Filter Input -->
+          <div style="position:relative;">
+            <input type="text" id="assign-scope-search" class="form-input" placeholder="Tìm kiếm phòng hoặc nội thất..." style="padding-left:36px; height:38px; font-size:0.82rem;">
+            <i class="fas fa-search" style="position:absolute; left:12px; top:11px; color:var(--text-muted); font-size:0.85rem;"></i>
+          </div>
 
-        <button type="submit" class="btn-primary" style="margin-top:12px;">Giao Nhiệm Vụ</button>
-      </form>
+          <!-- Scope Columns/Sections -->
+          <div style="display:flex; flex-direction:column; gap:16px;" id="assign-scope-groups-container">
+            <!-- Will be populated dynamically by renderScopeGroups -->
+          </div>
+        `}
+      </div>
     `;
 
-    const modal = Modal.create('Giao Nhiệm Vụ Mới', html);
+    const modal = Modal.create('Giao Nhiệm Vụ', html);
 
-    const addRow = (container) => {
-      const row = document.createElement('div');
-      row.className = 'checklist-item-row';
-      row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
+    // Bind edit project link if no scope
+    const btnGotoEdit = document.getElementById('btn-assign-goto-edit');
+    if (btnGotoEdit) {
+      btnGotoEdit.addEventListener('click', () => {
+        modal.close();
+        this.openEditProjectModal(projectId, user, () => {
+          this.openAssignTaskModal(projectId, user, onTaskAdded);
+        });
+      });
+    }
 
-      const hasScope = project && project.scope && project.scope.length > 0;
-      const roomsList = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
+    if (hasScope) {
+      const searchInput = document.getElementById('assign-scope-search');
+      const groupsContainer = document.getElementById('assign-scope-groups-container');
 
-      row.innerHTML = `
-        <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa">
-          <i class="fas fa-times-circle"></i>
-        </button>
+      const renderScopeGroups = () => {
+        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const currentDb = DB.load();
+        const currentProject = currentDb.projects.find(p => p.id === projectId);
+        if (!currentProject) return;
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
-            <select class="form-select select-chk-room" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
-              <option value="" disabled selected>-- Chọn phòng --</option>
-              ${roomsList.map(r => `<option value="${r}">${r}</option>`).join('')}
-            </select>
-            <input type="text" class="form-input txt-chk-custom-room" placeholder="Tên phòng khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
-          </div>
+        // Group project scope items into the 3 statuses
+        const unassigned = [];
+        const inProgress = [];
+        const completed = [];
 
-          <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
-            <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
-              <option value="" disabled selected>-- Chọn phòng trước --</option>
-            </select>
-            <input type="text" class="form-input txt-chk-custom-item" placeholder="Nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
-          </div>
-        </div>
+        currentProject.scope.forEach(sc => {
+          const room = sc.room.trim();
+          const item = sc.item.trim();
 
-        <div>
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Cấp 3: Chi tiết công việc giao thợ</label>
-          <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: đo đạc, lắp ráp hoàn thiện, đi silicone..." required style="height: 36px; font-size: 0.8rem; padding-left: 10px;">
-        </div>
-      `;
-
-      container.appendChild(row);
-
-      const selectRoom = row.querySelector('.select-chk-room');
-      const customRoom = row.querySelector('.txt-chk-custom-room');
-      const selectItem = row.querySelector('.select-chk-item');
-      const customItem = row.querySelector('.txt-chk-custom-item');
-
-      selectRoom.addEventListener('change', () => {
-        const val = selectRoom.value;
-        if (val === 'Khác...') {
-          customRoom.style.display = 'block';
-          customRoom.required = true;
-          
-          selectItem.innerHTML = `<option value="Khác...">Khác...</option>`;
-          customItem.style.display = 'block';
-          customItem.required = true;
-        } else {
-          customRoom.style.display = 'none';
-          customRoom.required = false;
-          customRoom.value = '';
-
-          let itemsList = [];
-          if (hasScope) {
-            itemsList = project.scope.filter(s => s.room === val).map(s => s.item);
-          } else {
-            const fallbackMap = {
-              'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
-              'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
-              'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
-              'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
-              'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
-            };
-            itemsList = fallbackMap[val] || ['Khác...'];
+          // Filter by search query if present
+          if (query && !room.toLowerCase().includes(query) && !item.toLowerCase().includes(query)) {
+            return;
           }
 
-          selectItem.innerHTML = `
-            <option value="" disabled selected>-- Chọn nội thất --</option>
-            ${itemsList.map(item => `<option value="${item}">${item}</option>`).join('')}
+          // Find matched tasks for this scope item
+          const matchedTasks = currentProject.subtasks.filter(st => st.title.startsWith(`[${room} - ${item}]:`));
+
+          const scopeInfo = {
+            room,
+            item,
+            tasks: matchedTasks
+          };
+
+          if (matchedTasks.length === 0) {
+            unassigned.push(scopeInfo);
+          } else if (matchedTasks.every(t => t.status === 'completed')) {
+            completed.push(scopeInfo);
+          } else {
+            inProgress.push(scopeInfo);
+          }
+        });
+
+        const renderSection = (title, items, badgeColor, badgeBg, themeClass) => {
+          if (items.length === 0) return '';
+          return `
+            <div class="scope-group-section" style="margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <span style="font-weight:700; font-size:0.8rem; color:${badgeColor}; text-transform:uppercase; letter-spacing:0.5px;">${title}</span>
+                <span style="background:${badgeBg}; color:${badgeColor}; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:10px;">${items.length}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr; gap:10px;">
+                ${items.map(sc => {
+                  return `
+                    <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">
+                          <i class="fas fa-folder" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="font-weight:normal; color:var(--text-muted);">| ${sc.item}</span>
+                        </span>
+                      </div>
+
+                      <!-- Matched subtasks list -->
+                      ${sc.tasks.length > 0 ? `
+                        <div style="display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.03);">
+                          ${sc.tasks.map(st => {
+                            const notes = st.title.split(']:')[1]?.trim() || st.title;
+                            const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
+                            const isDone = st.status === 'completed';
+                            return `
+                              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:4px 0;">
+                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; padding-right:8px;">
+                                  ${isDone 
+                                    ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.8rem;"></i>' 
+                                    : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.8rem;"></i>'
+                                  }
+                                  <span style="color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; line-height:1.2;">
+                                    <strong>${workerName}</strong>: ${notes}
+                                  </span>
+                                </div>
+                                <button type="button" class="btn-delete-scope-task" data-taskid="${st.id}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.75rem; padding:2px; display:flex; align-items:center;" title="Xóa nhiệm vụ">
+                                  <i class="fas fa-trash-alt"></i>
+                                </button>
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
+                      ` : ''}
+
+                      <!-- Inline form to add task -->
+                      <div class="inline-add-task-form-container" style="display:none; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                          <div>
+                            <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chọn người phụ trách</label>
+                            <select class="form-select inline-worker-select" style="height:32px; font-size:0.75rem; padding:2px 6px;">
+                              ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                            </select>
+                          </div>
+                          <div>
+                            <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chi tiết công việc bàn giao</label>
+                            <input type="text" class="form-input inline-notes-input" placeholder="Ví dụ: đo đạc, ráp tủ, đi silicone..." style="height:32px; font-size:0.75rem; padding-left:8px;">
+                          </div>
+                          <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:2px;">
+                            <button type="button" class="btn-cancel-inline-task" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border:none; cursor:pointer;">Hủy</button>
+                            <button type="button" class="btn-submit-inline-task" data-room="${sc.room}" data-item="${sc.item}" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:var(--primary); color:white; border:none; cursor:pointer;">Giao việc</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button type="button" class="btn-trigger-inline-add" style="align-self:flex-start; background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px; padding:4px 0; margin-top:2px;">
+                        <i class="fas fa-plus-circle"></i> + Giao thêm việc
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
           `;
-          customItem.style.display = 'none';
-          customItem.required = false;
-          customItem.value = '';
+        };
+
+        let finalHtml = '';
+        
+        // 1. In Progress
+        finalHtml += renderSection('Đang thi công', inProgress, 'var(--status-pending)', 'rgba(235, 147, 50, 0.15)', 'in_progress');
+        
+        // 2. Unassigned
+        finalHtml += renderSection('Chưa giao việc', unassigned, 'var(--text-muted)', 'rgba(156, 163, 175, 0.15)', 'unassigned');
+        
+        // 3. Completed
+        finalHtml += renderSection('Đã hoàn thành', completed, 'var(--status-approved)', 'rgba(46, 204, 113, 0.15)', 'completed');
+
+        if (inProgress.length === 0 && unassigned.length === 0 && completed.length === 0) {
+          finalHtml = `<p style="text-align:center; font-size:0.8rem; color:var(--text-muted); padding:16px;">Không tìm thấy hạng mục nào khớp với bộ lọc.</p>`;
         }
-      });
 
-      selectItem.addEventListener('change', () => {
-        if (selectItem.value === 'Khác...') {
-          customItem.style.display = 'block';
-          customItem.required = true;
-        } else {
-          customItem.style.display = 'none';
-          customItem.required = false;
-          customItem.value = '';
-        }
-      });
+        groupsContainer.innerHTML = finalHtml;
 
-      row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
-        row.remove();
-      });
-    };
-
-    const container = document.getElementById('assign-checklist-list');
-    if (container) {
-      addRow(container); // Seed one row by default
-    }
-
-    const btnAddItem = document.getElementById('btn-assign-add-item');
-    if (btnAddItem && container) {
-      btnAddItem.addEventListener('click', () => {
-        addRow(container);
-      });
-    }
-
-    document.getElementById('assign-task-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const workerId = document.getElementById('assign-task-worker').value;
-
-      const rows = document.querySelectorAll('#assign-checklist-list .checklist-item-row');
-      if (rows.length === 0) {
-        Toast.error('Vui lòng thêm ít nhất 1 hạng mục giao việc.');
-        return;
-      }
-
-      const loadedDb = DB.load();
-      const project = loadedDb.projects.find(p => p.id === projectId);
-
-      if (project) {
-        rows.forEach(row => {
-          const selectRoom = row.querySelector('.select-chk-room').value;
-          const customRoom = row.querySelector('.txt-chk-custom-room').value;
-          const room = selectRoom === 'Khác...' ? customRoom.trim() : selectRoom;
-
-          const selectItem = row.querySelector('.select-chk-item').value;
-          const customItem = row.querySelector('.txt-chk-custom-item').value;
-          const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
-
-          const notes = row.querySelector('.txt-chk-pending-notes').value.trim();
-
-          const title = `[${room} - ${item}]: ${notes}`;
-          const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
-          
-          project.subtasks.push({
-            id: subtaskId,
-            title: title,
-            assignedTo: workerId,
-            status: 'pending',
-            type: 'normal'
-          });
-
-          project.history.push({
-            timestamp: new Date().toISOString(),
-            action: `${roleTitle} giao việc: "${title}" (Giao cho: ${loadedDb.users.find(u => u.id === workerId)?.name || 'Thợ'})`,
-            user: user.name
+        // Bind interactive event listeners for newly rendered list
+        // 1. Toggle add form
+        groupsContainer.querySelectorAll('.btn-trigger-inline-add').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const card = btn.closest('.scope-task-card');
+            const form = card.querySelector('.inline-add-task-form-container');
+            btn.style.display = 'none';
+            form.style.display = 'block';
+            
+            // Focus on notes input
+            const input = form.querySelector('.inline-notes-input');
+            if (input) input.focus();
           });
         });
 
-        DB.save(loadedDb);
-        rows.forEach((row, idx) => {
-          const st = project.subtasks[project.subtasks.length - rows.length + idx];
-          DB.sbInsertSubtask(st, project.id);
+        // 2. Cancel add form
+        groupsContainer.querySelectorAll('.btn-cancel-inline-task').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const card = btn.closest('.scope-task-card');
+            const form = card.querySelector('.inline-add-task-form-container');
+            const triggerBtn = card.querySelector('.btn-trigger-inline-add');
+            form.style.display = 'none';
+            triggerBtn.style.display = 'flex';
+          });
         });
-        DB.sbInsertHistory(project.history[project.history.length - 1], project.id);
-        Toast.success(`Đã giao thành công ${rows.length} nhiệm vụ.`);
-        modal.close();
-        onTaskAdded();
+
+        // 3. Submit new task
+        groupsContainer.querySelectorAll('.btn-submit-inline-task').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const card = btn.closest('.scope-task-card');
+            const workerId = card.querySelector('.inline-worker-select').value;
+            const notes = card.querySelector('.inline-notes-input').value.trim();
+            const room = btn.getAttribute('data-room');
+            const item = btn.getAttribute('data-item');
+
+            if (!notes) {
+              Toast.error('Vui lòng nhập nội dung công việc.');
+              return;
+            }
+
+            const title = `[${room} - ${item}]: ${notes}`;
+            const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
+            
+            const loadedDb = DB.load();
+            const loadedProj = loadedDb.projects.find(p => p.id === projectId);
+            if (loadedProj) {
+              const newTask = {
+                id: subtaskId,
+                title: title,
+                assignedTo: workerId,
+                status: 'pending',
+                type: 'normal'
+              };
+              loadedProj.subtasks.push(newTask);
+
+              const hist = {
+                timestamp: new Date().toISOString(),
+                action: `${roleTitle} giao việc: "${title}" (Giao cho: ${loadedDb.users.find(u => u.id === workerId)?.name || 'Thợ'})`,
+                user: user.name
+              };
+              loadedProj.history.push(hist);
+
+              DB.save(loadedDb);
+              DB.sbInsertSubtask(newTask, projectId);
+              DB.sbInsertHistory(hist, projectId);
+
+              Toast.success('Giao việc thành công!');
+              renderScopeGroups();
+              if (onTaskAdded) onTaskAdded();
+            }
+          });
+        });
+
+        // 4. Delete task
+        groupsContainer.querySelectorAll('.btn-delete-scope-task').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const taskId = btn.getAttribute('data-taskid');
+            if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
+              const loadedDb = DB.load();
+              const loadedProj = loadedDb.projects.find(p => p.id === projectId);
+              if (loadedProj) {
+                const idx = loadedProj.subtasks.findIndex(st => st.id === taskId);
+                if (idx > -1) {
+                  const task = loadedProj.subtasks[idx];
+                  loadedProj.subtasks.splice(idx, 1);
+
+                  const hist = {
+                    timestamp: new Date().toISOString(),
+                    action: `Xóa nhiệm vụ: "${task.title}"`,
+                    user: user.name
+                  };
+                  loadedProj.history.push(hist);
+
+                  DB.save(loadedDb);
+                  DB.sbDeleteSubtask(taskId);
+                  DB.sbInsertHistory(hist, projectId);
+
+                  Toast.success('Đã xóa nhiệm vụ!');
+                  renderScopeGroups();
+                  if (onTaskAdded) onTaskAdded();
+                }
+              }
+            }
+          });
+        });
+      };
+
+      // Initial render
+      renderScopeGroups();
+
+      // Search event listener
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          renderScopeGroups();
+        });
       }
-    });
+    }
   },
 
   // 10.1 OPEN ASSIGN EXISTING TASK MODAL FOR KTS
