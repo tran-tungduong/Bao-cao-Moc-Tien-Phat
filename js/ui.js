@@ -2567,7 +2567,7 @@ export const UI = {
                 if (doneTasks === totalTasks) {
                   itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-approved); background:rgba(16,185,129,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">Xong ✅</span>`;
                 } else {
-                  itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-pending); background:rgba(245,158,11,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">\${doneTasks}/\${totalTasks} việc ⏱️</span>`;
+                  itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-pending); background:rgba(245,158,11,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">${doneTasks}/${totalTasks} việc ⏱️</span>`;
                 }
               } else {
                 itemStatusBadge = `<span style="font-size:0.65rem; color:var(--text-muted); background:rgba(255,255,255,0.02); padding:2px 6px; border-radius:4px;">Chờ giao việc</span>`;
@@ -2581,38 +2581,38 @@ export const UI = {
                     const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
                     const isDone = st.status === 'completed';
                     const compTimeText = isDone && st.completedAt
-                      ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> \${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
+                      ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
                       : '';
 
                     return `
-                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid \\${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid ${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
                         <div style="flex:1; min-width:0; padding-right:6px;">
-                          <div style="font-size:0.76rem; font-weight:600; color:\\${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:\\${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
-                            \\${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
-                            \\${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
-                            \\${taskDesc}
+                          <div style="font-size:0.76rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
+                            ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
+                            ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
+                            ${taskDesc}
                           </div>
                           <div style="font-size:0.62rem; color:var(--text-muted); margin-top:2px;">
                             <i class="fas fa-user" style="font-size:0.52rem;"></i>
-                            <strong>\\${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
-                            \\${compTimeText}
+                            <strong>${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
+                            ${compTimeText}
                           </div>
                         </div>
                         
                         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                          \\${st.status === 'pending' && !proj.isCompleted
-                            ? \\`<button class="btn-drawer-complete-task" data-task="\${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>\\`
+                          ${st.status === 'pending' && !proj.isCompleted
+                            ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
                             : isDone
                               ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
                               : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
                           }
-                          \\${isManagementRole && !proj.isCompleted ? \\`
-                            <button class="btn-edit-subtask" data-task="\${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
-                            <button class="btn-delete-subtask" data-task="\${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt"></i></button>
-                          \\` : ''}
+                          ${isManagementRole && !proj.isCompleted ? `
+                            <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
+                            <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
+                          ` : ''}
                         </div>
                       </div>
-                    \`;
+                    `;
                   }).join('');
 
               // Get absolute index of this scope item in proj.scope
@@ -2623,44 +2623,44 @@ export const UI = {
                 <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:6px;">
                     <span style="font-size:0.8rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:4px;">
-                      <i class="fas fa-cube" style="font-size:0.7rem;"></i> \${item}
+                      <i class="fas fa-cube" style="font-size:0.7rem;"></i> ${item}
                     </span>
                     <div style="display:flex; align-items:center; gap:6px;">
-                      \${itemStatusBadge}
-                      \${canEdit && scopeIndexInProj > -1 ? \\`
+                      ${itemStatusBadge}
+                      ${canEdit && scopeIndexInProj > -1 ? `
                         <div style="display:flex; gap:2px;">
-                          <button class="btn-scope-edit" data-idx="\${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--primary); cursor:pointer; font-size:0.7rem;" title="Sửa"><i class="fas fa-edit"></i></button>
-                          <button class="btn-scope-delete" data-idx="\${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--status-rejected); cursor:pointer; font-size:0.7rem;" title="Xóa"><i class="fas fa-trash-alt"></i></button>
+                          <button class="btn-scope-edit" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--primary); cursor:pointer; font-size:0.7rem;" title="Sửa"><i class="fas fa-edit"></i></button>
+                          <button class="btn-scope-delete" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--status-rejected); cursor:pointer; font-size:0.7rem;" title="Xóa"><i class="fas fa-trash-alt"></i></button>
                         </div>
-                      \\` : ''}
+                      ` : ''}
                     </div>
                   </div>
                   <div style="display:flex; flex-direction:column; gap:4px;">
-                    \${subtaskRowsHtml}
+                    ${subtaskRowsHtml}
                   </div>
                 </div>
               `;
             }).join('');
 
             return `
-              <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-sm); overflow:hidden;" data-scope-idx="\${roomIdx}">
+              <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-sm); overflow:hidden;" data-scope-idx="${roomIdx}">
                 <!-- Level 1: Room Header -->
-                <div class="scope-item-header" data-idx="\${roomIdx}" style="padding:12px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:rgba(255,255,255,0.01);">
+                <div class="scope-item-header" data-idx="${roomIdx}" style="padding:12px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:rgba(255,255,255,0.01);">
                   <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
                     <i class="fas fa-chevron-right scope-expand-icon" style="font-size:0.68rem; color:var(--text-muted); transition:transform 0.2s; flex-shrink:0;"></i>
                     <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.78rem;"></i> \${roomName}
+                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.78rem;"></i> ${roomName}
                     </span>
                   </div>
                   <div style="flex-shrink:0; margin-left:8px;">
-                    <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; \${roomBadgeStyle}">\${roomStatusText}</span>
+                    <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; ${roomBadgeStyle}">${roomStatusText}</span>
                   </div>
                 </div>
 
                 <!-- Level 2 panels (hidden by default) -->
                 <div class="scope-subtask-panel" style="display:none; border-top:1px solid var(--border-color); padding:12px; background:rgba(0,0,0,0.1);">
                   <div style="display:flex; flex-direction:column; gap:10px;">
-                    \${level2CardsHtml}
+                    ${level2CardsHtml}
                   </div>
                 </div>
               </div>
@@ -2687,38 +2687,38 @@ export const UI = {
           const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
           const isDone = st.status === 'completed';
           const compTimeText = isDone && st.completedAt
-            ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> \${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
+            ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
             : '';
 
           return `
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid \\${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid ${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
               <div style="flex:1; min-width:0; padding-right:6px;">
-                <div style="font-size:0.76rem; font-weight:600; color:\\${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:\\${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
-                  \\  \${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
-                  \\  \${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
-                  \\  \${st.title}
+                <div style="font-size:0.76rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
+                  ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
+                  ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
+                  ${st.title}
                 </div>
                 <div style="font-size:0.62rem; color:var(--text-muted); margin-top:2px;">
                   <i class="fas fa-user" style="font-size:0.52rem;"></i>
-                  <strong>\\${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
-                  \\${compTimeText}
+                  <strong>${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
+                  ${compTimeText}
                 </div>
               </div>
               
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                \\${st.status === 'pending' && !proj.isCompleted
-                  ? \\`<button class="btn-drawer-complete-task" data-task="\${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>\\`
+                ${st.status === 'pending' && !proj.isCompleted
+                  ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
                   : isDone
                     ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
                     : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
                 }
-                \\${isManagementRole && !proj.isCompleted ? \\`
-                  <button class="btn-edit-subtask" data-task="\${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
-                  <button class="btn-delete-subtask" data-task="\${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
-                \\` : ''}
+                ${isManagementRole && !proj.isCompleted ? `
+                  <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
+                  <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
+                ` : ''}
               </div>
             </div>
-          \`;
+          `;
         }).join('');
 
         unmatchedHtml = `
@@ -2732,7 +2732,7 @@ export const UI = {
                 </span>
               </div>
               <div style="flex-shrink:0; margin-left:8px;">
-                <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);">\${doneTasks}/\${totalTasks} xong ⏱️</span>
+                <span style="font-size:0.68rem; font-weight:600; padding:3px 8px; border-radius:6px; white-space:nowrap; background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);">${doneTasks}/${totalTasks} xong ⏱️</span>
               </div>
             </div>
 
@@ -2742,7 +2742,7 @@ export const UI = {
                 <i class="fas fa-list-ul"></i> Công việc không thuộc hạng mục cụ thể
               </div>
               <div style="display:flex; flex-direction:column; gap:4px;">
-                \${subtaskRowsHtml}
+                ${subtaskRowsHtml}
               </div>
             </div>
           </div>
@@ -2754,7 +2754,7 @@ export const UI = {
         <div id="scope-manager-section" style="margin-top:8px;">
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; color:var(--primary);">
             <span><i class="fas fa-list-check"></i> Hạng mục & Nhiệm vụ thi công</span>
-            \${canAdd ? `
+            ${canAdd ? `
               <div style="display:flex; gap:6px;">
                 <button id="drawer-add-task-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> GIAO VIỆC</button>
                 <button id="btn-scope-add-new" style="background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid var(--border-color); font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;"><i class="fas fa-folder-plus"></i> THÊM HẠNG MỤC</button>
@@ -2788,7 +2788,9 @@ export const UI = {
           </div>
         </div>
       `;
-    };    const scopeManagerHtml = buildScopeManagerHtml(project);
+    };
+
+    const scopeManagerHtml = buildScopeManagerHtml(project);
     const html = `
       <div style="display:flex; flex-direction:column; gap:20px;">
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
