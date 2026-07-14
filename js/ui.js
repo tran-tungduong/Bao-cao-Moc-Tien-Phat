@@ -370,12 +370,22 @@ export const UI = {
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
+      ${user.role === 'assistant_worker' ? `
+        <div class="material-stats-card fade-in" style="margin-bottom: 16px; background-color: var(--bg-secondary); padding: 14px 16px; border-radius:16px; border:1px solid var(--border-color);">
+          <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc cùng Thợ chính:</label>
+          <select id="worker-lead-selector" class="form-select" style="padding-left:14px; height:40px;">
+            <option value="" disabled ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chọn Thợ chính đồng hành --</option>
+            ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+
       ${assignmentBannerHtml}
 
       <div class="stats-grid fade-in" style="display:grid; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
         <div class="stat-mini-card" id="stat-projects-btn" style="cursor:pointer; border-color:var(--primary); transition:all var(--transition-fast);">
           <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Công trình phụ trách</span>
+            <span>${user.role === 'assistant_worker' ? 'Công trình làm cùng' : 'Công trình phụ trách'}</span>
             <i class="fas fa-external-link-alt" style="font-size:0.7rem; color:var(--primary);"></i>
           </span>
           <span class="stat-mini-val">${relevantProjects.length}</span>
@@ -507,6 +517,18 @@ export const UI = {
     if (btnAssignedProjects) {
       btnAssignedProjects.addEventListener('click', () => {
         this.openAssignedProjectsModal(user);
+      });
+    }
+
+    // Bind lead selector for assistant workers
+    const leadSelector = document.getElementById('worker-lead-selector');
+    if (leadSelector) {
+      leadSelector.addEventListener('change', (e) => {
+        const val = e.target.value;
+        DB.setSelectedLeadWorkerForAssistant(user.id, val);
+        const lwName = leadWorkers.find(x => x.id === val)?.name || 'Thợ chính';
+        Toast.success('Đã kết nối với thợ chính: ' + lwName);
+        this.renderWorkerView(user);
       });
     }
 

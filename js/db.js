@@ -363,7 +363,15 @@ export const DB = {
 
     if (user.role === 'marketing') {
       return activeProjects.filter(p => p.step <= 4 || (p.assignees && p.assignees.includes(user.id)));
-    } else if (user.role === 'lead_worker' || user.role === 'assistant_worker') {
+    } else if (user.role === 'assistant_worker') {
+      const selectedLeadId = this.getSelectedLeadWorkerForAssistant(user.id);
+      if (!selectedLeadId) return [];
+      
+      const leadUser = db.users.find(u => u.id === selectedLeadId);
+      if (!leadUser) return [];
+      
+      return this.getProjectsForUser(leadUser);
+    } else if (user.role === 'lead_worker') {
       // Get today's working project assignment via attendance
       const today = new Date().toISOString().split('T')[0];
       const todayRecord = db.attendance ? db.attendance.find(a => a.userId === user.id && a.date === today) : null;
@@ -1048,5 +1056,13 @@ export const DB = {
       }
     }
     return false;
+  },
+
+  setSelectedLeadWorkerForAssistant(assistantId, leadWorkerId) {
+    localStorage.setItem(`selected_lead_worker_${assistantId}`, leadWorkerId);
+  },
+
+  getSelectedLeadWorkerForAssistant(assistantId) {
+    return localStorage.getItem(`selected_lead_worker_${assistantId}`) || '';
   }
 };
