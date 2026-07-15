@@ -441,10 +441,10 @@ export const UI = {
             </div>
 
             ${user.role === 'assistant_worker' ? `
-              <div>
+              <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
                 <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
-                <select id="log-approver-id" class="form-select" required>
-                  ${leadWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                <select id="log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
+                  ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
                   ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
                 </select>
               </div>
@@ -604,7 +604,7 @@ export const UI = {
     // Seed one checklist item row by default if the user is a worker, filtered by the selected project scope
     const selectLogProject = document.getElementById('log-project-id');
     const checklistList = document.getElementById('checklist-items-list');
-    
+
     const getSelectedProject = () => {
       if (!selectLogProject || !selectLogProject.value) return null;
       return DB.getProject(selectLogProject.value);
@@ -741,7 +741,7 @@ export const UI = {
         const p = item.project;
         const l = item.log;
         const isApproved = l.approved !== false;
-        
+
         return `
           <div class="material-stats-card" style="border-left: 4px solid ${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; padding: 14px 16px; background-color:var(--bg-secondary); display:flex; flex-direction:column; gap:8px; border-radius:16px; border:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -818,11 +818,11 @@ export const UI = {
         tabCreate.classList.add('active');
         tabCreate.style.color = 'var(--primary)';
         tabCreate.style.borderBottom = '2px solid var(--primary)';
-        
+
         tabEdit.classList.remove('active');
         tabEdit.style.color = 'var(--text-muted)';
         tabEdit.style.borderBottom = 'none';
-        
+
         contentCreate.style.display = 'block';
         contentEdit.style.display = 'none';
       });
@@ -831,14 +831,14 @@ export const UI = {
         tabEdit.classList.add('active');
         tabEdit.style.color = 'var(--primary)';
         tabEdit.style.borderBottom = '2px solid var(--primary)';
-        
+
         tabCreate.classList.remove('active');
         tabCreate.style.color = 'var(--text-muted)';
         tabCreate.style.borderBottom = 'none';
-        
+
         contentCreate.style.display = 'none';
         contentEdit.style.display = 'block';
-        
+
         renderWorkerHistoryReports();
       });
     }
@@ -1216,10 +1216,10 @@ export const UI = {
               <p style="font-size:0.8rem; font-weight:600; color:var(--primary); margin-bottom:10px;"><i class="fas fa-tasks"></i> ${(user.role === 'kts' || user.role === 'sales') ? 'Nhiệm vụ cần phân công & xử lý:' : 'Nhiệm vụ của bạn:'}</p>
               <div style="display:flex; flex-direction:column; gap:10px;">
                 ${mySubtasks.map(st => {
-                  const compTimeText = st.status === 'completed' && st.completedAt
-                    ? `<div style="font-size:0.7rem; color:var(--status-approved); font-weight:500; margin-top:2px;"><i class="fas fa-clock"></i> Xong lúc: ${new Date(st.completedAt).toLocaleTimeString('vi-VN')} - ${new Date(st.completedAt).toLocaleDateString('vi-VN')}</div>`
-                    : '';
-                  return `
+        const compTimeText = st.status === 'completed' && st.completedAt
+          ? `<div style="font-size:0.7rem; color:var(--status-approved); font-weight:500; margin-top:2px;"><i class="fas fa-clock"></i> Xong lúc: ${new Date(st.completedAt).toLocaleTimeString('vi-VN')} - ${new Date(st.completedAt).toLocaleDateString('vi-VN')}</div>`
+          : '';
+        return `
                     <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; box-shadow:var(--shadow-sm); width:100%; box-sizing:border-box;">
                       <div style="flex:1; display:flex; flex-direction:column;">
                         <span style="font-size:0.82rem; font-weight:600; text-decoration: ${st.status === 'completed' ? 'line-through' : 'none'}; color: ${st.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)'}; line-height:1.4;">
@@ -1231,11 +1231,11 @@ export const UI = {
                       </div>
                       <div style="display:flex; align-items:center; gap:8px;">
                         ${st.status === 'pending'
-                          ? ((user.role === 'kts' || user.role === 'sales') && !st.assignedTo
-                            ? `<button class="btn-assign-existing-task" data-project="${p.id}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">Giao việc</button>`
-                            : `<button class="btn-complete-subtask" data-project="${p.id}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto; margin-right:4px;">Xong</button>`)
-                          : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap; margin-right:4px;"><i class="fas fa-check-double"></i> Đã xong</span>'
-                        }
+            ? ((user.role === 'kts' || user.role === 'sales') && !st.assignedTo
+              ? `<button class="btn-assign-existing-task" data-project="${p.id}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">Giao việc</button>`
+              : `<button class="btn-complete-subtask" data-project="${p.id}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto; margin-right:4px;">Xong</button>`)
+            : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap; margin-right:4px;"><i class="fas fa-check-double"></i> Đã xong</span>'
+          }
                         ${(user.role === 'kts' || user.role === 'sales') && !p.isCompleted ? `
                           <button class="btn-card-edit-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa nhiệm vụ"><i class="fas fa-edit"></i></button>
                           <button class="btn-card-delete-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt"></i></button>
@@ -1243,7 +1243,7 @@ export const UI = {
                       </div>
                     </div>
                   `;
-                }).join('')}
+      }).join('')}
               </div>
             </div>
           ` : ''}
@@ -1395,14 +1395,14 @@ export const UI = {
 
         <div style="display:flex; flex-direction:column; gap:12px; max-height:360px; overflow-y:auto; padding-right:4px;">
           ${myPendingTasks.map(st => {
-            let badgeHtml = '';
-            if (st.type === 'rework') {
-              badgeHtml = `<span class="status-badge rejected" style="font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-right:4px;">[SỬA LỖI]</span>`;
-            } else if (st.type === 'small_scope') {
-              badgeHtml = `<span class="status-badge pending" style="background-color:rgba(210, 144, 98, 0.15); color:var(--status-pending); font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-right:4px;">[PHÁT SINH]</span>`;
-            }
+      let badgeHtml = '';
+      if (st.type === 'rework') {
+        badgeHtml = `<span class="status-badge rejected" style="font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-right:4px;">[SỬA LỖI]</span>`;
+      } else if (st.type === 'small_scope') {
+        badgeHtml = `<span class="status-badge pending" style="background-color:rgba(210, 144, 98, 0.15); color:var(--status-pending); font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-right:4px;">[PHÁT SINH]</span>`;
+      }
 
-            return `
+      return `
               <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; box-shadow:var(--shadow-sm);">
                 <div style="flex:1;">
                   <div style="font-size:0.88rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center; flex-wrap:wrap; gap:4px; line-height:1.4;">
@@ -1414,12 +1414,12 @@ export const UI = {
                   </div>
                 </div>
                 ${!st.assignedTo
-                  ? `<button class="btn-modal-assign-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); padding:10px 14px; border-radius:10px; font-size:0.8rem; font-weight:700; height:auto; cursor:pointer;"><i class="fas fa-user-plus"></i> Giao việc</button>`
-                  : `<button class="btn-modal-complete-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:10px 14px; border-radius:10px; font-size:0.8rem; height:auto; cursor:pointer;"><i class="fas fa-check-circle"></i> Xong</button>`
-                }
+          ? `<button class="btn-modal-assign-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); padding:10px 14px; border-radius:10px; font-size:0.8rem; font-weight:700; height:auto; cursor:pointer;"><i class="fas fa-user-plus"></i> Giao việc</button>`
+          : `<button class="btn-modal-complete-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:10px 14px; border-radius:10px; font-size:0.8rem; height:auto; cursor:pointer;"><i class="fas fa-check-circle"></i> Xong</button>`
+        }
               </div>
             `;
-          }).join('')}
+    }).join('')}
           ${myPendingTasks.length === 0 ? `
             <div style="text-align:center; padding:32px 16px; color:var(--text-muted);">
               <i class="fas fa-smile-beam" style="font-size:2rem; color:var(--status-approved); margin-bottom:8px;"></i>
@@ -1545,7 +1545,7 @@ export const UI = {
     modal.element.querySelectorAll('.employee-completed-card').forEach(card => {
       card.addEventListener('click', () => {
         const prjId = card.getAttribute('data-id');
-        this.openProjectDetailsDrawer(prjId, user, () => {});
+        this.openProjectDetailsDrawer(prjId, user, () => { });
       });
     });
   },
@@ -1716,7 +1716,7 @@ export const UI = {
       const title = document.getElementById('large-scope-title').value;
       const dlInput = document.getElementById('large-scope-deadline');
       let dl = dlInput ? dlInput.value : '';
-      
+
       if (!dl) {
         const defaultDate = new Date();
         defaultDate.setDate(defaultDate.getDate() + 15);
@@ -1983,7 +1983,7 @@ export const UI = {
           if (confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này khỏi hệ thống không?\nHành động này không thể khôi phục!')) {
             DB.deleteDailyLog(prjId, logId, user.id);
             Toast.success('Đã xóa báo cáo thi công thành công.');
-            
+
             // Delete from local memory list dynamically so filterAndRender doesn't reload deleted item
             const projObj = projects.find(p => p.id === prjId);
             if (projObj && projObj.dailyLogs) {
@@ -2298,10 +2298,10 @@ export const UI = {
             <!-- Mini progress segments segmenting the 4 steps -->
             <div style="display:flex; gap:3px; height:5px; margin-top:10px; background-color:rgba(255,255,255,0.02); border-radius:3px; overflow:hidden;">
               ${Array.from({ length: 4 }).map((_, idx) => {
-                const isActive = (idx + 1) <= p.step;
-                const color = isActive ? 'var(--status-approved)' : 'rgba(255,255,255,0.06)';
-                return `<div style="flex:1; background-color:${color}; transition:all 0.3s; border-radius:1px;"></div>`;
-              }).join('')}
+          const isActive = (idx + 1) <= p.step;
+          const color = isActive ? 'var(--status-approved)' : 'rgba(255,255,255,0.06)';
+          return `<div style="flex:1; background-color:${color}; transition:all 0.3s; border-radius:1px;"></div>`;
+        }).join('')}
             </div>
 
             <!-- Tags section -->
@@ -2523,68 +2523,68 @@ export const UI = {
       const itemsHtml = roomNames.length === 0
         ? `<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa có phòng nào được thiết lập. Nhấn "Thêm Hạng Mục" để bắt đầu.</p>`
         : roomNames.map((roomName, roomIdx) => {
-            const items = roomsGrouped[roomName];
-            
-            // Gather all tasks for this room
-            const roomTasks = (proj.subtasks || []).filter(st => {
+          const items = roomsGrouped[roomName];
+
+          // Gather all tasks for this room
+          const roomTasks = (proj.subtasks || []).filter(st => {
+            const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
+            if (match) {
+              const stRoom = match[1].trim();
+              return stRoom === roomName;
+            }
+            return false;
+          });
+
+          const totalRoomTasks = roomTasks.length;
+          const doneRoomTasks = roomTasks.filter(st => st.status === 'completed').length;
+
+          // Determine status text/badge for Room Header
+          let roomStatusText = 'Chờ triển khai ⏳';
+          let roomBadgeStyle = 'background:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
+          if (totalRoomTasks > 0) {
+            if (doneRoomTasks === totalRoomTasks) {
+              roomStatusText = `${doneRoomTasks}/${totalRoomTasks} xong ✅`;
+              roomBadgeStyle = 'background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+            } else {
+              roomStatusText = `${doneRoomTasks}/${totalRoomTasks} xong ⏱️`;
+              roomBadgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+            }
+          }
+
+          // Render Level 2 cards inside this Room
+          const level2CardsHtml = items.map(item => {
+            const matchedSubtasks = roomTasks.filter(st => {
               const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
-              if (match) {
-                const stRoom = match[1].trim();
-                return stRoom === roomName;
-              }
-              return false;
+              return match && match[2].trim() === item;
             });
 
-            const totalRoomTasks = roomTasks.length;
-            const doneRoomTasks = roomTasks.filter(st => st.status === 'completed').length;
+            const totalTasks = matchedSubtasks.length;
+            const doneTasks = matchedSubtasks.filter(st => st.status === 'completed').length;
 
-            // Determine status text/badge for Room Header
-            let roomStatusText = 'Chờ triển khai ⏳';
-            let roomBadgeStyle = 'background:rgba(255,255,255,0.05); color:var(--text-muted); border:1px solid var(--border-color);';
-            if (totalRoomTasks > 0) {
-              if (doneRoomTasks === totalRoomTasks) {
-                roomStatusText = `${doneRoomTasks}/${totalRoomTasks} xong ✅`;
-                roomBadgeStyle = 'background:rgba(16,185,129,0.12); color:var(--status-approved); border:1px solid rgba(16,185,129,0.3);';
+            // Compute status for Level 2 card
+            let itemStatusBadge = '';
+            if (totalTasks > 0) {
+              if (doneTasks === totalTasks) {
+                itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-approved); background:rgba(16,185,129,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">Xong ✅</span>`;
               } else {
-                roomStatusText = `${doneRoomTasks}/${totalRoomTasks} xong ⏱️`;
-                roomBadgeStyle = 'background:rgba(245,158,11,0.12); color:var(--status-pending); border:1px solid rgba(245,158,11,0.3);';
+                itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-pending); background:rgba(245,158,11,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">${doneTasks}/${totalTasks} việc ⏱️</span>`;
               }
+            } else {
+              itemStatusBadge = `<span style="font-size:0.65rem; color:var(--text-muted); background:rgba(255,255,255,0.02); padding:2px 6px; border-radius:4px;">Chờ giao việc</span>`;
             }
 
-            // Render Level 2 cards inside this Room
-            const level2CardsHtml = items.map(item => {
-              const matchedSubtasks = roomTasks.filter(st => {
-                const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
-                return match && match[2].trim() === item;
-              });
+            // Subtask list for Level 2 item
+            const subtaskRowsHtml = totalTasks === 0
+              ? `<p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0 0; font-style:italic; padding-left:4px;">Chưa giao việc</p>`
+              : matchedSubtasks.map(st => {
+                const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
+                const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
+                const isDone = st.status === 'completed';
+                const compTimeText = isDone && st.completedAt
+                  ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
+                  : '';
 
-              const totalTasks = matchedSubtasks.length;
-              const doneTasks = matchedSubtasks.filter(st => st.status === 'completed').length;
-
-              // Compute status for Level 2 card
-              let itemStatusBadge = '';
-              if (totalTasks > 0) {
-                if (doneTasks === totalTasks) {
-                  itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-approved); background:rgba(16,185,129,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">Xong ✅</span>`;
-                } else {
-                  itemStatusBadge = `<span style="font-size:0.65rem; color:var(--status-pending); background:rgba(245,158,11,0.08); padding:2px 6px; border-radius:4px; font-weight:600;">${doneTasks}/${totalTasks} việc ⏱️</span>`;
-                }
-              } else {
-                itemStatusBadge = `<span style="font-size:0.65rem; color:var(--text-muted); background:rgba(255,255,255,0.02); padding:2px 6px; border-radius:4px;">Chờ giao việc</span>`;
-              }
-
-              // Subtask list for Level 2 item
-              const subtaskRowsHtml = totalTasks === 0
-                ? `<p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0 0; font-style:italic; padding-left:4px;">Chưa giao việc</p>`
-                : matchedSubtasks.map(st => {
-                    const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
-                    const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
-                    const isDone = st.status === 'completed';
-                    const compTimeText = isDone && st.completedAt
-                      ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
-                      : '';
-
-                    return `
+                return `
                       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid ${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
                         <div style="flex:1; min-width:0; padding-right:6px;">
                           <div style="font-size:0.76rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
@@ -2601,11 +2601,11 @@ export const UI = {
                         
                         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                           ${st.status === 'pending' && !proj.isCompleted
-                            ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
-                            : isDone
-                              ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
-                              : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
-                          }
+                    ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
+                    : isDone
+                      ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
+                      : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
+                  }
                           ${isManagementRole && !proj.isCompleted ? `
                             <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                             <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
@@ -2613,13 +2613,13 @@ export const UI = {
                         </div>
                       </div>
                     `;
-                  }).join('');
+              }).join('');
 
-              // Get absolute index of this scope item in proj.scope
-              const scopeIndexInProj = proj.scope.findIndex(sc => sc.room === roomName && sc.item === item);
-              const canEdit = isManagementRole && !proj.isCompleted;
+            // Get absolute index of this scope item in proj.scope
+            const scopeIndexInProj = proj.scope.findIndex(sc => sc.room === roomName && sc.item === item);
+            const canEdit = isManagementRole && !proj.isCompleted;
 
-              return `
+            return `
                 <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:6px;">
                     <span style="font-size:0.8rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:4px;">
@@ -2640,9 +2640,9 @@ export const UI = {
                   </div>
                 </div>
               `;
-            }).join('');
+          }).join('');
 
-            return `
+          return `
               <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-sm); overflow:hidden;" data-scope-idx="${roomIdx}">
                 <!-- Level 1: Room Header -->
                 <div class="scope-item-header" data-idx="${roomIdx}" style="padding:12px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:rgba(255,255,255,0.01);">
@@ -2665,7 +2665,7 @@ export const UI = {
                 </div>
               </div>
             `;
-          }).join('');
+        }).join('');
 
       // Find all tasks that DO NOT match any scope item
       const unmatchedSubtasks = (proj.subtasks || []).filter(st => {
@@ -2682,7 +2682,7 @@ export const UI = {
       if (unmatchedSubtasks.length > 0) {
         const totalTasks = unmatchedSubtasks.length;
         const doneTasks = unmatchedSubtasks.filter(st => st.status === 'completed').length;
-        
+
         const subtaskRowsHtml = unmatchedSubtasks.map(st => {
           const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
           const isDone = st.status === 'completed';
@@ -2707,11 +2707,11 @@ export const UI = {
               
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                 ${st.status === 'pending' && !proj.isCompleted
-                  ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
-                  : isDone
-                    ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
-                    : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
-                }
+              ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
+              : isDone
+                ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
+                : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
+            }
                 ${isManagementRole && !proj.isCompleted ? `
                   <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                   <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
@@ -2842,31 +2842,31 @@ export const UI = {
         <!-- System state & action buttons -->
         <div style="display:flex; flex-direction:column; gap:8px;">
           ${isManagementRole && project.step < 4 && nextStepInfo
-            ? `
+        ? `
               <button class="btn-primary" id="drawer-btn-advance" style="padding:12px 16px; font-size:0.88rem; width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; height:auto; line-height:1.3; background:linear-gradient(135deg, #4F46E5, #4338CA); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;">
                 <span style="font-weight:700;"><i class="fas fa-step-forward"></i> Phê Duyệt Sang Giai Đoạn Tiếp Theo</span>
                 <span style="font-size:0.7rem; opacity:0.85; font-weight:normal;">Lên: GĐ ${nextStepInfo.num} - ${nextStepInfo.title}</span>
               </button>
             `
-            : ''
-          }
+        : ''
+      }
           ${isManagementRole && project.step === 4 && !project.isCompleted
-            ? `
+        ? `
               <button class="btn-primary" id="drawer-btn-complete-project" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
                 <i class="fas fa-check-double"></i> Hoàn Thành Công Trình
               </button>
             `
-            : ''
-          }
+        : ''
+      }
           ${!project.isCompleted
-            ? `
+        ? `
               <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2; width:100%; margin-bottom:8px;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
               <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
             `
-            : ''
-          }
+        : ''
+      }
           ${isManagementRole && project.isCompleted
-            ? `
+        ? `
               <div style="background-color:rgba(78, 141, 124, 0.15); border:1px solid var(--status-approved); color:var(--status-approved); padding:12px; border-radius:12px; font-size:0.85rem; font-weight:600; width:100%; text-align:center; margin-bottom:8px;">
                 <i class="fas fa-check-double"></i> Dự án này đã hoàn thành toàn bộ và lưu trữ
               </div>
@@ -2874,8 +2874,8 @@ export const UI = {
                 <i class="fas fa-file-excel"></i> Xuất Báo Cáo Excel (.CSV)
               </button>
             `
-            : ''
-          }
+        : ''
+      }
         </div>
 
         <!-- Scope Manager: Add/Edit/Delete scope items -->
@@ -2886,25 +2886,25 @@ export const UI = {
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Nhân sự phụ trách công trình</span>
             ${(user.role === 'manager' || user.role === 'kts' || user.role === 'sales') && !project.isCompleted
-              ? `<button id="drawer-assign-project-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-user-plus"></i> GIAO CÔNG TRÌNH</button>`
-              : ''
-            }
+        ? `<button id="drawer-assign-project-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-user-plus"></i> GIAO CÔNG TRÌNH</button>`
+        : ''
+      }
           </h5>
           <div style="background-color:rgba(0,0,0,0.15); border-radius:12px; padding:12px; border:1px solid var(--border-color); display:flex; flex-wrap:wrap; gap:8px;" id="project-assignees-list">
             ${project.assignees && project.assignees.length > 0
-              ? project.assignees.map(uId => {
-                  const assignedUser = DB.load().users.find(u => u.id === uId);
-                  if (!assignedUser) return '';
-                  const roleLabel = assignedUser.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-                  return `
+        ? project.assignees.map(uId => {
+          const assignedUser = DB.load().users.find(u => u.id === uId);
+          if (!assignedUser) return '';
+          const roleLabel = assignedUser.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+          return `
                     <div style="display:flex; align-items:center; gap:6px; background-color:var(--bg-secondary); border:1px solid var(--border-color); padding:6px 10px; border-radius:20px; font-size:0.75rem;">
                       <img src="${assignedUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">
                       <span><strong>${assignedUser.name}</strong> (${roleLabel})</span>
                     </div>
                   `;
-                }).join('')
-              : '<p style="font-size:0.75rem; color:var(--text-muted); width:100%; margin:0; text-align:center;">Chưa gán nhân sự phụ trách công trình.</p>'
-            }
+        }).join('')
+        : '<p style="font-size:0.75rem; color:var(--text-muted); width:100%; margin:0; text-align:center;">Chưa gán nhân sự phụ trách công trình.</p>'
+      }
           </div>
         </div>
 
@@ -2912,15 +2912,15 @@ export const UI = {
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.filter(l => l.approved !== false).length})</span>
             ${user.role === 'manager' && !project.isCompleted
-              ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
-              : ''
-            }
+        ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
+        : ''
+      }
           </h5>
           <div style="display:flex; flex-direction:column; gap:10px;" id="drawer-timeline-container">
             ${project.dailyLogs.filter(l => l.approved !== false).map((l, idx) => {
-              const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : l.reporterRole === 'manager' ? 'Sếp' : 'Khác';
-              const actualIdx = project.dailyLogs.findIndex(dl => dl.id === l.id);
-              return `
+        const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : l.reporterRole === 'manager' ? 'Sếp' : 'Khác';
+        const actualIdx = project.dailyLogs.findIndex(dl => dl.id === l.id);
+        return `
                 <div style="background-color:rgba(0,0,0,0.15); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; box-sizing:border-box;">
                   <div class="btn-view-log-item" data-log-index="${actualIdx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
@@ -2937,7 +2937,7 @@ export const UI = {
                   </div>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
             ${project.dailyLogs.filter(l => l.approved !== false).length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted);">Chưa có nhật ký cuối ngày nào được gửi.</p>' : ''}
           </div>
         </div>
@@ -3259,9 +3259,9 @@ export const UI = {
 
         <div style="max-height: 280px; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding:4px;">
           ${workers.map(w => {
-            const isChecked = currentAssignees.includes(w.id);
-            const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-            return `
+      const isChecked = currentAssignees.includes(w.id);
+      const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+      return `
               <label style="display:flex; align-items:center; justify-content:space-between; background:rgba(255, 255, 255, 0.02); border:1px solid var(--border-color); padding:10px 14px; border-radius:12px; cursor:pointer; transition:background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.01)'" onmouseout="this.style.backgroundColor='transparent'">
                 <div style="display:flex; align-items:center; gap:10px;">
                   <img src="${w.avatar}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;">
@@ -3273,7 +3273,7 @@ export const UI = {
                 <input type="checkbox" name="project-assignee" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--primary);">
               </label>
             `;
-          }).join('')}
+    }).join('')}
         </div>
 
         <div style="display:flex; gap:12px; margin-top:12px;">
@@ -3295,7 +3295,7 @@ export const UI = {
       const prj = loadedDb.projects.find(p => p.id === projectId);
       if (prj) {
         prj.assignees = selectedIds;
-        
+
         // Add project history action
         const namesStr = selectedIds.map(id => {
           const u = loadedDb.users.find(usr => usr.id === id);
@@ -3346,9 +3346,9 @@ export const UI = {
             <label class="form-label" style="font-size:0.75rem; margin-bottom:8px;">Hạng mục chi tiết báo cáo</label>
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${log.items.map(it => {
-                const statusColor = it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)';
-                const statusIcon = it.isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
-                return `
+      const statusColor = it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)';
+      const statusIcon = it.isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
+      return `
                   <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)'}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
@@ -3365,7 +3365,7 @@ export const UI = {
                     ` : ''}
                   </div>
                 `;
-              }).join('')}
+    }).join('')}
             </div>
           </div>
         ` : `
@@ -3421,10 +3421,10 @@ export const UI = {
         </div>
 
         ${user.role === 'assistant_worker' ? `
-          <div>
+          <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
             <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
-            <select id="edit-log-approver-id" class="form-select" required>
-              ${leadWorkers.map(w => `<option value="${w.id}" ${log.approverId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+            <select id="edit-log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
+              ${leadWorkers.map(w => `<option value="${w.id}" ${log.approverId === w.id || DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
               ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
             </select>
           </div>
@@ -3705,7 +3705,7 @@ export const UI = {
               </div>
               <div style="display:grid; grid-template-columns:1fr; gap:10px;">
                 ${items.map(sc => {
-                  return `
+            return `
                     <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                       <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">
@@ -3717,16 +3717,16 @@ export const UI = {
                       ${sc.tasks.length > 0 ? `
                         <div style="display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.03);">
                           ${sc.tasks.map(st => {
-                            const notes = st.title.split(']:')[1]?.trim() || st.title;
-                            const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
-                            const isDone = st.status === 'completed';
-                            return `
+              const notes = st.title.split(']:')[1]?.trim() || st.title;
+              const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
+              const isDone = st.status === 'completed';
+              return `
                               <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:4px 0;">
                                 <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; padding-right:8px;">
-                                  ${isDone 
-                                    ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.8rem;"></i>' 
-                                    : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.8rem;"></i>'
-                                  }
+                                  ${isDone
+                  ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.8rem;"></i>'
+                  : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.8rem;"></i>'
+                }
                                   <span style="color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; line-height:1.2;">
                                     <strong>${workerName}</strong>: ${notes}
                                   </span>
@@ -3736,7 +3736,7 @@ export const UI = {
                                 </button>
                               </div>
                             `;
-                          }).join('')}
+            }).join('')}
                         </div>
                       ` : ''}
 
@@ -3765,20 +3765,20 @@ export const UI = {
                       </button>
                     </div>
                   `;
-                }).join('')}
+          }).join('')}
               </div>
             </div>
           `;
         };
 
         let finalHtml = '';
-        
+
         // 1. In Progress
         finalHtml += renderSection('Đang thi công', inProgress, 'var(--status-pending)', 'rgba(235, 147, 50, 0.15)', 'in_progress');
-        
+
         // 2. Unassigned
         finalHtml += renderSection('Chưa giao việc', unassigned, 'var(--text-muted)', 'rgba(156, 163, 175, 0.15)', 'unassigned');
-        
+
         // 3. Completed
         finalHtml += renderSection('Đã hoàn thành', completed, 'var(--status-approved)', 'rgba(46, 204, 113, 0.15)', 'completed');
 
@@ -3796,7 +3796,7 @@ export const UI = {
             const form = card.querySelector('.inline-add-task-form-container');
             btn.style.display = 'none';
             form.style.display = 'block';
-            
+
             // Focus on notes input
             const input = form.querySelector('.inline-notes-input');
             if (input) input.focus();
@@ -3830,7 +3830,7 @@ export const UI = {
 
             const title = `[${room} - ${item}]: ${notes}`;
             const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
-            
+
             const loadedDb = DB.load();
             const loadedProj = loadedDb.projects.find(p => p.id === projectId);
             if (loadedProj) {
@@ -3913,7 +3913,7 @@ export const UI = {
     const workers = db.users.filter(u => u.role !== 'manager');
     const project = db.projects.find(p => p.id === projectId);
     const task = project ? project.subtasks.find(st => st.id === taskId) : null;
-    
+
     if (!task) return;
 
     const html = `
@@ -4010,7 +4010,7 @@ export const UI = {
       if (loadedTask && loadedProj) {
         const oldTitle = loadedTask.title;
         const oldAssigned = loadedTask.assignedTo;
-        
+
         loadedTask.title = title;
         loadedTask.assignedTo = workerId;
 
@@ -4042,7 +4042,7 @@ export const UI = {
       initialScope.forEach(s => {
         if (!grouped[s.room]) {
           grouped[s.room] = [];
-          
+
           // Deduce template type
           const nameLower = s.room.toLowerCase();
           let deduced = 'Khác...';
@@ -4088,23 +4088,23 @@ export const UI = {
           <!-- Accordion list: block layout so items never get squished -->
           <div id="scope-accordion-list" style="max-height:300px; overflow-y:auto; padding:2px;">
             ${Object.keys(grouped).map(room => {
-              // Look up or deduce template type
-              let templateType = roomTemplates[room];
-              if (!templateType) {
-                const nameLower = room.toLowerCase();
-                templateType = 'Khác...';
-                if (nameLower.includes('ngủ') || nameLower.includes('bed')) templateType = 'Phòng ngủ';
-                else if (nameLower.includes('khách') || nameLower.includes('living')) templateType = 'Phòng khách';
-                else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) templateType = 'Phòng bếp';
-                else if (nameLower.includes('thờ') || nameLower.includes('altar')) templateType = 'Phòng thờ';
-                else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) templateType = 'Phòng tắm';
-                roomTemplates[room] = templateType;
-              }
+        // Look up or deduce template type
+        let templateType = roomTemplates[room];
+        if (!templateType) {
+          const nameLower = room.toLowerCase();
+          templateType = 'Khác...';
+          if (nameLower.includes('ngủ') || nameLower.includes('bed')) templateType = 'Phòng ngủ';
+          else if (nameLower.includes('khách') || nameLower.includes('living')) templateType = 'Phòng khách';
+          else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) templateType = 'Phòng bếp';
+          else if (nameLower.includes('thờ') || nameLower.includes('altar')) templateType = 'Phòng thờ';
+          else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) templateType = 'Phòng tắm';
+          roomTemplates[room] = templateType;
+        }
 
-              const items = templateItems[templateType] || templateItems['Khác...'];
-              const checkedItems = grouped[room] || [];
+        const items = templateItems[templateType] || templateItems['Khác...'];
+        const checkedItems = grouped[room] || [];
 
-              return `
+        return `
                 <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:rgba(0,0,0,0.1); margin-bottom:8px;">
                   <div class="scope-room-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none; min-height:42px; box-sizing:border-box;">
                     <span style="font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
@@ -4119,19 +4119,19 @@ export const UI = {
                   <div class="scope-room-body" style="display:none; padding:12px; border-top:1px solid var(--border-color); background:rgba(0,0,0,0.15);">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
                       ${items.map(item => {
-                        const isChecked = checkedItems.includes(item);
-                        return `
+          const isChecked = checkedItems.includes(item);
+          return `
                           <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
                             <input type="checkbox" class="scope-checkbox-input" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary); flex-shrink:0;">
                             <span>${item}</span>
                           </label>
                         `;
-                      }).join('')}
+        }).join('')}
                     </div>
                   </div>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
             ${Object.keys(grouped).length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa thiết lập phòng nào.</p>' : ''}
           </div>
         </div>
@@ -4145,7 +4145,7 @@ export const UI = {
           const card = header.closest('.scope-room-card');
           const body = card.querySelector('.scope-room-body');
           const icon = card.querySelector('.scope-toggle-icon');
-          
+
           if (body.style.display === 'none') {
             body.style.display = 'block';
             icon.style.transform = 'rotate(90deg)';
@@ -4210,7 +4210,7 @@ export const UI = {
           roomTemplates[name] = template;
           grouped[name] = [];
           render();
-          
+
           // Automatically expand the newly added room
           const newCard = container.querySelector(`.scope-room-card[data-room="${name}"]`);
           if (newCard) {
@@ -4286,7 +4286,7 @@ export const UI = {
       const scope = scopeEditor.getSelectedScope();
 
       const loadedDb = DB.load();
-      
+
       // Get assignees names for history action text
       const namesStr = assignees.map(id => {
         const u = loadedDb.users.find(usr => usr.id === id);
@@ -4344,15 +4344,15 @@ export const UI = {
           <label class="form-label">Nhân sự phụ trách công trình</label>
           <div style="max-height: 120px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
             ${workers.map(w => {
-              const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-              const isChecked = currentAssignees.includes(w.id);
-              return `
+      const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
+      const isChecked = currentAssignees.includes(w.id);
+      return `
                 <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
                   <span style="font-size:0.8rem; color:var(--text-primary);">${w.name} (${roleLabel})</span>
                   <input type="checkbox" name="edit-prj-assignee" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);">
                 </label>
               `;
-            }).join('')}
+    }).join('')}
           </div>
         </div>
 
@@ -4473,8 +4473,8 @@ export const UI = {
           <h4 class="section-title" style="margin-bottom:14px;"><i class="fas fa-hourglass-half"></i> Nguyên Nhân Chậm Tiến Độ Nhiều Nhất</h4>
           <div class="material-list">
             ${Object.entries(analytics.delayReasons).map(([reason, count]) => {
-              const maxCount = Math.max(...Object.values(analytics.delayReasons), 1);
-              return `
+      const maxCount = Math.max(...Object.values(analytics.delayReasons), 1);
+      return `
                 <div class="material-row btn-delay-reason-detail" data-reason="${reason}" style="cursor:pointer; padding:8px; border-radius:8px; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.02)'" onmouseout="this.style.backgroundColor='transparent'">
                   <span style="width:140px; font-size:0.8rem; line-height:1.2; font-weight:500;">${reason}</span>
                   <div class="material-progress-container" style="flex:1;">
@@ -4485,7 +4485,7 @@ export const UI = {
                   </span>
                 </div>
               `;
-            }).join('')}
+    }).join('')}
           </div>
         </div>
 
@@ -4554,7 +4554,7 @@ export const UI = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    
+
     // Normalize filename
     const sanitizedName = project.name.replace(/[^a-zA-Z0-9-]/g, '_');
     link.setAttribute('download', `[MocTienPhat]_${sanitizedName}_BaoCaoChiTiet.csv`);
@@ -4578,7 +4578,7 @@ export const UI = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    
+
     const sanitizedName = project.name.replace(/[^a-zA-Z0-9-]/g, '_');
     link.setAttribute('download', `[MocTienPhat]_${sanitizedName}_BackupData.json`);
     link.style.visibility = 'hidden';
@@ -4652,7 +4652,7 @@ export const UI = {
       // Avoid adding multiple listeners if bound multiple times
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
-      
+
       const newInput = input.cloneNode(true);
       input.parentNode.replaceChild(newInput, input);
 
@@ -4774,7 +4774,7 @@ export const UI = {
 
       // Find from frozen projects
       const frozenMatches = projects.filter(p => p.isFrozen && p.freezeReason && matchKeywords.some(k => p.freezeReason.toLowerCase().includes(k)));
-      
+
       // Find from delayed daily logs
       let logMatches = [];
       projects.forEach(p => {
@@ -4836,8 +4836,8 @@ export const UI = {
         itemsHtml = `
           <div style="display:flex; flex-direction:column; gap:12px;">
             ${reworkTasks.map(t => {
-              const worker = db.users.find(u => u.id === t.assignedTo);
-              return `
+          const worker = db.users.find(u => u.id === t.assignedTo);
+          return `
                 <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
                   <div>
                     <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-exclamation-triangle" style="color:var(--status-rejected); margin-right:4px;"></i> ${t.taskTitle}</div>
@@ -4851,7 +4851,7 @@ export const UI = {
                   </div>
                 </div>
               `;
-            }).join('')}
+        }).join('')}
           </div>
         `;
       }
@@ -5002,7 +5002,7 @@ export const UI = {
   showSummaryScopesDetails() {
     const projects = DB.getProjects();
     const db = DB.load();
-    
+
     // 1. Large scope projects
     const largeScopes = projects.filter(p => p.name.includes('[PHÁT SINH]'));
 
@@ -5046,8 +5046,8 @@ export const UI = {
               <p style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Phát sinh nhỏ (Nhiệm vụ con):</p>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 ${smallScopes.map(t => {
-                  const worker = db.users.find(u => u.id === t.assignedTo);
-                  return `
+        const worker = db.users.find(u => u.id === t.assignedTo);
+        return `
                     <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
                       <div>
                         <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-plus-circle" style="color:var(--status-pending); margin-right:4px;"></i> ${t.taskTitle}</div>
@@ -5061,7 +5061,7 @@ export const UI = {
                       </div>
                     </div>
                   `;
-                }).join('')}
+      }).join('')}
               </div>
             </div>
           ` : ''}
