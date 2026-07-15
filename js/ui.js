@@ -2768,11 +2768,23 @@ export const UI = {
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
               <div>
                 <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Phòng (Cấp 1)</label>
-                <input type="text" id="scope-form-room" class="form-input" placeholder="VD: Phòng ngủ, Phòng bếp..." style="height:34px; font-size:0.78rem; padding-left:10px;">
+                <select id="scope-form-room-select" class="form-select" style="height:34px; font-size:0.78rem; padding:4px 8px; box-sizing:border-box;">
+                  <option value="" disabled selected>-- Chọn phòng --</option>
+                  <option value="Phòng ngủ">Phòng ngủ</option>
+                  <option value="Phòng khách">Phòng khách</option>
+                  <option value="Phòng bếp">Phòng bếp</option>
+                  <option value="Phòng thờ">Phòng thờ</option>
+                  <option value="Phòng tắm">Phòng tắm</option>
+                  <option value="Khác...">Khác...</option>
+                </select>
+                <input type="text" id="scope-form-room-custom" class="form-input" placeholder="Tên phòng..." style="height:34px; font-size:0.78rem; padding-left:10px; margin-top:6px; display:none; box-sizing:border-box;">
               </div>
               <div>
                 <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Nội thất (Cấp 2)</label>
-                <input type="text" id="scope-form-item" class="form-input" placeholder="VD: Tủ áo, Bếp trên..." style="height:34px; font-size:0.78rem; padding-left:10px;">
+                <select id="scope-form-item-select" class="form-select" style="height:34px; font-size:0.78rem; padding:4px 8px; box-sizing:border-box;" disabled>
+                  <option value="" disabled selected>-- Chọn phòng trước --</option>
+                </select>
+                <input type="text" id="scope-form-item-custom" class="form-input" placeholder="Tên nội thất..." style="height:34px; font-size:0.78rem; padding-left:10px; margin-top:6px; display:none; box-sizing:border-box;">
               </div>
             </div>
             <div style="display:flex; gap:8px;">
@@ -2780,7 +2792,6 @@ export const UI = {
               <button id="scope-form-cancel" style="height:34px; font-size:0.78rem; flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); border-radius:8px; color:var(--text-secondary); cursor:pointer;">Huỷ</button>
             </div>
           </div>
-
           <!-- Items list -->
           <div id="scope-items-list" style="display:flex; flex-direction:column; gap:8px;">
             ${itemsHtml}
@@ -2977,13 +2988,115 @@ export const UI = {
 
       let editingIdx = null; // null = adding new, number = editing existing
 
+      const roomSelect = section.querySelector('#scope-form-room-select');
+      const roomCustom = section.querySelector('#scope-form-room-custom');
+      const itemSelect = section.querySelector('#scope-form-item-select');
+      const itemCustom = section.querySelector('#scope-form-item-custom');
+
+      const fallbackMap = {
+        'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
+        'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
+        'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
+        'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
+        'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
+      };
+
+      const updateItemsList = (roomVal, currentItem = '') => {
+        itemSelect.innerHTML = '';
+        if (!roomVal) {
+          itemSelect.disabled = true;
+          itemSelect.innerHTML = '<option value="" disabled selected>-- Chọn phòng trước --</option>';
+          itemCustom.style.display = 'none';
+          return;
+        }
+
+        itemSelect.disabled = false;
+        const items = fallbackMap[roomVal] || ['Khác...'];
+        
+        let selectHtml = '<option value="" disabled selected>-- Chọn nội thất --</option>';
+        items.forEach(it => {
+          selectHtml += `<option value="${it}" ${currentItem === it ? 'selected' : ''}>${it}</option>`;
+        });
+        
+        // If currentItem is a custom name not in list, select 'Khác...'
+        const isCustomItem = currentItem && !items.includes(currentItem);
+        if (isCustomItem) {
+          selectHtml += `<option value="Khác..." selected>Khác...</option>`;
+          itemCustom.style.display = 'block';
+          itemCustom.value = currentItem;
+        } else {
+          itemCustom.style.display = currentItem === 'Khác...' ? 'block' : 'none';
+          itemCustom.value = '';
+        }
+        
+        itemSelect.innerHTML = selectHtml;
+      };
+
+      roomSelect?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'Khác...') {
+          roomCustom.style.display = 'block';
+          roomCustom.value = '';
+          roomCustom.required = true;
+          roomCustom.focus();
+          
+          itemSelect.disabled = false;
+          itemSelect.innerHTML = '<option value="Khác..." selected>Khác...</option>';
+          itemCustom.style.display = 'block';
+          itemCustom.value = '';
+          itemCustom.required = true;
+        } else {
+          roomCustom.style.display = 'none';
+          roomCustom.value = '';
+          roomCustom.required = false;
+          updateItemsList(val);
+        }
+      });
+
+      itemSelect?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'Khác...') {
+          itemCustom.style.display = 'block';
+          itemCustom.value = '';
+          itemCustom.required = true;
+          itemCustom.focus();
+        } else {
+          itemCustom.style.display = 'none';
+          itemCustom.value = '';
+          itemCustom.required = false;
+        }
+      });
+
       const showForm = (title, roomVal = '', itemVal = '') => {
         const form = section.querySelector('#scope-inline-form');
         section.querySelector('#scope-form-title').textContent = title;
-        section.querySelector('#scope-form-room').value = roomVal;
-        section.querySelector('#scope-form-item').value = itemVal;
+        
+        const isPredefinedRoom = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm'].includes(roomVal);
+        
+        if (roomVal) {
+          if (isPredefinedRoom) {
+            roomSelect.value = roomVal;
+            roomCustom.style.display = 'none';
+            roomCustom.value = '';
+            updateItemsList(roomVal, itemVal);
+          } else {
+            roomSelect.value = 'Khác...';
+            roomCustom.style.display = 'block';
+            roomCustom.value = roomVal;
+            
+            itemSelect.disabled = false;
+            itemSelect.innerHTML = '<option value="Khác..." selected>Khác...</option>';
+            itemCustom.style.display = 'block';
+            itemCustom.value = itemVal;
+          }
+        } else {
+          roomSelect.value = '';
+          roomCustom.style.display = 'none';
+          roomCustom.value = '';
+          updateItemsList('');
+        }
+
         form.style.display = 'block';
-        section.querySelector('#scope-form-room').focus();
       };
 
       const hideForm = () => {
@@ -2998,10 +3111,9 @@ export const UI = {
         tmpDiv.innerHTML = buildScopeManagerHtml(updatedProject);
         const newSection = tmpDiv.querySelector('#scope-manager-section');
         section.replaceWith(newSection);
-        bindScopeManager(); // re-bind on new DOM
+        bindScopeManager();
       };
 
-      // Button: "+ THÊM HẠNG MỤC"
       const btnAdd = section.querySelector('#btn-scope-add-new');
       if (btnAdd) {
         btnAdd.addEventListener('click', () => {
@@ -3010,13 +3122,15 @@ export const UI = {
         });
       }
 
-      // Button: Huỷ form
       section.querySelector('#scope-form-cancel')?.addEventListener('click', hideForm);
 
-      // Button: Lưu form
       section.querySelector('#scope-form-save')?.addEventListener('click', () => {
-        const room = section.querySelector('#scope-form-room').value.trim();
-        const item = section.querySelector('#scope-form-item').value.trim();
+        const selRoom = roomSelect.value;
+        const room = (selRoom === 'Khác...' ? roomCustom.value.trim() : selRoom);
+        
+        const selItem = itemSelect.value;
+        const item = (selItem === 'Khác...' ? itemCustom.value.trim() : selItem);
+        
         if (!room || !item) { Toast.error('Vui lòng điền đầy đủ Phòng và Nội thất.'); return; }
 
         if (editingIdx === null) {
@@ -3030,6 +3144,7 @@ export const UI = {
         refreshScopeList();
         if (onUpdate) onUpdate();
       });
+
 
       // Buttons: Sửa từng dòng
       section.querySelectorAll('.btn-scope-edit').forEach(btn => {
