@@ -376,6 +376,7 @@ export const UI = {
           <select id="worker-lead-selector" class="form-select">
             <option value="" disabled ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chọn Thợ chính đồng hành --</option>
             ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+            <option value="independent" ${DB.getSelectedLeadWorkerForAssistant(user.id) === 'independent' ? 'selected' : ''}>🔧 Làm độc lập (tự báo cáo)</option>
           </select>
         </div>
       ` : ''}
@@ -435,7 +436,7 @@ export const UI = {
             <div>
               <label class="form-label">Chọn công trình</label>
               <select id="log-project-id" class="form-select" required>
-                ${relevantProjects.map(p => `<option value="${p.id}">${p.name} (GĐ ${p.step})</option>`).join('')}
+                ${relevantProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
                 ${relevantProjects.length === 0 ? '<option value="" disabled>Không có công trình nào phù hợp</option>' : ''}
               </select>
             </div>
@@ -692,13 +693,14 @@ export const UI = {
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
         const approverEl = document.getElementById('log-approver-id');
-        const approverId = approverEl ? approverEl.value : '';
+        // If a lead was pre-selected (incl. 'independent'), use that; else use the approver form field
+        const selectedLeadId = DB.getSelectedLeadWorkerForAssistant ? DB.getSelectedLeadWorkerForAssistant(user.id) : '';
+        const approverId = selectedLeadId || (approverEl ? approverEl.value : '');
         DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items, approverId);
-        const prj = DB.getProject(prjId);
-        if (user.role === 'assistant_worker' && prj && prj.step === 3) {
-          Toast.success('Đã gửi báo cáo chờ thợ chính phê duyệt.');
+        if (user.role === 'assistant_worker' && selectedLeadId && selectedLeadId !== 'independent') {
+          Toast.success('Đã gửi báo cáo — đang chờ thợ chính phê duyệt.');
         } else if (user.role === 'assistant_worker') {
-          Toast.success('Đã gửi báo cáo thi công tại xưởng thành công! (Không cần duyệt)');
+          Toast.success('Đã gửi báo cáo! (Làm độc lập — tự duyệt ngay)');
         } else {
           Toast.success('Gửi báo cáo cuối ngày thành công!');
         }
@@ -1737,9 +1739,15 @@ export const UI = {
 
   // 7. RENDER MANAGER PORTAL
   renderManagerView(user) {
+    // ADMIN & Marketing: simple progress board (no tabs)
+    if (user.role === 'manager' || user.role === 'marketing') {
+      this._renderProgressBoardView(user);
+      return;
+    }
+
     const body = document.getElementById('app-body-content');
-    const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
-    const roleIcon = user.role === 'manager' ? '💼' : user.role === 'kts' ? '📐' : user.role === 'sales' ? '🤝' : '📢';
+    const roleTitle = user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
+    const roleIcon = user.role === 'kts' ? '📐' : user.role === 'sales' ? '🤝' : '📢';
 
     body.innerHTML = `
       <div class="welcome-section fade-in">
@@ -1749,7 +1757,8 @@ export const UI = {
 
       <!-- Manager Tab Buttons -->
       <div class="manager-tabs fade-in" style="overflow-x:auto; white-space:nowrap; gap:4px; padding:4px;">
-        <button class="tab-btn active" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Tiến Độ</button>
+        <button class="tab-btn active" id="tab-progress-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-tasks"></i> Tiến Độ</button>
+        <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Kanban</button>
         <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
         <button class="tab-btn" id="tab-dashboard-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Báo Cáo</button>
@@ -1777,7 +1786,9 @@ export const UI = {
 
       fabBtn.addEventListener('click', () => {
         this.openCreateProjectModal(user, () => {
-          if (btnKanban.classList.contains('active')) {
+          if (btnProgress && btnProgress.classList.contains('active')) {
+            loadProgressBoard();
+          } else if (btnKanban.classList.contains('active')) {
             loadKanban();
           } else if (btnCompleted.classList.contains('active')) {
             loadCompleted();
@@ -1791,6 +1802,7 @@ export const UI = {
     }
 
     // Tab clicks
+    const btnProgress = document.getElementById('tab-progress-btn');
     const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
     const btnLogs = document.getElementById('tab-logs-btn');
@@ -1798,10 +1810,15 @@ export const UI = {
     const btnDashboard = document.getElementById('tab-dashboard-btn');
 
     const setActiveTab = (activeBtn) => {
-      [btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].forEach(btn => {
+      [btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].forEach(btn => {
         if (btn) btn.classList.remove('active');
       });
       activeBtn.classList.add('active');
+    };
+
+    const loadProgressBoard = () => {
+      setActiveTab(btnProgress);
+      this.renderProgressBoard(user);
     };
 
     const loadKanban = () => {
@@ -1829,18 +1846,230 @@ export const UI = {
       this.renderManagerDashboard();
     };
 
+    if (btnProgress) btnProgress.addEventListener('click', loadProgressBoard);
     btnKanban.addEventListener('click', loadKanban);
     btnCompleted.addEventListener('click', loadCompleted);
     btnLogs.addEventListener('click', loadLogs);
     if (btnAttendance) btnAttendance.addEventListener('click', loadAttendance);
     btnDashboard.addEventListener('click', loadDashboard);
 
-    // Initial load
-    if (user.role === 'manager') {
-      loadDashboard();
-    } else {
-      loadKanban();
-    }
+    // Initial load: Progress board is the default view
+    loadProgressBoard();
+  },
+
+  // SIMPLE PROGRESS BOARD VIEW (ADMIN & Marketing — no tabs)
+  _renderProgressBoardView(user) {
+    const body = document.getElementById('app-body-content');
+    const roleIcon = user.role === 'manager' ? '💼' : '📢';
+    body.innerHTML = `
+      <div class="welcome-section fade-in">
+        <div class="welcome-user">Chào ${user.name} ${roleIcon}</div>
+        <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+      </div>
+      <div id="manager-tab-content"></div>
+    `;
+    const oldFab = document.getElementById('manager-add-project-btn');
+    if (oldFab) oldFab.remove();
+    this.renderProgressBoard(user);
+  },
+
+  // PROGRESS BOARD — shared across all management roles
+  renderProgressBoard(user) {
+    const container = document.getElementById('manager-tab-content');
+    if (!container) return;
+
+    const db = DB.load();
+    const allProjects = DB.getProjectsForUser(user);
+    const activeProjects = allProjects.filter(p => !p.isCompleted);
+    const completedProjects = allProjects.filter(p => p.isCompleted);
+
+    const buildProjectCard = (p) => {
+      const isOverdue = new Date(p.deadline) < new Date();
+      const scope = p.scope || [];
+      const subtasks = p.subtasks || [];
+
+      // Map each scope item to its completion status
+      const scopeWithStatus = scope.map(sc => {
+        const matched = subtasks.filter(st =>
+          st.title && st.title.toLowerCase().includes(sc.item.toLowerCase())
+        );
+        let status = 'not_started';
+        let workers = [];
+        if (matched.length > 0) {
+          status = matched.every(st => st.status === 'completed') ? 'done' : 'in_progress';
+          workers = [...new Set(
+            matched
+              .filter(st => st.assignedTo && st.status !== 'completed')
+              .map(st => { const u = db.users.find(u => u.id === st.assignedTo); return u ? u.name.split(' ').pop() : null; })
+              .filter(Boolean)
+          )];
+        }
+        return { ...sc, status, workers };
+      });
+
+      const doneItems  = scopeWithStatus.filter(i => i.status === 'done');
+      const pendingItems = scopeWithStatus.filter(i => i.status !== 'done');
+      const pct = scope.length ? Math.round(doneItems.length / scope.length * 100) : 0;
+
+      // Group pending by room
+      const byRoom = {};
+      pendingItems.forEach(i => { if (!byRoom[i.room]) byRoom[i.room] = []; byRoom[i.room].push(i); });
+
+      return `
+        <div class="fade-in" style="background:var(--bg-secondary); border:1px solid ${isOverdue ? 'rgba(201,91,91,0.35)' : 'var(--border-color)'}; border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm);">
+
+          <!-- Header -->
+          <div style="padding:13px 16px; background:rgba(255,255,255,0.02);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="flex:1; min-width:0;">
+                <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</div>
+                <div style="font-size:0.7rem; color:${isOverdue ? 'var(--status-rejected)' : 'var(--text-muted)'};">
+                  ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
+                </div>
+              </div>
+              <div style="text-align:right; flex-shrink:0;">
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px; white-space:nowrap;">${doneItems.length}/${scope.length || '?'} xong</div>
+                <div style="background:rgba(255,255,255,0.06); height:6px; border-radius:3px; width:72px; overflow:hidden;">
+                  <div style="width:${pct}%; background:${pct === 100 ? 'var(--status-approved)' : 'var(--primary)'}; height:6px; border-radius:3px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Done items: compact tags -->
+            ${doneItems.length > 0 ? `
+              <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:4px;">
+                ${doneItems.map(item => `
+                  <span style="display:inline-flex; align-items:center; gap:3px; font-size:0.66rem; color:var(--text-muted); background:rgba(78,141,124,0.08); border:1px solid rgba(78,141,124,0.12); padding:2px 6px; border-radius:16px; text-decoration:line-through; opacity:0.75;">
+                    <i class="fas fa-check" style="font-size:0.55rem; color:var(--status-approved); text-decoration:none;"></i>
+                    ${item.room} · ${item.item}
+                  </span>
+                `).join('')}
+              </div>
+            ` : scope.length === 0 ? '<div style="font-size:0.72rem; color:var(--text-muted); margin-top:6px; font-style:italic;">Chưa thiết lập hạng mục.</div>' : ''}
+          </div>
+
+          <!-- Pending items -->
+          ${pendingItems.length > 0 ? `
+            <div style="border-top:1px solid var(--border-color); padding:10px 16px;">
+              <div style="font-size:0.67rem; font-weight:700; color:var(--status-pending); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                <i class="fas fa-clock"></i> Còn ${pendingItems.length} việc cần hoàn thành
+              </div>
+              ${Object.entries(byRoom).map(([room, items]) => `
+                <div style="margin-bottom:8px;">
+                  <div style="font-size:0.67rem; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+                    <i class="fas fa-folder" style="font-size:0.6rem; color:var(--primary);"></i> ${room}
+                  </div>
+                  ${items.map(item => `
+                    <div style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(245,158,11,0.05); border:1px solid rgba(245,158,11,0.13); border-radius:8px; margin-bottom:4px;">
+                      <i class="${item.status === 'in_progress' ? 'fas fa-tools' : 'far fa-circle'}" style="color:${item.status === 'in_progress' ? 'var(--primary)' : 'var(--status-pending)'}; font-size:0.78rem; flex-shrink:0;"></i>
+                      <span style="font-size:0.78rem; font-weight:600; color:var(--text-primary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.item}</span>
+                      <span style="font-size:0.63rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0;">
+                        ${item.workers.length > 0 ? `<i class="fas fa-user" style="font-size:0.55rem;"></i> ${item.workers.join(', ')}` : '<span style="opacity:0.6; font-style:italic;">Chưa giao</span>'}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            <div style="border-top:1px solid var(--border-color); padding:10px 16px; text-align:center; font-size:0.78rem; color:var(--status-approved);">
+              <i class="fas fa-check-double"></i> Tất cả hạng mục đã hoàn thành!
+            </div>
+          `}
+
+          <!-- Actions footer (KTS + Sales only) -->
+          ${(user.role === 'kts' || user.role === 'sales') ? `
+            <div style="padding:8px 14px; border-top:1px solid rgba(255,255,255,0.04); display:flex; justify-content:flex-end; gap:6px; background:rgba(0,0,0,0.08);">
+              ${user.role === 'kts' ? `
+                <button class="btn-board-open-details" data-project="${p.id}" style="background:rgba(255,255,255,0.05); color:var(--text-secondary); border:1px solid var(--border-color); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                  <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i> Chi tiết
+                </button>
+                <button class="btn-board-assign-task" data-project="${p.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;">
+                  <i class="fas fa-plus"></i> Giao việc
+                </button>
+              ` : ''}
+              ${user.role === 'sales' ? `
+                <button class="btn-board-edit-project" data-project="${p.id}" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--primary); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                  <i class="fas fa-edit"></i> Sửa
+                </button>
+                <button class="btn-board-delete-project" data-project="${p.id}" style="background:none; border:1px solid rgba(255,255,255,0.06); color:var(--status-rejected); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer;">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+                <button class="btn-board-complete-project" data-project="${p.id}" style="background:linear-gradient(135deg, #10B981, #047857); color:white; border:none; font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;">
+                  <i class="fas fa-archive"></i> Lưu trữ
+                </button>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:14px; padding-bottom:80px;">
+        ${activeProjects.length > 0
+          ? activeProjects.map(p => buildProjectCard(p)).join('')
+          : `<div style="text-align:center; padding:32px; color:var(--text-muted); background:var(--bg-secondary); border-radius:16px; border:1px solid var(--border-color);">
+              <i class="fas fa-folder-open" style="font-size:2rem; margin-bottom:8px; display:block;"></i>
+              <p>Không có công trình đang thi công.</p>
+            </div>`
+        }
+        ${completedProjects.length > 0 ? `
+          <div style="border-top:1px solid var(--border-color); padding-top:14px;">
+            <h5 style="font-family:var(--font-title); font-size:0.82rem; color:var(--text-muted); margin-bottom:8px;">
+              <i class="fas fa-archive"></i> Đã bàn giao (${completedProjects.length} công trình)
+            </h5>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              ${completedProjects.map(p => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.04); border-radius:8px; font-size:0.75rem; color:var(--text-muted);">
+                  <span><i class="fas fa-check-circle" style="color:var(--status-approved);"></i> ${p.name}</span>
+                  <span style="flex-shrink:0;">${p.completedAt ? new Date(p.completedAt).toLocaleDateString('vi-VN') : ''}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Bind KTS buttons
+    container.querySelectorAll('.btn-board-assign-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.openAssignTaskModal(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
+      });
+    });
+    container.querySelectorAll('.btn-board-open-details').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.openProjectDetailsDrawer(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
+      });
+    });
+
+    // Bind Sales buttons
+    container.querySelectorAll('.btn-board-edit-project').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.openEditProjectModal(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
+      });
+    });
+    container.querySelectorAll('.btn-board-delete-project').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-project');
+        if (confirm('Xác nhận xóa công trình này? Hành động không thể hoàn tác.')) {
+          DB.deleteProject(pid, user.id);
+          Toast.success('Đã xóa công trình.');
+          this.renderProgressBoard(user);
+        }
+      });
+    });
+    container.querySelectorAll('.btn-board-complete-project').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-project');
+        if (confirm('Lưu trữ công trình này? Công trình sẽ chuyển sang Kho Bàn Giao.')) {
+          DB.completeProject(pid, user.id);
+          Toast.success('Công trình đã được lưu vào kho bàn giao.');
+          this.renderProgressBoard(user);
+        }
+      });
+    });
   },
 
   // 7.1 RENDER LOGS LIST WITH FILTERS (MANAGER TAB)

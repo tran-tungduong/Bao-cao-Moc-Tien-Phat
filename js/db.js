@@ -884,8 +884,8 @@ export const DB = {
       const todayRecord = db.attendance ? db.attendance.find(a => a.userId === userId && a.date === today) : null;
       const isWorkshopToday = todayRecord && (todayRecord.isWorkingAtWorkshop === true || todayRecord.isWorkingAtWorkshop === 'true');
 
-      // Needs approval if: is assistant, project step is 3 (installation at site) AND they are not assigned to work at workshop today
-      const needsApproval = isAssistant && project.step === 3 && !isWorkshopToday;
+      // Needs approval if: is assistant AND selected a specific lead worker (not empty or 'independent')
+      const needsApproval = isAssistant && approverId && approverId !== 'independent';
 
       const newLog = {
         id: logId,
@@ -908,7 +908,7 @@ export const DB = {
         timestamp: new Date().toISOString(),
         action: needsApproval 
           ? `Gửi báo cáo thợ phụ (Chờ thợ chính duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
-          : `Gửi báo cáo thợ phụ độc lập tại xưởng: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
+          : `Gửi báo cáo thợ phụ (Làm độc lập - Tự duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
         user: user ? user.name : 'Nhân viên'
       };
       project.history.push(hist);
