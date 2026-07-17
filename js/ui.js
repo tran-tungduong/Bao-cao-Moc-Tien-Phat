@@ -1,6 +1,25 @@
 import { DB } from './db.js';
 import { Toast, Modal, MockImages } from './components.js';
 
+window.showPhotoLightbox = (url) => {
+  const lightbox = document.createElement('div');
+  lightbox.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:99999; display:flex; align-items:center; justify-content:center; cursor:zoom-out; opacity:0; transition:opacity 0.22s ease-in-out;';
+  lightbox.innerHTML = `
+    <div style="position:relative; max-width:92%; max-height:92%; display:flex; align-items:center; justify-content:center;">
+      <img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.1);">
+      <button style="position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:50%; width:32px; height:32px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">&times;</button>
+    </div>
+  `;
+  document.body.appendChild(lightbox);
+  setTimeout(() => { lightbox.style.opacity = '1'; }, 20);
+  
+  const close = () => {
+    lightbox.style.opacity = '0';
+    lightbox.addEventListener('transitionend', () => lightbox.remove());
+  };
+  lightbox.addEventListener('click', close);
+};
+
 export const STEPS = [
   { num: 1, title: 'Thiết Kế', icon: 'fa-drafting-compass', desc: 'Lên phương án phối cảnh 2D/3D & chốt báo giá' },
   { num: 2, title: 'Gia Công Tại Xưởng', icon: 'fa-industry', desc: 'Sản xuất, cắt CNC, dán cạnh và ráp thử tại xưởng' },
@@ -3833,7 +3852,7 @@ export const UI = {
             <div class="report-photos-grid" style="grid-template-columns: repeat(3, 1fr);">
               ${log.photos.map(pUrl => `
                 <div style="aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--border-color); cursor:zoom-in;">
-                  <img src="${pUrl}" style="width:100%; height:100%; object-fit:cover;" onclick="window.open('${pUrl}', '_blank')">
+                  <img src="${pUrl}" style="width:100%; height:100%; object-fit:cover;" onclick="window.showPhotoLightbox('${pUrl}')">
                 </div>
               `).join('')}
             </div>
