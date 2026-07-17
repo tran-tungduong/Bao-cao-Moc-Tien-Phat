@@ -188,6 +188,7 @@ export const UI = {
     row.className = 'checklist-item-row';
     row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
 
+    const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
     const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
@@ -252,6 +253,14 @@ export const UI = {
         </div>
       </div>
 
+      <!-- Nhiệm vụ được giao (Từ thiết kế/KTS) -->
+      <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px;">
+        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Chọn nhiệm vụ được giao (Nếu có)</label>
+        <select class="form-select select-chk-task" style="padding: 6px 12px; height: 38px; font-size: 0.82rem; width:100%;">
+          <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
+        </select>
+      </div>
+
       <!-- Công việc hôm nay & Tiến độ -->
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
         <div>
@@ -294,6 +303,46 @@ export const UI = {
     const customRoom = row.querySelector('.txt-chk-custom-room');
     const selectItem = row.querySelector('.select-chk-item');
     const customItem = row.querySelector('.txt-chk-custom-item');
+    const selectTask = row.querySelector('.select-chk-task');
+    const txtTodayWork = row.querySelector('.txt-chk-today-work');
+
+    const updateTasksDropdown = () => {
+      if (!project || !project.subtasks) {
+        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>`;
+        return;
+      }
+      
+      const rVal = selectRoom.value === 'Khác...' ? customRoom.value.trim() : selectRoom.value;
+      const iVal = selectItem.value === 'Khác...' ? customItem.value.trim() : selectItem.value;
+
+      if (!rVal || !iVal) {
+        selectTask.innerHTML = `<option value="">-- Chọn phòng và nội thất trước --</option>`;
+        return;
+      }
+
+      // Title prefix: [Room - Item]:
+      const prefix = `[${rVal} - ${iVal}]:`.toLowerCase();
+      const filteredTasks = project.subtasks.filter(st => {
+        const stTitle = (st.title || '').toLowerCase();
+        return stTitle.includes(prefix) || (stTitle.includes(iVal.toLowerCase()) && st.status !== 'completed');
+      });
+
+      if (filteredTasks.length === 0) {
+        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>`;
+      } else {
+        const selectedTaskId = initialData ? (initialData.taskId || '') : '';
+        selectTask.innerHTML = `
+          <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
+          ${filteredTasks.map(st => {
+            const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
+            const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+            const shortWorker = workerName.replace(/\s*\(.*?\)/g, '').split(' ').pop();
+            const statusLabel = st.status === 'completed' ? 'Đã xong' : 'Chưa xong';
+            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${statusLabel}] ${taskDesc} (${shortWorker})</option>`;
+          }).join('')}
+        `;
+      }
+    };
 
     selectRoom.addEventListener('change', () => {
       const val = selectRoom.value;
@@ -331,6 +380,7 @@ export const UI = {
         customItem.required = false;
         customItem.value = '';
       }
+      updateTasksDropdown();
     });
 
     selectItem.addEventListener('change', () => {
@@ -342,6 +392,7 @@ export const UI = {
         customItem.required = false;
         customItem.value = '';
       }
+      updateTasksDropdown();
     });
 
     const isCompletedCheckbox = row.querySelector('.chk-item-completed');
@@ -380,12 +431,36 @@ export const UI = {
       updateVisibility(isDone);
     });
 
+    selectTask.addEventListener('change', () => {
+      const taskId = selectTask.value;
+      if (taskId && project && project.subtasks) {
+        const task = project.subtasks.find(st => st.id === taskId);
+        if (task) {
+          const taskDesc = task.title.replace(/^\s*\[.*?\].*?\:\s*/, '').trim();
+          txtTodayWork.value = taskDesc;
+          
+          if (task.status === 'completed') {
+            selectProgress.value = '100';
+            isCompletedCheckbox.checked = true;
+            updateVisibility(true);
+          } else {
+            selectProgress.value = '50';
+            isCompletedCheckbox.checked = false;
+            updateVisibility(false);
+          }
+        }
+      }
+    });
+
     // Default expected date
     if (!expectedDate && expectedDateInput) {
       const d = new Date();
       d.setDate(d.getDate() + 1);
       expectedDateInput.value = d.toISOString().split('T')[0];
     }
+
+    // Initial update of tasks dropdown if room/item are pre-populated
+    updateTasksDropdown();
 
     row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
       row.remove();
@@ -723,6 +798,13 @@ export const UI = {
           return;
         }
 
+        const loadedDb = DB.load();
+        const loadedProj = loadedDb.projects.find(p => p.id === prjId);
+        if (!loadedProj) {
+          Toast.error('Không tìm thấy thông tin công trình.');
+          return;
+        }
+
         let hasError = false;
         rows.forEach(row => {
           const selectRoom = row.querySelector('.select-chk-room').value;
@@ -739,8 +821,51 @@ export const UI = {
           const pendingNotes = isCompleted ? '' : row.querySelector('.txt-chk-pending-notes').value.trim();
           const expectedCompletionDate = isCompleted ? '' : row.querySelector('.txt-chk-expected-date').value;
 
+          const selectedTaskId = row.querySelector('.select-chk-task').value;
+
           if (!room || !item || !todayWork) {
             hasError = true;
+          }
+
+          let finalTaskId = selectedTaskId;
+
+          if (selectedTaskId) {
+            // Update existing subtask status
+            const existingTask = loadedProj.subtasks.find(st => st.id === selectedTaskId);
+            if (existingTask) {
+              existingTask.status = isCompleted ? 'completed' : 'pending';
+              existingTask.completedAt = isCompleted ? new Date().toISOString() : null;
+              
+              // Sync with Supabase
+              DB.sbUpdateSubtask(selectedTaskId, { 
+                status: existingTask.status, 
+                completed_at: existingTask.completedAt 
+              });
+            }
+          } else {
+            // Auto-create spontaneous task
+            const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
+            const newSt = {
+              id: subtaskId,
+              title: `[${room} - ${item}]: ${todayWork}`,
+              assignedTo: user.id,
+              status: isCompleted ? 'completed' : 'pending',
+              completedAt: isCompleted ? new Date().toISOString() : null,
+              type: 'small_scope'
+            };
+            loadedProj.subtasks.push(newSt);
+            finalTaskId = subtaskId;
+
+            // Sync with Supabase
+            DB.sbInsertSubtask(newSt, prjId);
+            
+            const hist = {
+              timestamp: new Date().toISOString(),
+              action: `Báo cáo tự phát sinh: "${newSt.title}" (Tiến độ: ${progress}%)`,
+              user: user.name
+            };
+            loadedProj.history.push(hist);
+            DB.sbInsertHistory(hist, prjId);
           }
 
           items.push({
@@ -750,7 +875,8 @@ export const UI = {
             progress,
             isCompleted,
             pendingNotes: isCompleted ? '' : pendingNotes,
-            expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
+            expectedCompletionDate: isCompleted ? '' : expectedCompletionDate,
+            taskId: finalTaskId
           });
         });
 
@@ -758,6 +884,9 @@ export const UI = {
           Toast.error('Vui lòng nhập đầy đủ thông tin phòng, nội thất và công việc đã làm.');
           return;
         }
+
+        // Save local DB
+        DB.save(loadedDb);
 
         // Generate text note summary for old compatibility
         note = items.map(it => {
