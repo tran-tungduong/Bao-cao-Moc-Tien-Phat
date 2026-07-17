@@ -1767,7 +1767,7 @@ export const UI = {
 
     // Recreate the FAB directly under the app shell so it stays fixed on scroll
     const shell = document.getElementById('app-shell-container');
-    if (shell) {
+    if (shell && user.role === 'sales') {
       const fabBtn = document.createElement('button');
       fabBtn.className = 'fab';
       fabBtn.id = 'manager-add-project-btn';
@@ -1836,7 +1836,11 @@ export const UI = {
     btnDashboard.addEventListener('click', loadDashboard);
 
     // Initial load
-    loadKanban();
+    if (user.role === 'manager') {
+      loadDashboard();
+    } else {
+      loadKanban();
+    }
   },
 
   // 7.1 RENDER LOGS LIST WITH FILTERS (MANAGER TAB)
@@ -1940,7 +1944,7 @@ export const UI = {
                 <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}" style="margin-right:0;">
                   ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
                 </span>
-                ${user.role === 'manager' ? `
+                ${user.role !== 'manager' && user.role !== 'marketing' ? `
                   <button class="btn-delete-log-from-tab" data-project="${l.projectId}" data-log-id="${l.id}" style="background:none; border:none; padding:4px 6px; color:var(--status-rejected); cursor:pointer; font-size:0.85rem;" title="Xóa báo cáo này"><i class="fas fa-trash-alt"></i></button>
                 ` : ''}
               </div>
@@ -2313,8 +2317,10 @@ export const UI = {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.03); font-size:0.75rem; color:var(--text-muted);">
               <span><i class="fas fa-history"></i> Logs: ${p.dailyLogs.length} | Tasks: ${p.subtasks.filter(s => s.status === 'completed').length}/${p.subtasks.length}</span>
               <div style="display:flex; align-items:center; gap:8px;">
-                <button class="btn-card-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
-                <button class="btn-card-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
+                ${user.role === 'sales' ? `
+                  <button class="btn-card-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
+                  <button class="btn-card-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
+                ` : ''}
                 <span style="font-weight:600; color:var(--primary); margin-left:4px;">Chi tiết &rarr;</span>
               </div>
             </div>
@@ -2383,12 +2389,14 @@ export const UI = {
           <h4 style="font-family:var(--font-title); font-size:0.95rem; font-weight:600;"><i class="fas fa-archive"></i> Kho Lưu Trữ Công Trình (${completedProjects.length})</h4>
           <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Nơi lưu giữ thông tin các dự án nội thất đã bàn giao cho khách hàng.</p>
         </div>
-        <div>
-          <button id="btn-import-project-backup" class="btn-primary" style="padding:8px 12px; font-size:0.78rem; font-weight:700; height:auto; background:linear-gradient(135deg, var(--primary), #9E815B); display:flex; align-items:center; gap:6px; border:none; cursor:pointer; border-radius:8px;">
-            <i class="fas fa-file-upload"></i> Khôi phục công trình (.json)
-          </button>
-          <input type="file" id="import-project-file-input" accept=".json" style="display:none;">
-        </div>
+        ${user.role === 'sales' ? `
+          <div>
+            <button id="btn-import-project-backup" class="btn-primary" style="padding:8px 12px; font-size:0.78rem; font-weight:700; height:auto; background:linear-gradient(135deg, var(--primary), #9E815B); display:flex; align-items:center; gap:6px; border:none; cursor:pointer; border-radius:8px;">
+              <i class="fas fa-file-upload"></i> Khôi phục công trình (.json)
+            </button>
+            <input type="file" id="import-project-file-input" accept=".json" style="display:none;">
+          </div>
+        ` : ''}
       </div>
     `;
 
@@ -2424,8 +2432,10 @@ export const UI = {
                 <button class="btn-download-json" data-project="${p.id}" style="background-color:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); color:#3B82F6; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải file cứng sao lưu JSON">
                   <i class="fas fa-file-download"></i> File Backup (JSON)
                 </button>
-                <button class="btn-completed-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
-                <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình giải phóng bộ nhớ"><i class="fas fa-trash-alt"></i></button>
+                ${user.role === 'sales' ? `
+                  <button class="btn-completed-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
+                  <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình giải phóng bộ nhớ"><i class="fas fa-trash-alt"></i></button>
+                ` : ''}
                 <span class="status-badge approved" style="font-weight:700; background-color:rgba(78, 141, 124, 0.15); white-space:nowrap;">
                   <i class="fas fa-check-circle"></i> Đã Bàn Giao
                 </span>
@@ -2617,7 +2627,7 @@ export const UI = {
 
             // Get absolute index of this scope item in proj.scope
             const scopeIndexInProj = proj.scope.findIndex(sc => sc.room === roomName && sc.item === item);
-            const canEdit = isManagementRole && !proj.isCompleted;
+            const canEdit = isManagementRole && user.role !== 'manager' && !proj.isCompleted;
 
             return `
                 <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;">
@@ -2706,13 +2716,13 @@ export const UI = {
               </div>
               
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                ${st.status === 'pending' && !proj.isCompleted
+                ${st.status === 'pending' && !proj.isCompleted && user.role !== 'manager'
               ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
               : isDone
                 ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
                 : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
             }
-                ${isManagementRole && !proj.isCompleted ? `
+                ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
                   <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                   <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
                 ` : ''}
@@ -2749,7 +2759,7 @@ export const UI = {
         `;
       }
 
-      const canAdd = isManagementRole && !proj.isCompleted;
+      const canAdd = isManagementRole && user.role !== 'manager' && !proj.isCompleted;
       return `
         <div id="scope-manager-section" style="margin-top:8px;">
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; color:var(--primary);">
@@ -2896,7 +2906,7 @@ export const UI = {
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Nhân sự phụ trách công trình</span>
-            ${(user.role === 'manager' || user.role === 'kts' || user.role === 'sales') && !project.isCompleted
+            ${(user.role === 'kts' || user.role === 'sales') && !project.isCompleted
         ? `<button id="drawer-assign-project-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-user-plus"></i> GIAO CÔNG TRÌNH</button>`
         : ''
       }
@@ -2922,7 +2932,7 @@ export const UI = {
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.filter(l => l.approved !== false).length})</span>
-            ${user.role === 'manager' && !project.isCompleted
+            ${user.role !== 'manager' && ['kts', 'sales'].includes(user.role) && !project.isCompleted
         ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
         : ''
       }
@@ -2942,7 +2952,7 @@ export const UI = {
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <div class="btn-view-log-item" data-log-index="${actualIdx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
-                    ${user.role === 'manager' ? `
+                    ${user.role !== 'manager' && user.role !== 'marketing' ? `
                       <button class="btn-delete-log-item" data-log-id="${l.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa báo cáo"><i class="fas fa-trash-alt"></i></button>
                     ` : ''}
                   </div>
