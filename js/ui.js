@@ -174,8 +174,11 @@ export const UI = {
 
     const roomVal = initialData ? initialData.room : '';
     const itemVal = initialData ? initialData.item : '';
-    const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true') : false;
+    const todayWork = initialData ? (initialData.todayWork || '') : '';
+    const progressVal = initialData ? (parseInt(initialData.progress) || (initialData.isCompleted ? 100 : 50)) : 50;
+    const isCompleted = progressVal === 100;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
+    const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
 
     const isCustomRoom = roomVal && !rooms.includes(roomVal);
 
@@ -230,6 +233,20 @@ export const UI = {
         </div>
       </div>
 
+      <!-- Công việc hôm nay & Tiến độ -->
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+        <div>
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
+          <input type="text" class="form-input txt-chk-today-work" placeholder="Ví dụ: Cắt CNC / Lắp khung / Bo cạnh / Sơn..." required style="height: 38px; font-size: 0.8rem; padding-left: 10px;" value="${todayWork}">
+        </div>
+        <div>
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Tiến độ đạt được (%)</label>
+          <select class="form-select select-chk-progress" required style="padding: 6px 12px; height: 38px; font-size: 0.82rem;">
+            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% (Xong)' : p + '%'}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
       <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; width: max-content;">
           <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--status-approved);">
@@ -237,8 +254,16 @@ export const UI = {
         </label>
         
         <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'block'}; margin-top: 2px;">
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Cấp 3: Việc còn lại cần làm (Nếu chưa xong)</label>
-          <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone, vỡ kính..." style="height: 36px; font-size: 0.8rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Việc còn lại cần làm</label>
+              <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: 38px; font-size: 0.8rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Ngày dự kiến xong món này</label>
+              <input type="date" class="form-input txt-chk-expected-date" style="height: 36px; font-size: 0.8rem; padding-left: 10px;" value="${expectedDate}" ${!isCompleted ? 'required' : ''}>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -301,24 +326,52 @@ export const UI = {
     });
 
     const isCompletedCheckbox = row.querySelector('.chk-item-completed');
+    const selectProgress = row.querySelector('.select-chk-progress');
     const pendingNotesWrapper = row.querySelector('.chk-pending-notes-wrapper');
     const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
-    isCompletedCheckbox.addEventListener('change', () => {
-      if (isCompletedCheckbox.checked) {
+    const expectedDateInput = row.querySelector('.txt-chk-expected-date');
+
+    const updateVisibility = (isDone) => {
+      if (isDone) {
         pendingNotesWrapper.style.display = 'none';
         pendingNotesInput.required = false;
-        pendingNotesInput.value = '';
+        expectedDateInput.required = false;
       } else {
         pendingNotesWrapper.style.display = 'block';
         pendingNotesInput.required = true;
+        expectedDateInput.required = true;
+      }
+    };
+
+    isCompletedCheckbox.addEventListener('change', () => {
+      if (isCompletedCheckbox.checked) {
+        selectProgress.value = '100';
+        updateVisibility(true);
+      } else {
+        if (selectProgress.value === '100') {
+          selectProgress.value = '50';
+        }
+        updateVisibility(false);
       }
     });
+
+    selectProgress.addEventListener('change', () => {
+      const isDone = selectProgress.value === '100';
+      isCompletedCheckbox.checked = isDone;
+      updateVisibility(isDone);
+    });
+
+    // Default expected date
+    if (!expectedDate && expectedDateInput) {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      expectedDateInput.value = d.toISOString().split('T')[0];
+    }
 
     row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
       row.remove();
     });
   },
-
   // 3. RENDER WORKER VIEWS (DAILY WORK LOGS & ASSIGNED PROJECTS)
   renderWorkerView(user) {
     const body = document.getElementById('app-body-content');
@@ -661,35 +714,42 @@ export const UI = {
           const customItem = row.querySelector('.txt-chk-custom-item').value;
           const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
 
-          const isCompleted = row.querySelector('.chk-item-completed').checked;
-          const pendingNotes = row.querySelector('.txt-chk-pending-notes').value.trim();
+          const todayWork = row.querySelector('.txt-chk-today-work').value.trim();
+          const progress = parseInt(row.querySelector('.select-chk-progress').value) || 50;
+          const isCompleted = progress === 100;
+          const pendingNotes = isCompleted ? '' : row.querySelector('.txt-chk-pending-notes').value.trim();
+          const expectedCompletionDate = isCompleted ? '' : row.querySelector('.txt-chk-expected-date').value;
 
-          if (!room || !item) {
+          if (!room || !item || !todayWork) {
             hasError = true;
           }
 
           items.push({
             room,
             item,
+            todayWork,
+            progress,
             isCompleted,
-            pendingNotes: isCompleted ? '' : pendingNotes
+            pendingNotes: isCompleted ? '' : pendingNotes,
+            expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
           });
         });
 
         if (hasError) {
-          Toast.error('Vui lòng nhập đầy đủ thông tin phòng và nội thất.');
+          Toast.error('Vui lòng nhập đầy đủ thông tin phòng, nội thất và công việc đã làm.');
           return;
         }
 
         // Generate text note summary for old compatibility
         note = items.map(it => {
-          return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
-        }).join('\n');
+          return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
+                 `  + Tiến độ: ${it.progress}%\n` +
+                 (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+        }).join('\n\n');
 
       } else {
         note = document.getElementById('log-note').value;
       }
-
       try {
         if (!prjId) throw new Error('Vui lòng chọn công trình.');
         const approverEl = document.getElementById('log-approver-id');
@@ -3722,26 +3782,34 @@ export const UI = {
             <label class="form-label" style="font-size:0.75rem; margin-bottom:8px;">Hạng mục chi tiết báo cáo</label>
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${log.items.map(it => {
-      const statusColor = it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)';
-      const statusIcon = it.isCompleted ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
-      return `
-                  <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${it.isCompleted ? 'var(--status-approved)' : 'var(--status-pending)'}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
+                const isDone = it.progress === 100 || it.isCompleted === true || it.isCompleted === 'true';
+                const progressPercent = it.progress || (isDone ? 100 : 50);
+                const statusColor = isDone ? 'var(--status-approved)' : 'var(--status-pending)';
+                const statusIcon = isDone ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-spinner fa-spin"></i>';
+                return `
+                  <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${statusColor}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
                         ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>
                       </span>
                       <span style="font-size:0.75rem; font-weight:600; color:${statusColor}; display:flex; align-items:center; gap:4px;">
-                        ${statusIcon} ${it.isCompleted ? 'Đã xong' : 'Chưa xong'}
+                        ${statusIcon} Tiến độ: ${progressPercent}%
                       </span>
                     </div>
-                    ${!it.isCompleted ? `
-                      <div style="font-size:0.75rem; color:var(--status-pending); background:rgba(210, 144, 98, 0.05); border:1px dashed rgba(210, 144, 98, 0.2); padding:6px 10px; border-radius:6px; margin-top:4px;">
-                        <strong>Việc cần làm:</strong> ${it.pendingNotes}
+                    
+                    <div style="font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
+                      <strong>Đã làm hôm nay:</strong> ${it.todayWork || 'Chưa ghi chú'}
+                    </div>
+
+                    ${!isDone ? `
+                      <div style="display:flex; flex-direction:column; gap:4px; font-size:0.75rem; background:rgba(210, 144, 98, 0.05); border:1px dashed rgba(210, 144, 98, 0.2); padding:6px 10px; border-radius:6px; margin-top:2px;">
+                        <div><strong>Việc còn lại:</strong> ${it.pendingNotes || 'Chưa ghi chú'}</div>
+                        ${it.expectedCompletionDate ? `<div><strong>Dự kiến xong:</strong> <span style="color:var(--primary); font-weight:600;">${new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN')}</span></div>` : ''}
                       </div>
                     ` : ''}
                   </div>
                 `;
-    }).join('')}
+              }).join('')}
             </div>
           </div>
         ` : `
@@ -3750,7 +3818,6 @@ export const UI = {
             <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${log.note}</div>
           </div>
         `}
-
         ${log.expectedCompletionDate ? `
           <div>
             <label class="form-label" style="font-size:0.75rem;">Thời gian hoàn thành dự kiến</label>
