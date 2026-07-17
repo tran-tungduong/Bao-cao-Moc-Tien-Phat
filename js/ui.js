@@ -324,7 +324,8 @@ export const UI = {
       const prefix = `[${rVal} - ${iVal}]:`.toLowerCase();
       const filteredTasks = project.subtasks.filter(st => {
         const stTitle = (st.title || '').toLowerCase();
-        return stTitle.includes(prefix) || (stTitle.includes(iVal.toLowerCase()) && st.status !== 'completed');
+        const matchesRoomItem = stTitle.includes(prefix) || stTitle.includes(iVal.toLowerCase());
+        return matchesRoomItem && st.status !== 'completed';
       });
 
       if (filteredTasks.length === 0) {
