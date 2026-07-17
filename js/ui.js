@@ -1962,48 +1962,135 @@ export const UI = {
     const activeProjects = allProjects.filter(p => !p.isCompleted);
     const completedProjects = allProjects.filter(p => p.isCompleted);
 
+    const getShortName = (userId) => {
+      const u = db.users.find(x => x.id === userId);
+      if (!u) return 'Chưa giao';
+      const clean = u.name.replace(/\s*\(.*?\)/g, '').trim();
+      return clean.split(' ').pop() || 'Chưa rõ';
+    };
+
     const buildProjectCard = (p) => {
       const isOverdue = new Date(p.deadline) < new Date();
       const scope = p.scope || [];
       const subtasks = p.subtasks || [];
 
-      // Map each scope item to its completion status
-      const scopeWithStatus = scope.map(sc => {
+      // Map each scope item to its status and its matched subtasks
+      const scopeWithSubtasks = scope.map(sc => {
         const matched = subtasks.filter(st =>
           st.title && st.title.toLowerCase().includes(sc.item.toLowerCase())
         );
-        let status = 'not_started';
-        let workers = [];
+        let status = 'not_started'; // 'not_started' | 'in_progress' | 'done'
         if (matched.length > 0) {
           status = matched.every(st => st.status === 'completed') ? 'done' : 'in_progress';
-          workers = [...new Set(
-            matched
-              .filter(st => st.assignedTo && st.status !== 'completed')
-              .map(st => { const u = db.users.find(u => u.id === st.assignedTo); return u ? u.name.split(' ').pop() : null; })
-              .filter(Boolean)
-          )];
         }
-        return { ...sc, status, workers };
+        return {
+          ...sc,
+          status,
+          subtasks: matched
+        };
       });
 
-      const doneItems  = scopeWithStatus.filter(i => i.status === 'done');
-      const pendingItems = scopeWithStatus.filter(i => i.status !== 'done');
+      const doneItems = scopeWithSubtasks.filter(i => i.status === 'done');
       const pct = scope.length ? Math.round(doneItems.length / scope.length * 100) : 0;
 
-      // Group pending by room
-      const byRoom = {};
-      pendingItems.forEach(i => { if (!byRoom[i.room]) byRoom[i.room] = []; byRoom[i.room].push(i); });
+      // Group all scope items by Room
+      const roomsMap = {};
+      scopeWithSubtasks.forEach(item => {
+        if (!roomsMap[item.room]) roomsMap[item.room] = [];
+        roomsMap[item.room].push(item);
+      });
+
+      // Build HTML for each room
+      const roomsHtml = Object.entries(roomsMap).map(([roomName, items]) => {
+        const itemsHtml = items.map(item => {
+          let itemBadge = '';
+          let borderStyle = 'border: 1px solid var(--border-color);';
+          let bgStyle = 'background: rgba(255,255,255,0.015);';
+          
+          if (item.status === 'done') {
+            itemBadge = `<span style="font-size:0.65rem; font-weight:700; color:var(--status-approved); background:rgba(78,141,124,0.1); border:1px solid rgba(78,141,124,0.2); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> Xong</span>`;
+          } else if (item.status === 'in_progress') {
+            itemBadge = `<span style="font-size:0.65rem; font-weight:700; color:var(--primary); background:rgba(197,168,128,0.1); border:1px solid rgba(197,168,128,0.2); padding:2px 6px; border-radius:4px;"><i class="fas fa-spinner fa-spin"></i> Đang làm</span>`;
+            borderStyle = 'border: 1px solid rgba(245,158,11,0.15);';
+            bgStyle = 'background: rgba(245,158,11,0.02);';
+          } else {
+            itemBadge = `<span style="font-size:0.65rem; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px;">Chưa giao</span>`;
+          }
+
+          // Build subtask rows
+          let subtasksHtml = '';
+          if (item.subtasks.length === 0) {
+            subtasksHtml = `
+              <div style="font-size:0.72rem; color:var(--text-muted); font-style:italic; padding-left:14px; margin-top:2px;">
+                ⚠️ Chưa có nhiệm vụ nào được giao
+              </div>
+            `;
+          } else {
+            subtasksHtml = item.subtasks.map(st => {
+              const isStDone = st.status === 'completed';
+              const stIcon = isStDone 
+                ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.75rem;"></i>' 
+                : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.75rem;"></i>';
+              const assigneeName = getShortName(st.assignedTo);
+              const textDecoration = isStDone ? 'line-through' : 'none';
+              const textColor = isStDone ? 'var(--text-muted)' : 'var(--text-primary)';
+              const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
+
+              return `
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 6px; border-radius:6px; background:rgba(255,255,255,0.015); margin-top:2px;">
+                  <div style="flex:1; min-width:0; display:flex; align-items:center; gap:6px;">
+                    <span style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">${stIcon}</span>
+                    <span style="font-size:0.75rem; color:${textColor}; text-decoration:${textDecoration}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700; text-decoration:none;">[SỬA LỖI]</span> ' : ''}
+                      ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700; text-decoration:none;">[PHÁT SINH]</span> ' : ''}
+                      ${taskDesc}
+                    </span>
+                  </div>
+                  <span style="font-size:0.66rem; color:${isStDone ? 'var(--text-muted)' : 'var(--primary)'}; font-weight:${isStDone ? 'normal' : '600'}; white-space:nowrap; flex-shrink:0;">
+                    👤 ${assigneeName}
+                  </span>
+                </div>
+              `;
+            }).join('');
+          }
+
+          return `
+            <div style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;">
+                <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                  <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted);"></i> ${item.item}
+                </span>
+                ${itemBadge}
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                ${subtasksHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div style="margin-bottom:10px;">
+            <div style="font-size:0.76rem; font-weight:700; color:var(--text-muted); margin-bottom:5px; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-folder-open" style="font-size:0.7rem; color:var(--primary);"></i> ${roomName}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              ${itemsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
 
       return `
         <div class="fade-in" style="background:var(--bg-secondary); border:1px solid ${isOverdue ? 'rgba(201,91,91,0.35)' : 'var(--border-color)'}; border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm);">
 
           <!-- Header -->
-          <div style="padding:13px 16px; background:rgba(255,255,255,0.02);">
+          <div style="padding:13px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div style="flex:1; min-width:0;">
                 <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</div>
                 <div style="font-size:0.7rem; color:${isOverdue ? 'var(--status-rejected)' : 'var(--text-muted)'};">
-                  ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
+                  ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
                 </div>
               </div>
               <div style="text-align:right; flex-shrink:0;">
@@ -2013,48 +2100,12 @@ export const UI = {
                 </div>
               </div>
             </div>
-
-            <!-- Done items: compact tags -->
-            ${doneItems.length > 0 ? `
-              <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:4px;">
-                ${doneItems.map(item => `
-                  <span style="display:inline-flex; align-items:center; gap:3px; font-size:0.66rem; color:var(--text-muted); background:rgba(78,141,124,0.08); border:1px solid rgba(78,141,124,0.12); padding:2px 6px; border-radius:16px; text-decoration:line-through; opacity:0.75;">
-                    <i class="fas fa-check" style="font-size:0.55rem; color:var(--status-approved); text-decoration:none;"></i>
-                    ${item.room} · ${item.item}
-                  </span>
-                `).join('')}
-              </div>
-            ` : scope.length === 0 ? '<div style="font-size:0.72rem; color:var(--text-muted); margin-top:6px; font-style:italic;">Chưa thiết lập hạng mục.</div>' : ''}
           </div>
 
-          <!-- Pending items -->
-          ${pendingItems.length > 0 ? `
-            <div style="border-top:1px solid var(--border-color); padding:10px 16px;">
-              <div style="font-size:0.67rem; font-weight:700; color:var(--status-pending); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
-                <i class="fas fa-clock"></i> Còn ${pendingItems.length} việc cần hoàn thành
-              </div>
-              ${Object.entries(byRoom).map(([room, items]) => `
-                <div style="margin-bottom:8px;">
-                  <div style="font-size:0.67rem; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:flex; align-items:center; gap:4px;">
-                    <i class="fas fa-folder" style="font-size:0.6rem; color:var(--primary);"></i> ${room}
-                  </div>
-                  ${items.map(item => `
-                    <div style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(245,158,11,0.05); border:1px solid rgba(245,158,11,0.13); border-radius:8px; margin-bottom:4px;">
-                      <i class="${item.status === 'in_progress' ? 'fas fa-tools' : 'far fa-circle'}" style="color:${item.status === 'in_progress' ? 'var(--primary)' : 'var(--status-pending)'}; font-size:0.78rem; flex-shrink:0;"></i>
-                      <span style="font-size:0.78rem; font-weight:600; color:var(--text-primary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.item}</span>
-                      <span style="font-size:0.63rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0;">
-                        ${item.workers.length > 0 ? `<i class="fas fa-user" style="font-size:0.55rem;"></i> ${item.workers.join(', ')}` : '<span style="opacity:0.6; font-style:italic;">Chưa giao</span>'}
-                      </span>
-                    </div>
-                  `).join('')}
-                </div>
-              `).join('')}
-            </div>
-          ` : `
-            <div style="border-top:1px solid var(--border-color); padding:10px 16px; text-align:center; font-size:0.78rem; color:var(--status-approved);">
-              <i class="fas fa-check-double"></i> Tất cả hạng mục đã hoàn thành!
-            </div>
-          `}
+          <!-- Rooms and Items list with Subtasks nested -->
+          <div style="padding:12px 16px;">
+            ${roomsHtml || `<div style="text-align:center; padding:12px; font-size:0.75rem; color:var(--text-muted); font-style:italic;">Chưa thiết lập hạng mục nào.</div>`}
+          </div>
 
           <!-- Actions footer (KTS + Sales only) -->
           ${(user.role === 'kts' || user.role === 'sales') ? `
@@ -2150,7 +2201,6 @@ export const UI = {
       });
     });
   },
-
   // 7.1 RENDER LOGS LIST WITH FILTERS (MANAGER TAB)
   renderManagerLogs(user) {
     const container = document.getElementById('manager-tab-content');
