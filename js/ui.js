@@ -2587,60 +2587,83 @@ export const UI = {
             const subtaskRowsHtml = totalTasks === 0
               ? `<p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0 0; font-style:italic; padding-left:4px;">Chưa giao việc</p>`
               : matchedSubtasks.map(st => {
-                const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
-                const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
-                const isDone = st.status === 'completed';
-                const compTimeText = isDone && st.completedAt
-                  ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
-                  : '';
+                 const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
+                 const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
+                 const isDone = st.status === 'completed';
+                 const compTimeText = isDone && st.completedAt
+                   ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
+                   : '';
 
-                return `
-                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; background:rgba(0,0,0,0.18); border-radius:8px; margin-top:4px; border-left:3px solid ${isDone ? 'var(--status-approved)' : 'var(--status-pending)'};">
-                        <div style="flex:1; min-width:0; padding-right:6px;">
-                          <div style="font-size:0.76rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
-                            ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
-                            ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
-                            ${taskDesc}
-                          </div>
-                          <div style="font-size:0.62rem; color:var(--text-muted); margin-top:2px;">
-                            <i class="fas fa-user" style="font-size:0.52rem;"></i>
-                            <strong>${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
-                            ${compTimeText}
-                          </div>
-                        </div>
-                        
-                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                          ${st.status === 'pending' && !proj.isCompleted
-                    ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
-                    : isDone
-                      ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
-                      : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
-                  }
-                          ${isManagementRole && !proj.isCompleted ? `
-                            <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
-                            <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
-                          ` : ''}
-                        </div>
-                      </div>
-                    `;
-              }).join('');
+                 if (isDone) {
+                   return `
+                       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 6px; border-radius:6px; margin-top:2px; background:rgba(255,255,255,0.015);">
+                         <div style="flex:1; min-width:0; padding-right:6px; display:flex; align-items:center; gap:8px;">
+                           <i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.78rem; flex-shrink:0;"></i>
+                           <div style="font-size:0.74rem; color:var(--text-muted); text-decoration:line-through; word-break:break-word; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                             ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700; text-decoration:none;">[SỬA LỖI]</span> ' : ''}
+                             ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700; text-decoration:none;">[PHÁT SINH]</span> ' : ''}
+                             ${taskDesc}
+                             <span style="font-size:0.62rem; color:var(--text-muted); font-weight:normal; margin-left:4px; text-decoration:none;">(bởi ${assignedUser ? assignedUser.name.split(' ').pop() : 'Chưa giao'}${compTimeText})</span>
+                           </div>
+                         </div>
+                         
+                         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                           ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
+                             <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
+                             <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
+                           ` : ''}
+                         </div>
+                       </div>
+                     `;
+                 } else {
+                   return `
+                       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:rgba(245,158,11,0.04); border:1px solid rgba(245,158,11,0.12); border-radius:8px; margin-top:4px;">
+                         <div style="flex:1; min-width:0; padding-right:6px;">
+                           <div style="font-size:0.76rem; font-weight:600; color:var(--text-primary); word-break:break-word; line-height:1.35; display:flex; align-items:center; gap:6px;">
+                             <i class="far fa-circle" style="color:var(--status-pending); font-size:0.78rem; flex-shrink:0;"></i>
+                             <span>
+                               ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
+                               ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
+                               ${taskDesc}
+                             </span>
+                           </div>
+                           <div style="font-size:0.62rem; color:var(--text-muted); margin-top:2px; padding-left:16px;">
+                             <i class="fas fa-user" style="font-size:0.52rem;"></i>
+                             <strong>${assignedUser ? assignedUser.name : 'Chưa giao'}</strong>
+                           </div>
+                         </div>
+                         
+                         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                           ${!proj.isCompleted && user.role !== 'manager'
+                     ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
+                     : ''
+                   }
+                           ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
+                             <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
+                             <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
+                           ` : ''}
+                         </div>
+                       </div>
+                     `;
+                 }
+               }).join('');
 
             // Get absolute index of this scope item in proj.scope
             const scopeIndexInProj = proj.scope.findIndex(sc => sc.room === roomName && sc.item === item);
             const canEdit = isManagementRole && user.role !== 'manager' && !proj.isCompleted;
 
             return `
-                <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:6px;">
-                    <span style="font-size:0.8rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:4px;">
-                      <i class="fas fa-cube" style="font-size:0.7rem;"></i> ${item}
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;">
+                    <span style="font-size:0.78rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                      <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted);"></i> ${item}
                     </span>
                     <div style="display:flex; align-items:center; gap:6px;">
                       ${itemStatusBadge}
                       ${canEdit && scopeIndexInProj > -1 ? `
                         <div style="display:flex; gap:2px;">
-                          <button class="btn-scope-edit" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--primary); cursor:pointer; font-size:0.7rem;" title="Sửa"><i class="fas fa-edit"></i></button>
-                          <button class="btn-scope-delete" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:var(--status-rejected); cursor:pointer; font-size:0.7rem;" title="Xóa"><i class="fas fa-trash-alt"></i></button>
+                          <button class="btn-scope-edit" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.05); padding:2px 5px; border-radius:4px; color:var(--primary); cursor:pointer; font-size:0.65rem;" title="Sửa"><i class="fas fa-edit"></i></button>
+                          <button class="btn-scope-delete" data-idx="${scopeIndexInProj}" style="background:none; border:1px solid rgba(255,255,255,0.05); padding:2px 5px; border-radius:4px; color:var(--status-rejected); cursor:pointer; font-size:0.65rem;" title="Xóa"><i class="fas fa-trash-alt"></i></button>
                         </div>
                       ` : ''}
                     </div>
@@ -2651,7 +2674,6 @@ export const UI = {
                 </div>
               `;
           }).join('');
-
           return `
               <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; box-shadow:var(--shadow-sm); overflow:hidden;" data-scope-idx="${roomIdx}">
                 <!-- Level 1: Room Header -->
