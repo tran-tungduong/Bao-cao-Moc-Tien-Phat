@@ -2934,7 +2934,7 @@ export const UI = {
   },
 
   // 8. RENDER KANBAN PIPELINE FOR MANAGER
-  renderManagerKanban(user) {
+  renderManagerKanban(user, activeStep = 'all') {
     const container = document.getElementById('manager-tab-content');
     const projects = DB.getProjects().filter(p => !p.isCompleted);
 
@@ -2943,10 +2943,11 @@ export const UI = {
       <div class="fade-in" style="margin-bottom:16px;">
         <label class="form-label" style="font-size:0.75rem;">Xem nhanh theo bước tiến độ:</label>
         <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; white-space:nowrap;" id="kanban-step-filters">
-          <button class="tab-btn active" data-step="all" style="padding:6px 12px; font-size:0.8rem;">Tất cả (${projects.length})</button>
+          <button class="tab-btn ${activeStep === 'all' ? 'active' : ''}" data-step="all" style="padding:6px 12px; font-size:0.8rem;">Tất cả (${projects.length})</button>
           ${STEPS.map(s => {
       const count = projects.filter(p => p.step === s.num).length;
-      return `<button class="tab-btn" data-step="${s.num}" style="padding:6px 12px; font-size:0.8rem; white-space:nowrap;">${s.num}. ${s.title} (${count})</button>`;
+      const isActive = String(activeStep) === String(s.num);
+      return `<button class="tab-btn ${isActive ? 'active' : ''}" data-step="${s.num}" style="padding:6px 12px; font-size:0.8rem; white-space:nowrap;">${s.num}. ${s.title} (${count})</button>`;
     }).join('')}
         </div>
       </div>
@@ -2960,9 +2961,10 @@ export const UI = {
     const filters = document.getElementById('kanban-step-filters');
 
     const filterProjects = (stepValue) => {
-      let filtered = projects;
+      const latestProjects = DB.getProjects().filter(p => !p.isCompleted);
+      let filtered = latestProjects;
       if (stepValue !== 'all') {
-        filtered = projects.filter(p => p.step === parseInt(stepValue));
+        filtered = latestProjects.filter(p => p.step === parseInt(stepValue));
       }
 
       if (filtered.length === 0) {
@@ -3033,7 +3035,8 @@ export const UI = {
         card.addEventListener('click', () => {
           const prjId = card.getAttribute('data-id');
           this.openProjectDetailsDrawer(prjId, user, () => {
-            filterProjects(stepValue);
+            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
+            this.renderManagerKanban(user, activeFilter);
           });
         });
       });
@@ -3044,8 +3047,8 @@ export const UI = {
           e.stopPropagation();
           const prjId = btn.getAttribute('data-id');
           this.openEditProjectModal(prjId, user, () => {
-            // Need to update the local projects array context by re-rendering
-            this.renderManagerKanban(user);
+            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
+            this.renderManagerKanban(user, activeFilter);
           });
         });
       });
@@ -3059,7 +3062,8 @@ export const UI = {
           if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình: "${prj.name}"?\nThao tác này sẽ xóa tất cả nhật ký, hình ảnh, lịch sử liên quan và không thể khôi phục!`)) {
             DB.deleteProject(prjId, user.id);
             Toast.success('Đã xóa công trình.');
-            this.renderManagerKanban(user);
+            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
+            this.renderManagerKanban(user, activeFilter);
           }
         });
       });
@@ -3075,7 +3079,7 @@ export const UI = {
     });
 
     // Initial render
-    filterProjects('all');
+    filterProjects(activeStep);
   },
 
   // 8.1 RENDER COMPLETED PROJECTS ARCHIVE FOR MANAGER
