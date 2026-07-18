@@ -2123,6 +2123,38 @@ export const UI = {
       const doneItems = scopeWithSubtasks.filter(i => i.status === 'done');
       const pct = scope.length ? Math.round(doneItems.length / scope.length * 100) : 0;
 
+      // Extract active rework tasks to display prominently on the outer card
+      const pendingReworks = subtasks.filter(st => st.type === 'rework' && st.status === 'pending');
+      const reworkPanelHtml = pendingReworks.length > 0 ? `
+        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-left: 4px solid var(--status-rejected); border-radius: 12px; padding: 10px 14px; margin: 12px 16px 0 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05);">
+          <div style="font-size: 0.76rem; font-weight: 800; color: var(--status-rejected); display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.3px;">
+            <i class="fas fa-exclamation-triangle"></i> Cảnh báo: Sửa hàng lỗi (${pendingReworks.length})
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${pendingReworks.map(st => {
+              const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+              const cleanWorker = workerName.replace(/\\s*\\(.*?\\)/g, '').trim().split(' ').pop();
+              const taskDesc = st.title.replace(/^\\[[^\\]+\\]:/, '').trim();
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.78rem; background:rgba(0,0,0,0.18); border-radius:8px; padding:8px 10px; border:1px solid rgba(239,68,68,0.12);">
+                  <div style="flex:1; min-width:0; color:var(--text-primary);">
+                    <strong>${taskDesc}</strong>
+                    <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
+                      Giao sửa: <strong style="color:var(--primary);">${cleanWorker}</strong>
+                    </div>
+                  </div>
+                  ${(user.role === 'kts' || user.role === 'sales' || user.role === 'manager') ? `
+                    <button class="btn-resolve-rework" data-project="${p.id}" data-task="${st.id}" style="background:var(--status-approved); border:none; color:var(--bg-primary); font-size:0.68rem; font-weight:700; padding:4px 8px; border-radius:6px; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:3px;">
+                      <i class="fas fa-check"></i> Xong
+                    </button>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : '';
+
       // Group all scope items by Room
       const roomsMap = {};
       scopeWithSubtasks.forEach(item => {
@@ -2232,6 +2264,9 @@ export const UI = {
             </div>
           </div>
 
+          <!-- Rework Panel -->
+          ${reworkPanelHtml}
+
           <!-- Rooms and Items list with Subtasks nested -->
           <div style="padding:12px 16px;">
             ${roomsHtml || `<div style="text-align:center; padding:12px; font-size:0.75rem; color:var(--text-muted); font-style:italic;">Chưa thiết lập hạng mục nào.</div>`}
@@ -2291,6 +2326,20 @@ export const UI = {
         ` : ''}
       </div>
     `;
+
+    // Bind Resolve Rework buttons
+    container.querySelectorAll('.btn-resolve-rework').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = btn.getAttribute('data-project');
+        const tid = btn.getAttribute('data-task');
+        if (confirm('Xác nhận đã sửa xong lỗi này?')) {
+          DB.completeSubtask(pid, tid, user.id);
+          Toast.success('Đã xác nhận sửa xong lỗi.');
+          this.renderProgressBoard(user);
+        }
+      });
+    });
 
     // Bind KTS buttons
     container.querySelectorAll('.btn-board-assign-task').forEach(btn => {
