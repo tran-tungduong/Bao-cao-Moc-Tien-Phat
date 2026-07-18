@@ -297,18 +297,18 @@ export const UI = {
         <div class="chk-prev-progress-banner" style="display:none; margin-top:6px; padding:7px 10px; border-radius:8px; font-size:0.75rem; color:var(--text-secondary); background:rgba(197,168,128,0.08); border:1px solid rgba(197,168,128,0.2); line-height:1.5;"></div>
       </div>
 
-      <!-- Công việc đã làm hôm nay (full width) -->
-      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
-        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
-        <input type="text" class="form-input txt-chk-today-work" placeholder="Ví dụ: Cắt CNC / Lắp khung / Bo cạnh / Sơn..." required style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${todayWork}">
-      </div>
-
-      <!-- Tiến độ đạt được (full width, riêng hàng) -->
-      <div>
-        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Tiến độ đạt được (%)</label>
-        <select class="form-select select-chk-progress" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem; width:100%;">
-          ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% (Xong hẳn)' : p + '%'}</option>`).join('')}
-        </select>
+      <!-- Công việc đã làm + Tiến độ % trên cùng 1 hàng -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; display:flex; align-items:flex-end; gap:8px;">
+        <div style="flex:1; min-width:0;">
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
+          <input type="text" class="form-input txt-chk-today-work" placeholder="Cắt CNC / Lắp khung / Sơn..." required style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${todayWork}">
+        </div>
+        <div style="flex-shrink:0; width:88px;">
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary); white-space:nowrap;">Tiến độ</label>
+          <select class="form-select select-chk-progress" required style="padding: 5px 22px 5px 8px; height: 38px; font-size: 0.82rem; width:100%;">
+            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% ✓' : p + '%'}</option>`).join('')}
+          </select>
+        </div>
       </div>
 
       <!-- Checkbox hoàn thành + ghi chú còn lại -->
@@ -373,10 +373,10 @@ export const UI = {
             const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
             const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
             const shortWorker = workerName.replace(/\s*\(.*?\)/g, '').split(' ').pop();
-            // Show previous progress from last report if available
+            // Show previous progress compactly
             const lastProgress = st.items && st.items.length > 0 ? (st.items[0].progress || 0) : 0;
-            const progressLabel = st.status === 'completed' ? '✅ Xong 100%' : (lastProgress > 0 ? `⏳ Đang ${lastProgress}%` : '🔲 Chưa báo cáo (0%)');
-            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${progressLabel}] ${taskDesc} (${shortWorker})</option>`;
+            const pBadge = st.status === 'completed' ? '✓100%' : (lastProgress > 0 ? `${lastProgress}%` : '0%');
+            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${pBadge}] ${taskDesc} (${shortWorker})</option>`;
           }).join('')}
         `;
       }
