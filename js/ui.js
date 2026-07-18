@@ -1855,7 +1855,7 @@ export const UI = {
       itemSelect.disabled = false;
     });
 
-    document.getElementById('rework-form').addEventListener('submit', (e) => {
+    document.getElementById('rework-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const desc = document.getElementById('rework-desc').value;
       const workerSelect = document.getElementById('rework-assigned');
@@ -1977,7 +1977,7 @@ export const UI = {
     });
 
     // Submit Small Form
-    formSmall.addEventListener('submit', (e) => {
+    formSmall.addEventListener('submit', async (e) => {
       e.preventDefault();
       const desc = document.getElementById('small-scope-title').value;
       const daysSelect = document.getElementById('small-scope-days');
