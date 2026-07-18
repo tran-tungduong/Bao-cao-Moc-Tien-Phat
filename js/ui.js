@@ -1512,10 +1512,10 @@ export const UI = {
 
     // Event Handlers for Worker Projects List
     listContainer.querySelectorAll('.btn-complete-subtask').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const prjId = btn.getAttribute('data-project');
         const stId = btn.getAttribute('data-task');
-        DB.completeSubtask(prjId, stId, user.id);
+        await DB.completeSubtask(prjId, stId, user.id);
         Toast.success('Đã đánh dấu hoàn thành nhiệm vụ!');
         if (onUpdate) onUpdate(); else this.renderWorkerView(user);
       });
@@ -1554,16 +1554,21 @@ export const UI = {
     });
 
     listContainer.querySelectorAll('.btn-advance-step').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const prjId = btn.getAttribute('data-project');
         try {
-          const prj = DB.advanceProject(prjId, user.id);
+          btn.disabled = true;
+          const originalHtml = btn.innerHTML;
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          const prj = await DB.advanceProject(prjId, user.id);
           if (prj) {
             Toast.success(`Chúc mừng! Công trình đã sang giai đoạn ${prj.step}: ${STEPS.find(s => s.num === prj.step).title}`);
             if (onUpdate) onUpdate(); else this.renderWorkerView(user);
           }
         } catch (err) {
           Toast.error(err.message);
+        } finally {
+          btn.disabled = false;
         }
       });
     });
@@ -1662,10 +1667,10 @@ export const UI = {
 
     // Bind complete button clicks
     modal.element.querySelectorAll('.btn-modal-complete-task').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const prjId = btn.getAttribute('data-project');
         const taskId = btn.getAttribute('data-task');
-        DB.completeSubtask(prjId, taskId, user.id);
+        await DB.completeSubtask(prjId, taskId, user.id);
         Toast.success('Đã hoàn thành nhiệm vụ!');
         modal.close();
         onComplete();
@@ -1865,7 +1870,7 @@ export const UI = {
         finalTitle = `[Chung - Khác]: ${desc}`;
       }
 
-      DB.triggerRework(projectId, finalTitle, workerId, user.id);
+      await DB.triggerRework(projectId, finalTitle, workerId, user.id);
       Toast.success('Đã gắn nhãn [SỬA HÀNG LỖI] thành công.');
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
@@ -1980,7 +1985,7 @@ export const UI = {
       const workerSelect = document.getElementById('small-scope-worker');
       const workerId = workerSelect ? workerSelect.value : '';
 
-      DB.addSmallScope(projectId, desc, days, workerId, user.id);
+      await DB.addSmallScope(projectId, desc, days, workerId, user.id);
       Toast.success('Đã thêm phát sinh nhỏ thành công.');
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
@@ -2473,12 +2478,12 @@ export const UI = {
 
     // Bind Resolve Rework buttons
     container.querySelectorAll('.btn-resolve-rework').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const pid = btn.getAttribute('data-project');
         const tid = btn.getAttribute('data-task');
         if (confirm('Xác nhận đã sửa xong lỗi này?')) {
-          DB.completeSubtask(pid, tid, user.id);
+          await DB.completeSubtask(pid, tid, user.id);
           Toast.success('Đã xác nhận sửa xong lỗi.');
           this.renderProgressBoard(user);
         }
@@ -2514,10 +2519,11 @@ export const UI = {
       });
     });
     container.querySelectorAll('.btn-board-complete-project').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const pid = btn.getAttribute('data-project');
         if (confirm('Lưu trữ công trình này? Công trình sẽ chuyển sang Kho Bàn Giao.')) {
-          DB.completeProject(pid, user.id);
+          btn.disabled = true;
+          await DB.completeProject(pid, user.id);
           Toast.success('Công trình đã được lưu vào kho bàn giao.');
           this.renderProgressBoard(user);
         }
@@ -3971,9 +3977,13 @@ export const UI = {
     // Step progression click
     const btnAdvance = document.getElementById('drawer-btn-advance');
     if (btnAdvance) {
-      btnAdvance.addEventListener('click', () => {
+      btnAdvance.addEventListener('click', async () => {
         try {
-          const prj = DB.advanceProject(projectId, user.id);
+          btnAdvance.disabled = true;
+          const originalText = btnAdvance.innerHTML;
+          btnAdvance.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang duyệt...';
+
+          const prj = await DB.advanceProject(projectId, user.id);
           if (prj) {
             Toast.success('Đã duyệt chuyển giai đoạn thành công!');
             drawer.close();
@@ -3981,14 +3991,16 @@ export const UI = {
           }
         } catch (err) {
           Toast.error(err.message);
+        } finally {
+          btnAdvance.disabled = false;
         }
       });
     }
 
     drawer.element.querySelectorAll('.btn-drawer-complete-task').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const taskId = btn.getAttribute('data-task');
-        DB.completeSubtask(projectId, taskId, user.id);
+        await DB.completeSubtask(projectId, taskId, user.id);
         Toast.success('Đã hoàn thành nhiệm vụ.');
         drawer.close();
         onUpdate();
@@ -4024,9 +4036,10 @@ export const UI = {
     // Complete project entire click
     const btnCompleteProject = document.getElementById('drawer-btn-complete-project');
     if (btnCompleteProject) {
-      btnCompleteProject.addEventListener('click', () => {
+      btnCompleteProject.addEventListener('click', async () => {
         if (confirm('Bạn có chắc chắn muốn xác nhận hoàn thành toàn bộ công trình này và chuyển vào kho Lưu trữ?')) {
-          DB.completeProject(projectId, user.id);
+          btnCompleteProject.disabled = true;
+          await DB.completeProject(projectId, user.id);
           Toast.success(`Chúc mừng! Công trình đã chính thức hoàn thành.`);
           drawer.close();
           onUpdate();

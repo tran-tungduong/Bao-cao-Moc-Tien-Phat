@@ -623,7 +623,7 @@ export const DB = {
   },
 
   // Move project forward (only forward!)
-  advanceProject(projectId, userId) {
+  async advanceProject(projectId, userId) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -642,15 +642,15 @@ export const DB = {
       project.history.push(hist);
       this.save(db);
       
-      this.sbUpdateProject(projectId, { step: project.step });
-      this.sbInsertHistory(hist, projectId);
+      await this.sbUpdateProject(projectId, { step: project.step });
+      await this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
   },
 
   // Complete project entirely (Hoàn thành bàn giao)
-  completeProject(projectId, userId) {
+  async completeProject(projectId, userId) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -666,15 +666,15 @@ export const DB = {
       project.history.push(hist);
       this.save(db);
       
-      this.sbUpdateProject(projectId, { is_completed: true });
-      this.sbInsertHistory(hist, projectId);
+      await this.sbUpdateProject(projectId, { is_completed: true });
+      await this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
   },
 
   // Rework (Sửa hàng lỗi)
-  triggerRework(projectId, taskTitle, assignedWorkerId, userId) {
+  async triggerRework(projectId, taskTitle, assignedWorkerId, userId) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -702,16 +702,16 @@ export const DB = {
 
       this.save(db);
       
-      this.sbInsertSubtask(st, projectId);
-      this.sbUpdateProject(projectId, { is_rework: true });
-      this.sbInsertHistory(hist, projectId);
+      await this.sbInsertSubtask(st, projectId);
+      await this.sbUpdateProject(projectId, { is_rework: true });
+      await this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
   },
 
   // Resolve subtask (normal or rework or small scope)
-  completeSubtask(projectId, subtaskId, userId) {
+  async completeSubtask(projectId, subtaskId, userId) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -738,9 +738,9 @@ export const DB = {
 
         this.save(db);
         
-        this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt, items: task.items });
-        this.sbUpdateProject(projectId, { is_rework: project.isRework });
-        this.sbInsertHistory(hist, projectId);
+        await this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt, items: task.items });
+        await this.sbUpdateProject(projectId, { is_rework: project.isRework });
+        await this.sbInsertHistory(hist, projectId);
         return project;
       }
     }
@@ -784,7 +784,7 @@ export const DB = {
   },
 
   // Add Small Scope Hạng mục Phát sinh Nhỏ
-  addSmallScope(projectId, description, extendDays = 2, assignedWorkerId, userId) {
+  async addSmallScope(projectId, description, extendDays = 2, assignedWorkerId, userId) {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
@@ -818,9 +818,9 @@ export const DB = {
 
       this.save(db);
       
-      this.sbInsertSubtask(st, projectId);
-      this.sbUpdateProject(projectId, { is_small_scope: true, deadline: project.deadline });
-      this.sbInsertHistory(hist, projectId);
+      await this.sbInsertSubtask(st, projectId);
+      await this.sbUpdateProject(projectId, { is_small_scope: true, deadline: project.deadline });
+      await this.sbInsertHistory(hist, projectId);
       return project;
     }
     return null;
