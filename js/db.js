@@ -143,6 +143,10 @@ export const DB = {
 
   // Triggered in app.js on startup and periodically (polling)
   async syncWithServer(onSyncComplete = null) {
+    if (this.lastWriteTime && (Date.now() - this.lastWriteTime < 4000)) {
+      console.log('Sync skipped: recent local write in progress.');
+      return false;
+    }
     if (supabaseClient) {
       try {
         // Fetch all tables from Supabase in parallel
@@ -541,6 +545,7 @@ export const DB = {
   // Save database to localStorage
   save(data) {
     localStorage.setItem(DB_KEY, JSON.stringify(data));
+    this.lastWriteTime = Date.now();
   },
 
   // Get current user session
