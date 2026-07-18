@@ -143,6 +143,10 @@ export const DB = {
 
   // Triggered in app.js on startup and periodically (polling)
   async syncWithServer(onSyncComplete = null) {
+    if (this.activeWriteRequests && this.activeWriteRequests > 0) {
+      console.log('Sync skipped: active write requests in progress.');
+      return false;
+    }
     if (this.lastWriteTime && (Date.now() - this.lastWriteTime < 4000)) {
       console.log('Sync skipped: recent local write in progress.');
       return false;
@@ -273,15 +277,19 @@ export const DB = {
   // Relational writes helpers (Background, non-blocking)
   async sbUpdateProject(projectId, fields) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('projects').update(fields).eq('id', projectId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbInsertProject(p) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('projects').insert({
         id: p.id,
@@ -297,20 +305,26 @@ export const DB = {
       });
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbDeleteProject(projectId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('projects').delete().eq('id', projectId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbInsertSubtask(st, projectId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('subtasks').insert({
         id: st.id,
@@ -324,29 +338,38 @@ export const DB = {
       });
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbUpdateSubtask(subtaskId, fields) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('subtasks').update(fields).eq('id', subtaskId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbDeleteSubtask(subtaskId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('subtasks').delete().eq('id', subtaskId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbInsertDailyLog(dl, projectId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('daily_logs').insert({
         id: dl.id,
@@ -365,29 +388,38 @@ export const DB = {
       });
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbUpdateDailyLog(logId, fields) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('daily_logs').update(fields).eq('id', logId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbDeleteDailyLog(logId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('daily_logs').delete().eq('id', logId);
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbUpsertAttendance(userId, date, fields) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { data } = await supabaseClient
         .from('attendance')
@@ -414,11 +446,14 @@ export const DB = {
       }
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
   async sbInsertHistory(h, projectId) {
     if (!supabaseClient) return;
+    this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       await supabaseClient.from('project_history').insert({
         project_id: projectId,
@@ -428,6 +463,8 @@ export const DB = {
       });
     } catch (e) {
       console.error('Supabase write error:', e);
+    } finally {
+      this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
   },
 
