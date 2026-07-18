@@ -842,11 +842,17 @@ export const UI = {
             if (existingTask) {
               existingTask.status = isCompleted ? 'completed' : 'pending';
               existingTask.completedAt = isCompleted ? new Date().toISOString() : null;
+              existingTask.items = [{
+                progress: progress,
+                pendingNotes: isCompleted ? '' : pendingNotes,
+                expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
+              }];
               
               // Sync with Supabase
               DB.sbUpdateSubtask(selectedTaskId, { 
                 status: existingTask.status, 
-                completed_at: existingTask.completedAt 
+                completed_at: existingTask.completedAt,
+                items: existingTask.items
               });
             }
           } else {
@@ -858,7 +864,12 @@ export const UI = {
               assignedTo: user.id,
               status: isCompleted ? 'completed' : 'pending',
               completedAt: isCompleted ? new Date().toISOString() : null,
-              type: 'small_scope'
+              type: 'small_scope',
+              items: [{
+                progress: progress,
+                pendingNotes: isCompleted ? '' : pendingNotes,
+                expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
+              }]
             };
             loadedProj.subtasks.push(newSt);
             finalTaskId = subtaskId;
@@ -4468,11 +4479,17 @@ export const UI = {
             if (existingTask) {
               existingTask.status = isCompleted ? 'completed' : 'pending';
               existingTask.completedAt = isCompleted ? new Date().toISOString() : null;
+              existingTask.items = [{
+                progress: progress,
+                pendingNotes: isCompleted ? '' : pendingNotes,
+                expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
+              }];
               
               // Sync with Supabase
               DB.sbUpdateSubtask(taskId, { 
                 status: existingTask.status, 
-                completed_at: existingTask.completedAt 
+                completed_at: existingTask.completedAt,
+                items: existingTask.items
               });
             }
           }
