@@ -721,6 +721,7 @@ export const DB = {
       if (task) {
         task.status = 'completed';
         task.completedAt = new Date().toISOString();
+        task.items = [{ progress: 100, pendingNotes: '', expectedCompletionDate: '' }];
 
         const hist = {
           timestamp: new Date().toISOString(),
@@ -737,7 +738,7 @@ export const DB = {
 
         this.save(db);
         
-        this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt });
+        this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt, items: task.items });
         this.sbUpdateProject(projectId, { is_rework: project.isRework });
         this.sbInsertHistory(hist, projectId);
         return project;

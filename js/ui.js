@@ -2198,19 +2198,49 @@ export const UI = {
               const textColor = isStDone ? 'var(--text-muted)' : 'var(--text-primary)';
               const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
 
+              // Retrieve progress details stored in the items JSONB column
+              const progressInfo = st.items && st.items[0] ? st.items[0] : null;
+              const progressVal = progressInfo ? progressInfo.progress : (isStDone ? 100 : 0);
+              const pendingNotes = progressInfo ? progressInfo.pendingNotes : '';
+              const expectedDate = progressInfo ? progressInfo.expectedCompletionDate : '';
+
+              const progressDetailsHtml = (!isStDone && progressVal > 0) ? `
+                <div style="font-size:0.7rem; color:var(--primary); margin-left:20px; margin-top:2px; display:flex; flex-direction:column; gap:2px; line-height:1.3; opacity:0.9;">
+                  <div style="display:flex; align-items:center; gap:4px;">
+                    <i class="fas fa-chart-line" style="font-size:0.6rem;"></i>
+                    <span>Tiến độ: <strong>${progressVal}%</strong></span>
+                  </div>
+                  ${pendingNotes ? `
+                    <div style="display:flex; align-items:flex-start; gap:4px;">
+                      <i class="far fa-edit" style="font-size:0.6rem; margin-top:2px;"></i>
+                      <span>Còn lại: <strong>${pendingNotes}</strong></span>
+                    </div>
+                  ` : ''}
+                  ${expectedDate ? `
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <i class="far fa-calendar-alt" style="font-size:0.6rem;"></i>
+                      <span>Dự kiến: <strong>${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong></span>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : '';
+
               return `
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 6px; border-radius:6px; background:rgba(255,255,255,0.015); margin-top:2px;">
-                  <div style="flex:1; min-width:0; display:flex; align-items:center; gap:6px;">
-                    <span style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">${stIcon}</span>
-                    <span style="font-size:0.75rem; color:${textColor}; text-decoration:${textDecoration}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                      ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700; text-decoration:none;">[SỬA LỖI]</span> ' : ''}
-                      ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700; text-decoration:none;">[PHÁT SINH]</span> ' : ''}
-                      ${taskDesc}
+                <div style="display:flex; flex-direction:column; gap:2px; padding:4px 6px; border-radius:6px; background:rgba(255,255,255,0.015); margin-top:2px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div style="flex:1; min-width:0; display:flex; align-items:center; gap:6px;">
+                      <span style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">${stIcon}</span>
+                      <span style="font-size:0.75rem; color:${textColor}; text-decoration:${textDecoration}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700; text-decoration:none;">[SỬA LỖI]</span> ' : ''}
+                        ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700; text-decoration:none;">[PHÁT SINH]</span> ' : ''}
+                        ${taskDesc}
+                      </span>
+                    </div>
+                    <span style="font-size:0.66rem; color:${isStDone ? 'var(--text-muted)' : 'var(--primary)'}; font-weight:${isStDone ? 'normal' : '600'}; white-space:nowrap; flex-shrink:0;">
+                      👤 ${assigneeName}
                     </span>
                   </div>
-                  <span style="font-size:0.66rem; color:${isStDone ? 'var(--text-muted)' : 'var(--primary)'}; font-weight:${isStDone ? 'normal' : '600'}; white-space:nowrap; flex-shrink:0;">
-                    👤 ${assigneeName}
-                  </span>
+                  ${progressDetailsHtml}
                 </div>
               `;
             }).join('');
