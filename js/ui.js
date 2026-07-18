@@ -145,6 +145,9 @@ export const UI = {
             <span class="user-role-tag" style="font-size: 0.8rem; font-weight:600; color:var(--primary); padding: 4px 8px; border-radius:8px; background-color:rgba(197,168,128,0.1)">
               ${user.role === 'manager' ? 'Sếp' : 'Nhân sự'}
             </span>
+            <button class="header-btn" id="sync-data-btn" title="Đồng bộ dữ liệu" style="transition: transform 0.3s ease;">
+              <i class="fas fa-sync-alt"></i>
+            </button>
             <button class="header-btn" id="theme-toggle-btn" title="Chuyển chế độ Sáng/Tối">
               <i class="fas fa-moon"></i>
             </button>
@@ -170,6 +173,33 @@ export const UI = {
         localStorage.setItem('furni_theme', activeTheme);
         themeBtn.innerHTML = activeTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
         Toast.success(`Đã chuyển sang chế độ ${activeTheme === 'dark' ? 'Tối' : 'Sáng'}`);
+      });
+    }
+
+    // Bind Sync button click
+    const syncBtn = document.getElementById('sync-data-btn');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', async () => {
+        const icon = syncBtn.querySelector('i');
+        icon.classList.add('fa-spin');
+        syncBtn.disabled = true;
+        
+        // Force full refresh by resetting indicators
+        DB.lastWriteTime = 0;
+        DB.activeWriteRequests = 0;
+        
+        const success = await DB.syncWithServer((syncedDb) => {
+          this.refreshActiveView(user);
+        });
+        
+        icon.classList.remove('fa-spin');
+        syncBtn.disabled = false;
+        
+        if (success) {
+          Toast.success('Đã đồng bộ dữ liệu mới nhất từ máy chủ!');
+        } else {
+          Toast.error('Đồng bộ thất bại, vui lòng kiểm tra kết nối mạng.');
+        }
       });
     }
 
@@ -262,6 +292,8 @@ export const UI = {
         <select class="form-select select-chk-task" style="padding: 6px 12px; height: 38px; font-size: 0.82rem; width:100%;">
           <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
         </select>
+        <!-- Banner tiến độ từ lần báo cáo trước -->
+        <div class="chk-prev-progress-banner" style="display:none; margin-top:6px; padding:7px 10px; border-radius:8px; font-size:0.75rem; color:var(--text-secondary); background:rgba(197,168,128,0.08); border:1px solid rgba(197,168,128,0.2); line-height:1.5;"></div>
       </div>
 
       <!-- Công việc hôm nay & Tiến độ -->
@@ -341,8 +373,10 @@ export const UI = {
             const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
             const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
             const shortWorker = workerName.replace(/\s*\(.*?\)/g, '').split(' ').pop();
-            const statusLabel = st.status === 'completed' ? 'Đã xong' : 'Chưa xong';
-            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${statusLabel}] ${taskDesc} (${shortWorker})</option>`;
+            // Show previous progress from last report if available
+            const lastProgress = st.items && st.items.length > 0 ? (st.items[0].progress || 0) : 0;
+            const progressLabel = st.status === 'completed' ? '✅ Xong 100%' : (lastProgress > 0 ? `⏳ Đang ${lastProgress}%` : '🔲 Chưa báo cáo (0%)');
+            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${progressLabel}] ${taskDesc} (${shortWorker})</option>`;
           }).join('')}
         `;
       }
@@ -438,22 +472,56 @@ export const UI = {
       updateVisibility(isDone);
     });
 
+    // Helper: show/hide the "previous progress" info banner
+    const prevProgressBanner = row.querySelector('.chk-prev-progress-banner');
+
     selectTask.addEventListener('change', () => {
       const taskId = selectTask.value;
+      
+      // Hide banner when no task selected
+      if (prevProgressBanner) prevProgressBanner.style.display = 'none';
+      
       if (taskId && project && project.subtasks) {
         const task = project.subtasks.find(st => st.id === taskId);
         if (task) {
           const taskDesc = task.title.replace(/^\s*\[.*?\].*?\:\s*/, '').trim();
           txtTodayWork.value = taskDesc;
-          
+
+          // --- TIẾP NỐI TIẾN ĐỘ: Đọc dữ liệu từ lần báo cáo trước ---
+          const lastReport = task.items && task.items.length > 0 ? task.items[0] : null;
+
           if (task.status === 'completed') {
             selectProgress.value = '100';
             isCompletedCheckbox.checked = true;
             updateVisibility(true);
+            if (prevProgressBanner) {
+              prevProgressBanner.innerHTML = `<i class="fas fa-check-circle" style="color:var(--status-approved);"></i> Nhiệm vụ này đã hoàn thành 100% từ trước.`;
+              prevProgressBanner.style.cssText = prevProgressBanner.style.cssText.replace(/background:[^;]+;?/, 'background:rgba(78,141,124,0.1);');
+              prevProgressBanner.style.display = 'block';
+            }
+          } else if (lastReport && lastReport.progress > 0) {
+            // Pre-fill progress from last report
+            const prevPct = parseInt(lastReport.progress) || 0;
+            selectProgress.value = String(prevPct);
+            isCompletedCheckbox.checked = prevPct === 100;
+            if (lastReport.pendingNotes) pendingNotesInput.value = lastReport.pendingNotes;
+            if (lastReport.expectedCompletionDate) expectedDateInput.value = lastReport.expectedCompletionDate;
+            updateVisibility(prevPct === 100);
+
+            if (prevProgressBanner) {
+              prevProgressBanner.innerHTML = `<i class="fas fa-history"></i> Tiến độ báo cáo lần trước: <strong>${prevPct}%</strong>${lastReport.pendingNotes ? ` — Còn lại: <em>${lastReport.pendingNotes}</em>` : ''}`;
+              prevProgressBanner.style.display = 'block';
+            }
           } else {
-            selectProgress.value = '50';
+            // No previous report - start at 0
+            selectProgress.value = '10';
             isCompletedCheckbox.checked = false;
+            pendingNotesInput.value = '';
             updateVisibility(false);
+            if (prevProgressBanner) {
+              prevProgressBanner.innerHTML = `<i class="fas fa-info-circle"></i> Chưa có báo cáo nào trước đó — bắt đầu từ 0%.`;
+              prevProgressBanner.style.display = 'block';
+            }
           }
         }
       }
