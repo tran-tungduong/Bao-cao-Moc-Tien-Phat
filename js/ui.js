@@ -265,10 +265,11 @@ export const UI = {
         <i class="fas fa-times-circle"></i>
       </button>
 
+      <!-- Cấp 1 & 2: Phòng + Nội thất (2 cột) -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div>
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
-          <select class="form-select select-chk-room" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
+          <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem;">
             <option value="" disabled ${!roomVal ? 'selected' : ''}>-- Chọn phòng --</option>
             ${rooms.map(r => `<option value="${r}" ${roomVal === r || (r === 'Khác...' && isCustomRoom) ? 'selected' : ''}>${r}</option>`).join('')}
           </select>
@@ -277,7 +278,7 @@ export const UI = {
 
         <div>
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
-          <select class="form-select select-chk-item" required style="padding: 6px 30px 6px 12px; height: 38px; font-size: 0.82rem;">
+          <select class="form-select select-chk-item" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem;">
             <option value="" disabled ${!itemVal ? 'selected' : ''}>-- Chọn nội thất --</option>
             ${currentItemsList.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
             ${(!roomVal) ? `<option value="" disabled selected>-- Chọn phòng trước --</option>` : ''}
@@ -286,46 +287,45 @@ export const UI = {
         </div>
       </div>
 
-      <!-- Nhiệm vụ được giao (Từ thiết kế/KTS) -->
+      <!-- Cấp 3: Nhiệm vụ được giao (1 cột, full width) -->
       <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px;">
-        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Chọn nhiệm vụ được giao (Nếu có)</label>
-        <select class="form-select select-chk-task" style="padding: 6px 12px; height: 38px; font-size: 0.82rem; width:100%;">
+        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Cấp 3: Chọn nhiệm vụ được giao (Nếu có)</label>
+        <select class="form-select select-chk-task" style="padding: 6px 28px 6px 10px; min-height: 38px; height: auto; font-size: 0.8rem; width:100%;">
           <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
         </select>
         <!-- Banner tiến độ từ lần báo cáo trước -->
         <div class="chk-prev-progress-banner" style="display:none; margin-top:6px; padding:7px 10px; border-radius:8px; font-size:0.75rem; color:var(--text-secondary); background:rgba(197,168,128,0.08); border:1px solid rgba(197,168,128,0.2); line-height:1.5;"></div>
       </div>
 
-      <!-- Công việc hôm nay & Tiến độ -->
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
-        <div>
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
-          <input type="text" class="form-input txt-chk-today-work" placeholder="Ví dụ: Cắt CNC / Lắp khung / Bo cạnh / Sơn..." required style="height: 38px; font-size: 0.8rem; padding-left: 10px;" value="${todayWork}">
-        </div>
-        <div>
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Tiến độ đạt được (%)</label>
-          <select class="form-select select-chk-progress" required style="padding: 6px 12px; height: 38px; font-size: 0.82rem;">
-            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% (Xong)' : p + '%'}</option>`).join('')}
-          </select>
-        </div>
+      <!-- Công việc đã làm hôm nay (full width) -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
+        <input type="text" class="form-input txt-chk-today-work" placeholder="Ví dụ: Cắt CNC / Lắp khung / Bo cạnh / Sơn..." required style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${todayWork}">
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; width: max-content;">
-          <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--status-approved);">
+      <!-- Tiến độ đạt được (full width, riêng hàng) -->
+      <div>
+        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Tiến độ đạt được (%)</label>
+        <select class="form-select select-chk-progress" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem; width:100%;">
+          ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% (Xong hẳn)' : p + '%'}</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- Checkbox hoàn thành + ghi chú còn lại -->
+      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
+          <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: var(--status-approved); flex-shrink:0;">
           <span>Đã hoàn thành xong hoàn toàn</span>
         </label>
         
-        <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'block'}; margin-top: 2px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div>
-              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Việc còn lại cần làm</label>
-              <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: 38px; font-size: 0.8rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
-            </div>
-            <div>
-              <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Ngày dự kiến xong món này</label>
-              <input type="date" class="form-input txt-chk-expected-date" style="height: 36px; font-size: 0.8rem; padding-left: 10px;" value="${expectedDate}" ${!isCompleted ? 'required' : ''}>
-            </div>
+        <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; margin-top: 2px;">
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Việc còn lại cần làm</label>
+            <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Ngày dự kiến xong món này</label>
+            <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}" ${!isCompleted ? 'required' : ''}>
           </div>
         </div>
       </div>
@@ -448,7 +448,7 @@ export const UI = {
         pendingNotesInput.required = false;
         expectedDateInput.required = false;
       } else {
-        pendingNotesWrapper.style.display = 'block';
+        pendingNotesWrapper.style.display = 'flex';
         pendingNotesInput.required = true;
         expectedDateInput.required = true;
       }
