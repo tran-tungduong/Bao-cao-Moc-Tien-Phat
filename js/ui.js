@@ -2451,13 +2451,13 @@ export const UI = {
           <div style="padding:13px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div style="flex:1; min-width:0;">
-                <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</div>
+                <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3;">${p.name}</div>
                 <div style="font-size:0.7rem; color:${isOverdue ? 'var(--status-rejected)' : 'var(--text-muted)'};">
                   ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
                 </div>
               </div>
               <div style="text-align:right; flex-shrink:0;">
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px; white-space:nowrap;">${doneItems.length}/${scope.length || '?'} xong</div>
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px; text-align:right;">${doneItems.length}/${scope.length || '?'} xong</div>
                 <div style="background:rgba(255,255,255,0.06); height:6px; border-radius:3px; width:72px; overflow:hidden;">
                   <div style="width:${pct}%; background:${pct === 100 ? 'var(--status-approved)' : 'var(--primary)'}; height:6px; border-radius:3px;"></div>
                 </div>
@@ -2718,7 +2718,7 @@ export const UI = {
             </div>
             
             <p style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:4px;"><i class="fas fa-building"></i> ${l.projectName}</p>
-            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.4; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${l.note}</p>
+            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">${l.note}</p>
             
             ${l.photos && l.photos.length > 0 ? `
               <div style="display:flex; gap:6px; margin-top:8px; overflow-x:auto;">
@@ -3641,7 +3641,7 @@ export const UI = {
                     <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:${isCurrent ? 'var(--bg-primary)' : color}; margin-bottom:6px;">
                       ${icon}
                     </div>
-                    <span style="font-size:0.65rem; font-weight:${isCurrent ? '700' : '500'}; color:${isCurrent ? 'var(--text-primary)' : color}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;" title="${s.title}">${s.title}</span>
+                    <span style="font-size:0.65rem; font-weight:${isCurrent ? '700' : '500'}; color:${isCurrent ? 'var(--text-primary)' : color}; word-break:break-word; line-height:1.4; width:100%;" title="${s.title}">${s.title}</span>
                   </div>
                 `;
     }).join('')}
@@ -3741,7 +3741,7 @@ export const UI = {
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
                       <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName}</div>
-                      <div style="font-size:0.75rem; color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:200px;">${roleDisplay} • ${l.note}</div>
+                      <div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.4;">${roleDisplay} • ${l.note}</div>
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
@@ -4769,7 +4769,7 @@ export const UI = {
                   ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.8rem;"></i>'
                   : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.8rem;"></i>'
                 }
-                                  <span style="color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; line-height:1.2;">
+                                  <span style="color:var(--text-secondary); line-height:1.4; word-break:break-word;">
                                     <strong>${workerName}</strong>: ${notes}
                                   </span>
                                 </div>
@@ -5152,7 +5152,7 @@ export const UI = {
                     <span style="font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
                       <i class="fas fa-chevron-right scope-toggle-icon" style="font-size:0.7rem; transition:transform 0.2s; flex-shrink:0;"></i>
                       <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem; flex-shrink:0;"></i>
-                      <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
+                      <span style="word-break:break-word; line-height:1.4;">${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
                     </span>
                     <button type="button" class="scope-btn-delete-room" data-room="${room}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.8rem; padding:4px; flex-shrink:0;" title="Xóa phòng này">
                       <i class="fas fa-trash-alt"></i>
