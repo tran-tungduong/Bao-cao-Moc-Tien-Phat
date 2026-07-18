@@ -1766,11 +1766,27 @@ export const UI = {
   // 5. OPEN REWORK MODAL DIALOG (BÁO LỖI SỬA HÀNG)
   openReworkModal(projectId, user, onUpdate = null) {
     const db = DB.load();
+    const project = DB.getProject(projectId);
     const workshopWorkers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
     const isSupervisor = user.role === 'manager' || user.role === 'kts' || user.role === 'sales';
+    const rooms = project && project.scope ? [...new Set(project.scope.map(s => s.room))] : [];
 
     const html = `
       <form id="rework-form" style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label class="form-label">Chọn Hạng mục bị lỗi</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <select id="rework-room" class="form-select" required>
+              <option value="">-- Chọn phòng --</option>
+              ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
+              <option value="Chung / Khác">Chung / Khác</option>
+            </select>
+            <select id="rework-item" class="form-select" required disabled>
+              <option value="">-- Chọn nội thất --</option>
+            </select>
+          </div>
+        </div>
+
         <div>
           <label class="form-label">Mô tả lỗi sản xuất / thi công</label>
           <textarea id="rework-desc" class="form-textarea" placeholder="Ví dụ: Cánh tủ bếp bị mẻ Acrylic, ray ngăn kéo trượt rít..." required></textarea>
@@ -1793,19 +1809,51 @@ export const UI = {
 
     const modal = Modal.create('Báo Lỗi & Yêu Cầu Sửa Hàng', html);
 
+    const roomSelect = modal.element.querySelector('#rework-room');
+    const itemSelect = modal.element.querySelector('#rework-item');
+
+    roomSelect.addEventListener('change', () => {
+      const selectedRoom = roomSelect.value;
+      if (!selectedRoom || selectedRoom === 'Chung / Khác') {
+        itemSelect.innerHTML = `<option value="">-- Chọn nội thất --</option>`;
+        itemSelect.disabled = true;
+        if (selectedRoom === 'Chung / Khác') {
+          itemSelect.innerHTML = `<option value="Chung / Khác">Chung / Khác</option>`;
+          itemSelect.disabled = false;
+        }
+        return;
+      }
+
+      const items = project.scope.filter(s => s.room === selectedRoom).map(s => s.item);
+      itemSelect.innerHTML = `
+        <option value="">-- Chọn nội thất --</option>
+        ${items.map(it => `<option value="${it}">${it}</option>`).join('')}
+        <option value="Khác...">Khác...</option>
+      `;
+      itemSelect.disabled = false;
+    });
+
     document.getElementById('rework-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const desc = document.getElementById('rework-desc').value;
       const workerSelect = document.getElementById('rework-assigned');
       const workerId = workerSelect ? workerSelect.value : '';
 
-      DB.triggerRework(projectId, desc, workerId, user.id);
+      const roomVal = roomSelect.value;
+      const itemVal = itemSelect.value;
+      let finalTitle = desc;
+      if (roomVal && itemVal && roomVal !== 'Chung / Khác') {
+        finalTitle = `[${roomVal} - ${itemVal}]: ${desc}`;
+      } else {
+        finalTitle = `[Chung - Khác]: ${desc}`;
+      }
+
+      DB.triggerRework(projectId, finalTitle, workerId, user.id);
       Toast.success('Đã gắn nhãn [SỬA HÀNG LỖI] thành công.');
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
     });
   },
-
   // 6. OPEN SCOPE MODAL DIALOG (PHÁT SINH THÊM HẠNG MỤC)
   openScopeModal(projectId, user, onUpdate = null) {
     const project = DB.getProject(projectId);
