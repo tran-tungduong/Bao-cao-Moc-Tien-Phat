@@ -1060,9 +1060,9 @@ export const UI = {
       const approvalList = document.getElementById('lead-approval-list');
       if (approvalContainer && approvalList) {
         const pendingItems = [];
-        relevantProjects.forEach(p => {
+        db.projects.filter(p => !p.isCompleted).forEach(p => {
           p.dailyLogs.forEach(l => {
-            if (l.approved === false && (!l.approverId || l.approverId === user.id)) {
+            if (l.approved === false && (l.approverId === user.id || (relevantProjects.some(rp => rp.id === p.id) && !l.approverId))) {
               pendingItems.push({ project: p, log: l });
             }
           });
