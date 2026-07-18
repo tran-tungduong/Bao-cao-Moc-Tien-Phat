@@ -2560,12 +2560,21 @@ export const UI = {
           <h4 style="font-family:var(--font-title); font-size:0.9rem; font-weight:600;"><i class="fas fa-filter"></i> Bộ Lọc Báo Cáo</h4>
           
           <div style="display:flex; flex-direction:column; gap:10px;">
-            <div>
-              <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Lọc theo Nhân sự</label>
-              <select id="filter-log-reporter" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
-                <option value="all">Tất cả nhân sự</option>
-                ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-              </select>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Lọc theo Nhân sự</label>
+                <select id="filter-log-reporter" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
+                  <option value="all">Tất cả nhân sự</option>
+                  ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Lọc theo Công trình</label>
+                <select id="filter-log-project" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
+                  <option value="all">Tất cả công trình</option>
+                  ${projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+              </div>
             </div>
             
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -2593,19 +2602,22 @@ export const UI = {
 
     const logsList = document.getElementById('filtered-logs-list');
     const reporterSelect = document.getElementById('filter-log-reporter');
+    const projectSelect = document.getElementById('filter-log-project');
     const dateInput = document.getElementById('filter-log-date');
     const statusSelect = document.getElementById('filter-log-status');
 
     const filterAndRender = () => {
       const selectedReporter = reporterSelect.value;
+      const selectedProject = projectSelect.value;
       const selectedDate = dateInput.value;
       const selectedStatus = statusSelect.value;
 
       const filtered = allLogs.filter(l => {
         const matchReporter = selectedReporter === 'all' || l.reporterId === selectedReporter;
+        const matchProject = selectedProject === 'all' || l.projectId === selectedProject;
         const matchDate = !selectedDate || l.date === selectedDate;
         const matchStatus = selectedStatus === 'all' || l.status === selectedStatus;
-        return matchReporter && matchDate && matchStatus;
+        return matchReporter && matchProject && matchDate && matchStatus;
       });
 
       if (filtered.length === 0) {
@@ -2696,6 +2708,7 @@ export const UI = {
 
     // Attach filter listeners
     reporterSelect.addEventListener('change', filterAndRender);
+    projectSelect.addEventListener('change', filterAndRender);
     dateInput.addEventListener('change', filterAndRender);
     statusSelect.addEventListener('change', filterAndRender);
 
