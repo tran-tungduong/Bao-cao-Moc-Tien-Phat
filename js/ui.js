@@ -211,7 +211,7 @@ export const UI = {
   },
 
   // 2.1 HELPER FOR DYNAMIC 3-LEVEL CHECKLIST ROW
-  addChecklistItemRow(container, initialData = null, project = null) {
+  addChecklistItemRow(container, initialData = null, project = null, currentUser = null) {
     const rowId = 'chk_' + Math.random().toString(36).substr(2, 9);
     const row = document.createElement('div');
     row.id = rowId;
@@ -360,7 +360,8 @@ export const UI = {
       const filteredTasks = project.subtasks.filter(st => {
         const stTitle = (st.title || '').toLowerCase();
         const matchesRoomItem = stTitle.includes(prefix) || stTitle.includes(iVal.toLowerCase());
-        return matchesRoomItem && st.status !== 'completed';
+        const matchesUser = !currentUser || !st.assignedTo || st.assignedTo === currentUser.id;
+        return matchesRoomItem && matchesUser && st.status !== 'completed';
       });
 
       if (filteredTasks.length === 0) {
@@ -835,14 +836,14 @@ export const UI = {
 
     if (checklistList) {
       const currentPrj = getSelectedProject();
-      this.addChecklistItemRow(checklistList, null, currentPrj);
+      this.addChecklistItemRow(checklistList, null, currentPrj, user);
     }
 
     const btnAddChecklistItem = document.getElementById('btn-add-checklist-item');
     if (btnAddChecklistItem && checklistList) {
       btnAddChecklistItem.addEventListener('click', () => {
         const currentPrj = getSelectedProject();
-        this.addChecklistItemRow(checklistList, null, currentPrj);
+        this.addChecklistItemRow(checklistList, null, currentPrj, user);
       });
     }
 
@@ -851,7 +852,7 @@ export const UI = {
       selectLogProject.addEventListener('change', () => {
         checklistList.innerHTML = '';
         const currentPrj = getSelectedProject();
-        this.addChecklistItemRow(checklistList, null, currentPrj);
+        this.addChecklistItemRow(checklistList, null, currentPrj, user);
       });
     }
 
@@ -1272,17 +1273,17 @@ export const UI = {
     if (checklistList) {
       if (log.items && log.items.length > 0) {
         log.items.forEach(it => {
-          this.addChecklistItemRow(checklistList, it, project);
+          this.addChecklistItemRow(checklistList, it, project, leadUser);
         });
       } else {
-        this.addChecklistItemRow(checklistList, null, project);
+        this.addChecklistItemRow(checklistList, null, project, leadUser);
       }
     }
 
     const btnAddReviewItem = document.getElementById('btn-review-add-item');
     if (btnAddReviewItem && checklistList) {
       btnAddReviewItem.addEventListener('click', () => {
-        this.addChecklistItemRow(checklistList, null, project);
+        this.addChecklistItemRow(checklistList, null, project, leadUser);
       });
     }
 
