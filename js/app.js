@@ -24,15 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Background Sync Loop - Pull updates every 5 seconds
-  setInterval(() => {
-    const user = DB.getCurrentUser();
-    if (user) {
-      DB.syncWithServer((syncedDb) => {
-        UI.refreshActiveView(user);
-      });
-    }
-  }, 5000);
+  // Background Sync Loop removed for manual sync button stability
 });
 
 function checkSessionAndRoute() {
@@ -59,14 +51,23 @@ function checkSessionAndRoute() {
 }
 
 function registerServiceWorker() {
+  // Clear any existing Service Workers and Cache Storage to prevent stale cached code
   if ('serviceWorker' in navigator) {
-    // Try to register service worker
-    window.addEventListener('load', () => {
-      // Create a dummy service worker inline if needed, or register a simple sw file.
-      // Since offline is not requested, this just aids PWA installation.
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('PWA ServiceWorker registered successfully', reg.scope))
-        .catch(err => console.warn('PWA ServiceWorker registration failed', err));
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (let registration of registrations) {
+        registration.unregister().then(success => {
+          if (success) console.log('Service Worker unregistered successfully.');
+        });
+      }
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then(keys => {
+      keys.forEach(key => {
+        caches.delete(key).then(() => {
+          console.log(`Cache Storage '${key}' deleted successfully.`);
+        });
+      });
     });
   }
 }
