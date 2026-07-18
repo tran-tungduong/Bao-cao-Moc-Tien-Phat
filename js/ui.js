@@ -4156,7 +4156,7 @@ export const UI = {
         ` : ''}
 
         <div>
-          <label class="form-label">Tình trạng tiến độ</label>
+          <label class="form-label">Tình trạng tiến độ dự án</label>
           <div style="display:flex; gap:16px; margin-top:4px;">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
               <input type="radio" name="edit-log-status" value="on_track" ${log.status === 'on_track' ? 'checked' : ''} style="accent-color:var(--status-approved); width:18px; height:18px;">
@@ -4173,20 +4173,51 @@ export const UI = {
           <div>
             <label class="form-label">Cập nhật hạng mục thi công</label>
             <div style="display:flex; flex-direction:column; gap:10px; margin-top:6px;" id="edit-log-items-container">
-              ${log.items.map((it, idx) => `
-                <div class="edit-log-item-row" data-idx="${idx}" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">${it.room} ➔ <span style="color:var(--primary);">${it.item}</span></span>
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; font-weight:600;">
-                      <input type="checkbox" class="edit-chk-completed" ${it.isCompleted ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--status-approved);">
-                      <span>Đã xong</span>
-                    </label>
+              ${log.items.map((it, idx) => {
+                const isCompleted = it.isCompleted === true || it.isCompleted === 'true';
+                const progressVal = it.progress || (isCompleted ? 100 : 50);
+                return `
+                  <div class="edit-log-item-row" data-idx="${idx}" data-task-id="${it.taskId || ''}" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">${it.room} ➔ <span style="color:var(--primary);">${it.item}</span></span>
+                    </div>
+
+                    <!-- Công việc đã làm & Tiến độ -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-top: 4px;">
+                      <div>
+                        <label class="form-label" style="font-size: 0.68rem; margin-bottom: 2px;">Công việc đã làm hôm nay</label>
+                        <input type="text" class="edit-txt-today-work" value="${it.todayWork || ''}" class="form-input" placeholder="Ví dụ: Cắt CNC / Lắp ráp..." required style="font-size:0.75rem; height:32px; padding-left:8px; width:100%;">
+                      </div>
+                      <div>
+                        <label class="form-label" style="font-size: 0.68rem; margin-bottom: 2px;">Tiến độ (%)</label>
+                        <select class="edit-select-progress" required style="padding: 4px 8px; height: 32px; font-size: 0.75rem; width:100%; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                          ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% (Xong)' : p + '%'}</option>`).join('')}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; width: max-content;">
+                        <input type="checkbox" class="edit-chk-completed" ${isCompleted ? 'checked' : ''} style="width: 14px; height: 14px; accent-color:var(--status-approved);">
+                        <span>Đã hoàn thành xong hoàn toàn</span>
+                      </label>
+
+                      <div class="edit-pending-fields-wrapper" style="display: ${isCompleted ? 'none' : 'block'}; margin-top: 4px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                          <div>
+                            <label class="form-label" style="font-size: 0.68rem; margin-bottom: 2px; color: var(--status-pending);">Việc còn lại cần làm</label>
+                            <input type="text" class="edit-txt-pending-notes" value="${it.pendingNotes || ''}" class="form-input" placeholder="Việc cần làm..." style="font-size:0.75rem; height:32px; padding-left:8px; width:100%;">
+                          </div>
+                          <div>
+                            <label class="form-label" style="font-size: 0.68rem; margin-bottom: 2px; color: var(--status-pending);">Ngày dự kiến xong</label>
+                            <input type="date" class="edit-txt-expected-date" value="${it.expectedCompletionDate || ''}" class="form-input" style="font-size:0.75rem; height:32px; padding-left:8px; width:100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="edit-pending-notes-wrapper" style="display: ${it.isCompleted ? 'none' : 'block'};">
-                    <input type="text" class="edit-txt-pending-notes" value="${it.pendingNotes || ''}" class="form-input" placeholder="Việc cần làm còn lại..." style="font-size:0.75rem; height:32px; padding-left:8px; width:100%;">
-                  </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
         ` : `
@@ -4197,7 +4228,7 @@ export const UI = {
         `}
 
         <div>
-          <label class="form-label">Thời gian xong dự kiến</label>
+          <label class="form-label">Thời gian xong dự kiến (Toàn bộ công trình)</label>
           <input type="date" id="edit-log-expected-completion" class="form-input" value="${log.expectedCompletionDate || ''}" required style="padding-left:14px; height:40px;">
         </div>
 
@@ -4223,10 +4254,37 @@ export const UI = {
       const rows = modal.element.querySelectorAll('.edit-log-item-row');
       rows.forEach(row => {
         const chk = row.querySelector('.edit-chk-completed');
-        const wrapper = row.querySelector('.edit-pending-notes-wrapper');
+        const selectProgress = row.querySelector('.edit-select-progress');
+        const wrapper = row.querySelector('.edit-pending-fields-wrapper');
+        const pendingInput = row.querySelector('.edit-txt-pending-notes');
+        const dateInput = row.querySelector('.edit-txt-expected-date');
+
+        const updateVis = (isDone) => {
+          wrapper.style.display = isDone ? 'none' : 'block';
+          pendingInput.required = !isDone;
+          dateInput.required = !isDone;
+        };
+
         chk.addEventListener('change', () => {
-          wrapper.style.display = chk.checked ? 'none' : 'block';
+          if (chk.checked) {
+            selectProgress.value = '100';
+            updateVis(true);
+          } else {
+            if (selectProgress.value === '100') {
+              selectProgress.value = '50';
+            }
+            updateVis(false);
+          }
         });
+
+        selectProgress.addEventListener('change', () => {
+          const isDone = selectProgress.value === '100';
+          chk.checked = isDone;
+          updateVis(isDone);
+        });
+
+        // Initialize visibility
+        updateVis(chk.checked);
       });
     }
 
@@ -4290,23 +4348,58 @@ export const UI = {
       if (isWorker) {
         items = [];
         const rows = modal.element.querySelectorAll('.edit-log-item-row');
+        
+        const loadedDb = DB.load();
+        const loadedProj = loadedDb.projects.find(p => p.id === project.id);
+
         rows.forEach(row => {
           const idx = parseInt(row.getAttribute('data-idx'));
           const originalItem = log.items[idx];
-          const isCompleted = row.querySelector('.edit-chk-completed').checked;
-          const pendingNotes = row.querySelector('.edit-txt-pending-notes').value.trim();
+          
+          const todayWork = row.querySelector('.edit-txt-today-work').value.trim();
+          const progress = parseInt(row.querySelector('.edit-select-progress').value) || 50;
+          const isCompleted = progress === 100;
+          const pendingNotes = isCompleted ? '' : row.querySelector('.edit-txt-pending-notes').value.trim();
+          const expectedCompletionDate = isCompleted ? '' : row.querySelector('.edit-txt-expected-date').value;
+          const taskId = row.getAttribute('data-task-id') || originalItem.taskId || '';
+
+          // Sync to the existing task if we have a taskId
+          if (taskId && loadedProj) {
+            const existingTask = loadedProj.subtasks.find(st => st.id === taskId);
+            if (existingTask) {
+              existingTask.status = isCompleted ? 'completed' : 'pending';
+              existingTask.completedAt = isCompleted ? new Date().toISOString() : null;
+              
+              // Sync with Supabase
+              DB.sbUpdateSubtask(taskId, { 
+                status: existingTask.status, 
+                completed_at: existingTask.completedAt 
+              });
+            }
+          }
 
           items.push({
             room: originalItem.room,
             item: originalItem.item,
-            isCompleted: isCompleted,
-            pendingNotes: isCompleted ? '' : pendingNotes
+            todayWork,
+            progress,
+            isCompleted,
+            pendingNotes: isCompleted ? '' : pendingNotes,
+            expectedCompletionDate: isCompleted ? '' : expectedCompletionDate,
+            taskId
           });
         });
 
+        // Save local DB with synced subtasks
+        DB.save(loadedDb);
+
+        // Generate text note summary for old compatibility
         note = items.map(it => {
-          return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
-        }).join('\n');
+          return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
+                 `  + Tiến độ: ${it.progress}%\n` +
+                 (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+        }).join('\n\n');
+
       } else {
         note = modal.element.querySelector('#edit-log-note').value;
       }
@@ -4323,7 +4416,6 @@ export const UI = {
       }
     });
   },
-
   // 10. OPEN ASSIGN SUBTASK MODAL FOR MANAGER
   openAssignTaskModal(projectId, user, onTaskAdded) {
     const db = DB.load();
