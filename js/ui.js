@@ -298,10 +298,10 @@ export const UI = {
       </div>
 
       <!-- Công việc đã làm + Tiến độ % trên cùng 1 hàng -->
-      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; display:flex; align-items:flex-end; gap:8px;">
+      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; display:flex; align-items:flex-start; gap:8px;">
         <div style="flex:1; min-width:0;">
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
-          <input type="text" class="form-input txt-chk-today-work" placeholder="Cắt CNC / Lắp khung / Sơn..." required style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${todayWork}">
+          <textarea class="form-input txt-chk-today-work" placeholder="Cắt CNC / Lắp khung / Sơn..." required style="height: auto; min-height: 52px; font-size: 0.82rem; padding: 10px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${todayWork}</textarea>
         </div>
         <div style="flex-shrink:0; width:88px;">
           <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary); white-space:nowrap;">Tiến độ</label>
@@ -321,7 +321,7 @@ export const UI = {
         <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; margin-top: 2px;">
           <div>
             <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Việc còn lại cần làm</label>
-            <input type="text" class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${pendingNotes}" ${!isCompleted ? 'required' : ''}>
+            <textarea class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: auto; min-height: 52px; font-size: 0.82rem; padding: 10px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2" ${!isCompleted ? 'required' : ''}>${pendingNotes}</textarea>
           </div>
           <div>
             <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Ngày dự kiến xong món này</label>
