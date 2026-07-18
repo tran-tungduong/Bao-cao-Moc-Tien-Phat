@@ -220,6 +220,9 @@ export const UI = {
         };
         currentItemsList = fallbackMap[roomVal] || ['Khác...'];
       }
+      if (roomVal && roomVal !== 'Chung / Khác' && !currentItemsList.includes('Cả phòng')) {
+        currentItemsList = ['Cả phòng', ...currentItemsList];
+      }
     }
 
     const isCustomItem = itemVal && !currentItemsList.includes(itemVal);
@@ -371,6 +374,9 @@ export const UI = {
             'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
           };
           itemsList = fallbackMap[val] || ['Khác...'];
+        }
+        if (val !== 'Chung / Khác' && !itemsList.includes('Cả phòng')) {
+          itemsList = ['Cả phòng', ...itemsList];
         }
 
         selectItem.innerHTML = `
@@ -2152,8 +2158,23 @@ export const UI = {
       const scope = p.scope || [];
       const subtasks = p.subtasks || [];
 
+      // Construct a scope list including virtual "Cả phòng" if a room has any whole-room tasks assigned
+      const uniqueRooms = [...new Set(scope.map(s => s.room.trim()))];
+      const virtualScope = [];
+      uniqueRooms.forEach(room => {
+        const hasWholeRoomTasks = subtasks.some(st => st.title && st.title.startsWith(`[${room} - Cả phòng]:`));
+        if (hasWholeRoomTasks) {
+          virtualScope.push({ room, item: 'Cả phòng' });
+        }
+        scope.filter(s => s.room.trim() === room).forEach(s => {
+          if (s.item.trim() !== 'Cả phòng') {
+            virtualScope.push(s);
+          }
+        });
+      });
+
       // Map each scope item to its status and its matched subtasks
-      const scopeWithSubtasks = scope.map(sc => {
+      const scopeWithSubtasks = virtualScope.map(sc => {
         const matched = subtasks.filter(st =>
           st.title && st.title.toLowerCase().includes(sc.item.toLowerCase())
         );
@@ -4563,7 +4584,18 @@ export const UI = {
         const inProgress = [];
         const completed = [];
 
-        currentProject.scope.forEach(sc => {
+        const uniqueRooms = [...new Set(currentProject.scope.map(s => s.room.trim()))];
+        const allScopes = [];
+        uniqueRooms.forEach(room => {
+          allScopes.push({ room, item: 'Cả phòng' });
+          currentProject.scope.filter(sc => sc.room.trim() === room).forEach(sc => {
+            if (sc.item.trim() !== 'Cả phòng') {
+              allScopes.push({ room, item: sc.item.trim() });
+            }
+          });
+        });
+
+        allScopes.forEach(sc => {
           const room = sc.room.trim();
           const item = sc.item.trim();
 
