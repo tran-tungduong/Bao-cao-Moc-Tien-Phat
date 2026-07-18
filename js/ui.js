@@ -2216,6 +2216,24 @@ export const UI = {
             }).join('');
           }
 
+          if (item.status === 'done') {
+            return `
+              <div class="completed-item-group" style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
+                <div class="btn-toggle-completed-details" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;">
+                  <span style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted); opacity:0.6;"></i>
+                    <span style="text-decoration:line-through; opacity:0.7;">${item.item}</span>
+                    <i class="fas fa-chevron-down toggle-icon" style="font-size:0.65rem; color:var(--text-muted); transition:transform 0.2s;"></i>
+                  </span>
+                  ${itemBadge}
+                </div>
+                <div class="completed-item-subtasks" style="display:none; margin-top:4px; border-top:1px dashed rgba(255,255,255,0.03); padding-top:4px; flex-direction:column; gap:3px;">
+                  ${subtasksHtml}
+                </div>
+              </div>
+            `;
+          }
+
           return `
             <div style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;">
@@ -2326,6 +2344,22 @@ export const UI = {
         ` : ''}
       </div>
     `;
+
+    // Bind completed items toggle expand/collapse
+    container.querySelectorAll('.btn-toggle-completed-details').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const group = btn.closest('.completed-item-group');
+        const subtasksDiv = group.querySelector('.completed-item-subtasks');
+        const icon = group.querySelector('.toggle-icon');
+        if (subtasksDiv.style.display === 'none') {
+          subtasksDiv.style.display = 'flex';
+          icon.style.transform = 'rotate(180deg)';
+        } else {
+          subtasksDiv.style.display = 'none';
+          icon.style.transform = 'rotate(0deg)';
+        }
+      });
+    });
 
     // Bind Resolve Rework buttons
     container.querySelectorAll('.btn-resolve-rework').forEach(btn => {
