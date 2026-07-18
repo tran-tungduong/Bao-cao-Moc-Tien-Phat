@@ -262,7 +262,13 @@ export const DB = {
           p.dailyLogs.sort((a, b) => b.date.localeCompare(a.date));
         });
 
-        localStorage.setItem(DB_KEY, JSON.stringify(assembledDb));
+        const oldDbStr = localStorage.getItem(DB_KEY);
+        const newDbStr = JSON.stringify(assembledDb);
+        if (oldDbStr === newDbStr) {
+          console.log('Database synced, no changes detected. Skipping UI refresh.');
+          return false;
+        }
+        localStorage.setItem(DB_KEY, newDbStr);
         console.log('Database synced from Supabase (relational tables).');
         if (onSyncComplete) onSyncComplete(assembledDb);
         return true;
@@ -279,9 +285,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('projects').update(fields).eq('id', projectId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('projects').update(fields).eq('id', projectId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -291,7 +299,7 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('projects').insert({
+      const { error } = await supabaseClient.from('projects').insert({
         id: p.id,
         name: p.name,
         step: p.step,
@@ -303,8 +311,10 @@ export const DB = {
         assignees: p.assignees || [],
         scope: p.scope || []
       });
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -314,9 +324,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('projects').delete().eq('id', projectId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('projects').delete().eq('id', projectId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -326,7 +338,7 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('subtasks').insert({
+      const { error } = await supabaseClient.from('subtasks').insert({
         id: st.id,
         project_id: projectId,
         title: st.title,
@@ -336,8 +348,10 @@ export const DB = {
         completed_at: st.completedAt || null,
         items: st.items || []
       });
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -347,9 +361,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('subtasks').update(fields).eq('id', subtaskId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('subtasks').update(fields).eq('id', subtaskId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -359,9 +375,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('subtasks').delete().eq('id', subtaskId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('subtasks').delete().eq('id', subtaskId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -371,7 +389,7 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('daily_logs').insert({
+      const { error } = await supabaseClient.from('daily_logs').insert({
         id: dl.id,
         project_id: projectId,
         date: dl.date,
@@ -386,8 +404,10 @@ export const DB = {
         approved: dl.approved !== false,
         approver_id: dl.approverId || null
       });
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -397,9 +417,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('daily_logs').update(fields).eq('id', logId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('daily_logs').update(fields).eq('id', logId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -409,9 +431,11 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('daily_logs').delete().eq('id', logId);
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      const { error } = await supabaseClient.from('daily_logs').delete().eq('id', logId);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -440,12 +464,15 @@ export const DB = {
       };
 
       if (data && data.length > 0) {
-        await supabaseClient.from('attendance').update(payload).eq('user_id', userId).eq('date', date);
+        const { error: errUpdate } = await supabaseClient.from('attendance').update(payload).eq('user_id', userId).eq('date', date);
+        if (errUpdate) throw errUpdate;
       } else {
-        await supabaseClient.from('attendance').insert(payload);
+        const { error: errInsert } = await supabaseClient.from('attendance').insert(payload);
+        if (errInsert) throw errInsert;
       }
     } catch (e) {
-      console.error('Supabase write error:', e);
+      console.error('Supabase write error details:', e);
+      throw new Error(e.message || JSON.stringify(e));
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -455,14 +482,16 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      await supabaseClient.from('project_history').insert({
+      const { error } = await supabaseClient.from('project_history').insert({
         project_id: projectId,
         timestamp: h.timestamp,
         action: h.action,
         user: h.user
       });
-    } catch (e) {
-      console.error('Supabase write error:', e);
+      if (error) {
+        console.error('Supabase write error details:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
     } finally {
       this.activeWriteRequests = Math.max(0, this.activeWriteRequests - 1);
     }
@@ -684,8 +713,20 @@ export const DB = {
       project.history.push(hist);
       this.save(db);
       
-      await this.sbUpdateProject(projectId, { step: project.step });
-      await this.sbInsertHistory(hist, projectId);
+      try {
+        await this.sbUpdateProject(projectId, { step: project.step });
+        await this.sbInsertHistory(hist, projectId);
+      } catch (err) {
+        // Rollback on failure
+        const dbRollback = this.load();
+        const prjRollback = dbRollback.projects.find(p => p.id === projectId);
+        if (prjRollback) {
+          prjRollback.step -= 1;
+          prjRollback.history = prjRollback.history.filter(h => h.timestamp !== hist.timestamp);
+          this.save(dbRollback);
+        }
+        throw err;
+      }
       return project;
     }
     return null;
@@ -708,8 +749,21 @@ export const DB = {
       project.history.push(hist);
       this.save(db);
       
-      await this.sbUpdateProject(projectId, { is_completed: true });
-      await this.sbInsertHistory(hist, projectId);
+      try {
+        await this.sbUpdateProject(projectId, { is_completed: true });
+        await this.sbInsertHistory(hist, projectId);
+      } catch (err) {
+        // Rollback
+        const dbRollback = this.load();
+        const prjRollback = dbRollback.projects.find(p => p.id === projectId);
+        if (prjRollback) {
+          prjRollback.isCompleted = false;
+          delete prjRollback.completedAt;
+          prjRollback.history = prjRollback.history.filter(h => h.timestamp !== hist.timestamp);
+          this.save(dbRollback);
+        }
+        throw err;
+      }
       return project;
     }
     return null;
@@ -744,9 +798,23 @@ export const DB = {
 
       this.save(db);
       
-      await this.sbInsertSubtask(st, projectId);
-      await this.sbUpdateProject(projectId, { is_rework: true });
-      await this.sbInsertHistory(hist, projectId);
+      try {
+        await this.sbInsertSubtask(st, projectId);
+        await this.sbUpdateProject(projectId, { is_rework: true });
+        await this.sbInsertHistory(hist, projectId);
+      } catch (err) {
+        // Rollback
+        const dbRollback = this.load();
+        const prjRollback = dbRollback.projects.find(p => p.id === projectId);
+        if (prjRollback) {
+          prjRollback.subtasks = prjRollback.subtasks.filter(t => t.id !== subtaskId);
+          const hasOtherRework = prjRollback.subtasks.some(t => t.type === 'rework' && t.status === 'pending');
+          if (!hasOtherRework) prjRollback.isRework = false;
+          prjRollback.history = prjRollback.history.filter(h => h.timestamp !== hist.timestamp);
+          this.save(dbRollback);
+        }
+        throw err;
+      }
       return project;
     }
     return null;
@@ -761,6 +829,11 @@ export const DB = {
     if (project) {
       const task = project.subtasks.find(st => st.id === subtaskId);
       if (task) {
+        const originalStatus = task.status;
+        const originalCompletedAt = task.completedAt;
+        const originalItems = task.items ? JSON.parse(JSON.stringify(task.items)) : null;
+        const originalIsRework = project.isRework;
+
         task.status = 'completed';
         task.completedAt = new Date().toISOString();
         task.items = [{ progress: 100, pendingNotes: '', expectedCompletionDate: '' }];
@@ -772,7 +845,6 @@ export const DB = {
         };
         project.history.push(hist);
 
-        // Check if there are any pending rework tasks left
         const hasPendingRework = project.subtasks.some(st => st.type === 'rework' && st.status === 'pending');
         if (!hasPendingRework) {
           project.isRework = false;
@@ -780,9 +852,27 @@ export const DB = {
 
         this.save(db);
         
-        await this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt, items: task.items });
-        await this.sbUpdateProject(projectId, { is_rework: project.isRework });
-        await this.sbInsertHistory(hist, projectId);
+        try {
+          await this.sbUpdateSubtask(subtaskId, { status: task.status, completed_at: task.completedAt, items: task.items });
+          await this.sbUpdateProject(projectId, { is_rework: project.isRework });
+          await this.sbInsertHistory(hist, projectId);
+        } catch (err) {
+          // Rollback
+          const dbRollback = this.load();
+          const prjRollback = dbRollback.projects.find(p => p.id === projectId);
+          if (prjRollback) {
+            const taskRollback = prjRollback.subtasks.find(st => st.id === subtaskId);
+            if (taskRollback) {
+              taskRollback.status = originalStatus;
+              taskRollback.completedAt = originalCompletedAt;
+              taskRollback.items = originalItems;
+            }
+            prjRollback.isRework = originalIsRework;
+            prjRollback.history = prjRollback.history.filter(h => h.timestamp !== hist.timestamp);
+            this.save(dbRollback);
+          }
+          throw err;
+        }
         return project;
       }
     }
@@ -833,6 +923,9 @@ export const DB = {
     const worker = db.users.find(u => u.id === assignedWorkerId);
 
     if (project) {
+      const originalIsSmallScope = project.isSmallScope;
+      const originalDeadline = project.deadline;
+
       project.isSmallScope = true;
 
       // Extend deadline
@@ -860,9 +953,23 @@ export const DB = {
 
       this.save(db);
       
-      await this.sbInsertSubtask(st, projectId);
-      await this.sbUpdateProject(projectId, { is_small_scope: true, deadline: project.deadline });
-      await this.sbInsertHistory(hist, projectId);
+      try {
+        await this.sbInsertSubtask(st, projectId);
+        await this.sbUpdateProject(projectId, { is_small_scope: true, deadline: project.deadline });
+        await this.sbInsertHistory(hist, projectId);
+      } catch (err) {
+        // Rollback
+        const dbRollback = this.load();
+        const prjRollback = dbRollback.projects.find(p => p.id === projectId);
+        if (prjRollback) {
+          prjRollback.isSmallScope = originalIsSmallScope;
+          prjRollback.deadline = originalDeadline;
+          prjRollback.subtasks = prjRollback.subtasks.filter(t => t.id !== subtaskId);
+          prjRollback.history = prjRollback.history.filter(h => h.timestamp !== hist.timestamp);
+          this.save(dbRollback);
+        }
+        throw err;
+      }
       return project;
     }
     return null;
