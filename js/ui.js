@@ -3697,33 +3697,7 @@ export const UI = {
         <!-- Scope Manager: Add/Edit/Delete scope items -->
         ${scopeManagerHtml}
 
-        <!-- Project Assignees (Người phụ trách) -->
-        <div>
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span>Nhân sự phụ trách công trình</span>
-            ${(user.role === 'kts' || user.role === 'sales') && !project.isCompleted
-        ? `<button id="drawer-assign-project-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-user-plus"></i> GIAO CÔNG TRÌNH</button>`
-        : ''
-      }
-          </h5>
-          <div style="background-color:rgba(0,0,0,0.15); border-radius:12px; padding:12px; border:1px solid var(--border-color); display:flex; flex-wrap:wrap; gap:8px;" id="project-assignees-list">
-            ${project.assignees && project.assignees.length > 0
-        ? project.assignees.map(uId => {
-          const assignedUser = DB.load().users.find(u => u.id === uId);
-          if (!assignedUser) return '';
-          const roleLabel = assignedUser.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-          return `
-                    <div style="display:flex; align-items:center; gap:6px; background-color:var(--bg-secondary); border:1px solid var(--border-color); padding:6px 10px; border-radius:20px; font-size:0.75rem;">
-                      <img src="${assignedUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">
-                      <span><strong>${assignedUser.name}</strong> (${roleLabel})</span>
-                    </div>
-                  `;
-        }).join('')
-        : '<p style="font-size:0.75rem; color:var(--text-muted); width:100%; margin:0; text-align:center;">Chưa gán nhân sự phụ trách công trình.</p>'
-      }
-          </div>
-        </div>
-
+        <!-- Removed Project Assignees (Người phụ trách) -->
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.filter(l => l.approved !== false).length})</span>
