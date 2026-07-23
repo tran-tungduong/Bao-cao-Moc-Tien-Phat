@@ -5383,22 +5383,7 @@ export const UI = {
           <input type="text" id="edit-prj-name" class="form-input" value="${project.name}" required style="padding-left:14px;">
         </div>
 
-        <div>
-          <label class="form-label">Nhân sự phụ trách công trình</label>
-          <div style="max-height: 120px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border-color); border-radius:10px; padding:10px; background-color:rgba(0,0,0,0.1);">
-            ${workers.map(w => {
-      const roleLabel = w.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ';
-      const isChecked = currentAssignees.includes(w.id);
-      return `
-                <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-                  <span style="font-size:0.8rem; color:var(--text-primary);">${w.name} (${roleLabel})</span>
-                  <input type="checkbox" name="edit-prj-assignee" value="${w.id}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);">
-                </label>
-              `;
-    }).join('')}
-          </div>
-        </div>
-
+        <!-- Removed Project Assignees Section -->
         <!-- 2-level Scope of work collapsible accordion editor -->
         <div>
           <label class="form-label" style="color:var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;"><i class="fas fa-list-check"></i> Thiết lập Hạng mục thi công (Scope of Work)</label>
@@ -5427,8 +5412,7 @@ export const UI = {
       const name = document.getElementById('edit-prj-name').value;
       const deadline = document.getElementById('edit-prj-deadline').value;
 
-      const selectedCheckboxes = document.querySelectorAll('input[name="edit-prj-assignee"]:checked');
-      const assignees = Array.from(selectedCheckboxes).map(cb => cb.value);
+      const assignees = currentAssignees; // Keep existing assignees unchanged
 
       const scope = scopeEditor.getSelectedScope();
 
