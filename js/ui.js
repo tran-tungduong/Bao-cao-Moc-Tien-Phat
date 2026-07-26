@@ -2452,7 +2452,7 @@ export const UI = {
           <div style="padding:13px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div style="flex:1; min-width:0;">
-                <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3;">${p.name}</div>
+                <div class="btn-board-open-details" data-project="${p.id}" style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3; cursor:pointer;">${p.name} <i class="fas fa-external-link-alt" style="font-size:0.68rem; opacity:0.6; margin-left:4px;"></i></div>
                 <div style="font-size:0.7rem; color:${isOverdue ? 'var(--status-rejected)' : 'var(--text-muted)'};">
                   ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
                 </div>
@@ -2474,18 +2474,18 @@ export const UI = {
             ${roomsHtml || `<div style="text-align:center; padding:12px; font-size:0.75rem; color:var(--text-muted); font-style:italic;">Chưa thiết lập hạng mục nào.</div>`}
           </div>
 
-          <!-- Actions footer (KTS + Sales only) -->
-          ${(user.role === 'kts' || user.role === 'sales') ? `
+          <!-- Actions footer -->
+          ${['manager', 'kts', 'sales', 'marketing'].includes(user.role) ? `
             <div style="padding:8px 14px; border-top:1px solid rgba(255,255,255,0.04); display:flex; justify-content:flex-end; gap:6px; background:rgba(0,0,0,0.08);">
-              ${user.role === 'kts' ? `
-                <button class="btn-board-open-details" data-project="${p.id}" style="background:rgba(255,255,255,0.05); color:var(--text-secondary); border:1px solid var(--border-color); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                  <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i> Chi tiết
-                </button>
+              <button class="btn-board-open-details" data-project="${p.id}" style="background:rgba(255,255,255,0.05); color:var(--text-secondary); border:1px solid var(--border-color); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i> Chi tiết
+              </button>
+              ${(user.role === 'kts' || user.role === 'manager') ? `
                 <button class="btn-board-assign-task" data-project="${p.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;">
                   <i class="fas fa-plus"></i> Giao việc
                 </button>
               ` : ''}
-              ${user.role === 'sales' ? `
+              ${(user.role === 'sales' || user.role === 'manager') ? `
                 <button class="btn-board-edit-project" data-project="${p.id}" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--primary); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
                   <i class="fas fa-edit"></i> Sửa
                 </button>
