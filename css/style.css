@@ -354,7 +354,7 @@ body {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  max-width: 480px; /* Force mobile-view on desktop for realism */
+  max-width: 1280px; /* Expand on desktop */
   margin: 0 auto;
   background-color: var(--bg-primary);
   border-left: 1px solid var(--border-color);
