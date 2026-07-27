@@ -3217,123 +3217,6 @@ export const UI = {
   },
 
   // 9. OPEN PROJECT DETAILS DRAWER (MANAGER VIEW)
-  
-  buildRemainingWorkloadDashboardHtml(project) {
-    if (!project.scope || project.scope.length === 0) {
-      return '';
-    }
-
-    const standardStages = ['Cắt CNC', 'Dán cạnh', 'Ráp thùng / Dựng khung', 'Lắp bản lề / Phụ kiện', 'Lắp cánh tủ', 'Sơn / Dát mặt', 'Vận chuyển / Bọc màng', 'Lắp đặt công trình'];
-    const rooms = [...new Set(project.scope.map(s => s.room))];
-
-    const roomStatusMap = {};
-    rooms.forEach(r => {
-      roomStatusMap[r] = {
-        completedChips: new Set(),
-        latestPendingNotes: '',
-        latestExpectedDate: '',
-        reporterName: ''
-      };
-    });
-
-    if (project.dailyLogs && project.dailyLogs.length > 0) {
-      project.dailyLogs.filter(l => l.approved !== false).forEach(l => {
-        if (l.items && l.items.length > 0) {
-          l.items.forEach(it => {
-            if (roomStatusMap[it.room]) {
-              standardStages.forEach(chip => {
-                if (it.todayWork && it.todayWork.includes(chip)) {
-                  roomStatusMap[it.room].completedChips.add(chip);
-                }
-              });
-              if (it.pendingNotes) {
-                roomStatusMap[it.room].latestPendingNotes = it.pendingNotes;
-              }
-              if (it.expectedCompletionDate) {
-                roomStatusMap[it.room].latestExpectedDate = it.expectedCompletionDate;
-              }
-              if (l.reporterName) {
-                roomStatusMap[it.room].reporterName = l.reporterName;
-              }
-            }
-          });
-        }
-      });
-    }
-
-    let totalRooms = rooms.length;
-    let finishedRooms = 0;
-
-    const roomCardsHtml = rooms.map(room => {
-      const info = roomStatusMap[room];
-      const completedArr = Array.from(info.completedChips);
-      const uncompletedArr = standardStages.filter(st => !completedArr.includes(st));
-
-      const isRoomFinished = uncompletedArr.length === 0 && !info.latestPendingNotes;
-      if (isRoomFinished) finishedRooms++;
-
-      return `
-        <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-left:4px solid ${isRoomFinished ? 'var(--status-approved)' : 'var(--status-pending)'}; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:700; font-size:0.88rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-folder-open" style="color:var(--primary);"></i> ${room}
-            </span>
-            <span class="status-badge ${isRoomFinished ? 'approved' : 'pending'}" style="font-size:0.7rem; font-weight:700;">
-              ${isRoomFinished ? 'Đã hoàn thành ✓' : `Đang thi công (${completedArr.length}/${standardStages.length} khâu)`}
-            </span>
-          </div>
-
-          ${!isRoomFinished ? `
-            <div style="display:flex; flex-direction:column; gap:4px;">
-              <span style="font-size:0.72rem; color:var(--status-pending); font-weight:700;">🔴 CÔNG ĐOẠN CÒN NỢ / CHƯA XONG:</span>
-              <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                ${uncompletedArr.map(chip => `
-                  <span style="background:rgba(224, 159, 103, 0.12); color:var(--status-pending); border:1px solid rgba(224, 159, 103, 0.3); padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:600;">
-                    ❌ ${chip}
-                  </span>
-                `).join('')}
-              </div>
-            </div>
-
-            ${info.latestPendingNotes ? `
-              <div style="font-size:0.75rem; color:var(--text-secondary); background:rgba(0,0,0,0.15); border:1px dashed var(--border-color); padding:6px 10px; border-radius:8px; margin-top:2px;">
-                <strong>Ghi chú việc còn thiếu:</strong> ${info.latestPendingNotes}
-              </div>
-            ` : ''}
-
-            ${info.latestExpectedDate ? `
-              <div style="font-size:0.72rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
-                <span>Thợ báo gần nhất: <strong>${info.reporterName || 'Thợ xưởng'}</strong></span>
-                <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(info.latestExpectedDate).toLocaleDateString('vi-VN')}</strong></span>
-              </div>
-            ` : ''}
-          ` : `
-            <div style="font-size:0.75rem; color:var(--status-approved); font-weight:600;">
-              ✅ Đã hoàn thành 100% tất cả các công đoạn thi công của phòng này!
-            </div>
-          `}
-        </div>
-      `;
-    }).join('');
-
-    return `
-      <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-left:4px solid var(--primary); border-radius:16px; padding:16px; margin-bottom:20px; box-shadow:var(--shadow-md);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-          <h4 style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:8px;">
-            <i class="fas fa-tasks" style="color:var(--primary);"></i> BẢNG TỔNG HỢP KHỐI LƯỢNG CÒN LẠI DỰ ÁN
-          </h4>
-          <span style="font-size:0.75rem; font-weight:700; color:var(--primary); background:rgba(229,193,88,0.12); padding:3px 10px; border-radius:12px;">
-            ${totalRooms - finishedRooms}/${totalRooms} Phòng chưa xong
-          </span>
-        </div>
-
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          ${roomCardsHtml}
-        </div>
-      </div>
-    `;
-  },
-
   openProjectDetailsDrawer(projectId, user, onUpdate) {
     const project = DB.getProject(projectId);
     const stepInfo = STEPS.find(s => s.num === project.step);
@@ -3750,9 +3633,6 @@ export const UI = {
         : ''
       }
         </div>
-
-        <!-- Remaining Workload Dashboard -->
-        ${this.buildRemainingWorkloadDashboardHtml(project)}
 
         <!-- Scope Manager: Add/Edit/Delete scope items -->
         ${scopeManagerHtml}
