@@ -1906,7 +1906,6 @@ export const UI = {
         <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Kanban</button>
         <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
-        <button class="tab-btn" id="tab-dashboard-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Báo Cáo</button>
       </div>
 
       <!-- Content sections -->
@@ -1933,14 +1932,12 @@ export const UI = {
         this.openCreateProjectModal(user, () => {
           if (btnProgress && btnProgress.classList.contains('active')) {
             loadProgressBoard();
-          } else if (btnKanban.classList.contains('active')) {
+          } else if (btnKanban && btnKanban.classList.contains('active')) {
             loadKanban();
-          } else if (btnCompleted.classList.contains('active')) {
+          } else if (btnCompleted && btnCompleted.classList.contains('active')) {
             loadCompleted();
-          } else if (btnLogs.classList.contains('active')) {
+          } else if (btnLogs && btnLogs.classList.contains('active')) {
             loadLogs();
-          } else {
-            loadDashboard();
           }
         });
       });
@@ -1955,10 +1952,10 @@ export const UI = {
     const btnDashboard = document.getElementById('tab-dashboard-btn');
 
     const setActiveTab = (activeBtn) => {
-      [btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].forEach(btn => {
-        if (btn) btn.classList.remove('active');
+      [btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].filter(Boolean).forEach(btn => {
+        btn.classList.remove('active');
       });
-      activeBtn.classList.add('active');
+      if (activeBtn) activeBtn.classList.add('active');
     };
 
     const loadProgressBoard = () => {
@@ -1987,16 +1984,18 @@ export const UI = {
     };
 
     const loadDashboard = () => {
-      setActiveTab(btnDashboard);
-      this.renderManagerDashboard();
+      if (btnDashboard) {
+        setActiveTab(btnDashboard);
+        this.renderManagerDashboard();
+      }
     };
 
     if (btnProgress) btnProgress.addEventListener('click', loadProgressBoard);
-    btnKanban.addEventListener('click', loadKanban);
-    btnCompleted.addEventListener('click', loadCompleted);
-    btnLogs.addEventListener('click', loadLogs);
+    if (btnKanban) btnKanban.addEventListener('click', loadKanban);
+    if (btnCompleted) btnCompleted.addEventListener('click', loadCompleted);
+    if (btnLogs) btnLogs.addEventListener('click', loadLogs);
     if (btnAttendance) btnAttendance.addEventListener('click', loadAttendance);
-    btnDashboard.addEventListener('click', loadDashboard);
+    if (btnDashboard) btnDashboard.addEventListener('click', loadDashboard);
 
     // Initial load: Progress board is the default view
     loadProgressBoard();
