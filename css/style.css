@@ -1150,6 +1150,14 @@ body {
 .checklist-item-row {
   width: 100%;
   box-sizing: border-box;
+  margin-bottom: 16px;
+  border-radius: 14px !important;
+  padding: 16px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: all var(--transition-fast);
 }
 
 /* Ensure 2-column grids inside forms collapse gracefully on very narrow screens */
@@ -1322,11 +1330,17 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 
 [data-theme="light"] .material-stats-card,
 [data-theme="light"] .assign-room-card,
-[data-theme="light"] .scope-task-card,
-[data-theme="light"] .checklist-item-row {
+[data-theme="light"] .scope-task-card {
   background: #FFFFFF !important;
   border-color: #E2E8F0 !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-theme="light"] .checklist-item-row {
+  background: #FFFFFF !important;
+  border: 1.5px solid #CBD5E1 !important;
+  border-left: 5px solid #B88B27 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
 }
 
 [data-theme="light"] .form-select,
@@ -1348,6 +1362,13 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 :root:not([data-theme="light"]) .scope-task-card {
   background: #151D2A !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root:not([data-theme="light"]) .checklist-item-row {
+  background: #151D2A !important;
+  border: 1.5px solid rgba(229, 193, 88, 0.35) !important;
+  border-left: 5px solid #E5C158 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 }
 
 /* Whole Room Banner styling for Light/Dark Mode */

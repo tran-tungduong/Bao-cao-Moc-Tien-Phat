@@ -216,7 +216,7 @@ export const UI = {
     const row = document.createElement('div');
     row.id = rowId;
     row.className = 'checklist-item-row';
-    row.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; position: relative; box-shadow: var(--shadow-sm);';
+    row.style.cssText = 'position: relative;';
 
     const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
