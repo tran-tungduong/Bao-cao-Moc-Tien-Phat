@@ -4396,19 +4396,7 @@ export const UI = {
           </div>
         ` : ''}
 
-        <div>
-          <label class="form-label">Tình trạng tiến độ dự án</label>
-          <div style="display:flex; gap:16px; margin-top:4px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="radio" name="edit-log-status" value="on_track" ${log.status === 'on_track' ? 'checked' : ''} style="accent-color:var(--status-approved); width:18px; height:18px;">
-              <span>Đúng tiến độ ✅</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="radio" name="edit-log-status" value="delayed" ${log.status === 'delayed' ? 'checked' : ''} style="accent-color:var(--status-rejected); width:18px; height:18px;">
-              <span>Bị chậm ⚠️</span>
-            </label>
-          </div>
-        </div>
+
 
         ${isWorker ? `
           <div>
@@ -4512,7 +4500,8 @@ export const UI = {
 
     modal.element.querySelector('#edit-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const status = modal.element.querySelector('input[name="edit-log-status"]:checked').value;
+      const statusEl = modal.element.querySelector('input[name="edit-log-status"]:checked');
+      const status = statusEl ? statusEl.value : (log.status || 'on_track');
       const expEl = modal.element.querySelector('#edit-log-expected-completion');
       let expectedDate = expEl ? expEl.value : '';
       if (!expectedDate && items && items.length > 0) {
