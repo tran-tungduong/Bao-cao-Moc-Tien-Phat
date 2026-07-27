@@ -1075,20 +1075,6 @@ export const UI = {
           </p>
         </div>
 
-        <div>
-          <label class="form-label">Tình trạng tiến độ</label>
-          <div style="display:flex; gap:16px; margin-top:4px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="radio" name="review-status" value="on_track" ${log.status === 'on_track' ? 'checked' : ''} style="accent-color:var(--status-approved); width:18px; height:18px;">
-              <span>Đúng tiến độ ✅</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="radio" name="review-status" value="delayed" ${log.status === 'delayed' ? 'checked' : ''} style="accent-color:var(--status-rejected); width:18px; height:18px;">
-              <span>Bị chậm ⚠️</span>
-            </label>
-          </div>
-        </div>
-
         <!-- 3-level dynamic checklist -->
         <div id="review-checklist-container" style="display:flex; flex-direction:column; gap:12px;">
           <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
@@ -1191,7 +1177,7 @@ export const UI = {
     // Form submit
     document.getElementById('lead-review-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const status = document.querySelector('input[name="review-status"]:checked').value;
+      const status = log.status || 'on_track';
       const expectedDate = document.getElementById('review-expected-completion').value;
 
       const rows = document.querySelectorAll('#review-checklist-list .checklist-item-row');
