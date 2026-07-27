@@ -546,19 +546,7 @@ export const UI = {
                 </div>
               ` : ''}
 
-              <div>
-                <label class="form-label">TÌNH TRẠNG TIẾN ĐỘ NGÀY HÔM NAY</label>
-                <div style="display:flex; gap:16px; margin-top:4px;">
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="radio" name="log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
-                    <span>Đúng tiến độ ✅</span>
-                  </label>
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="radio" name="log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
-                    <span>Bị chậm ⚠️</span>
-                  </label>
-                </div>
-              </div>
+
 
               ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
                 <!-- 2-level dynamic checklist for workers -->
@@ -745,7 +733,7 @@ export const UI = {
     document.getElementById('daily-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const prjId = document.getElementById('log-project-id').value;
-      const status = document.querySelector('input[name="log-status"]:checked').value;
+      const status = 'on_track';
       const expectedDate = document.getElementById('log-expected-completion').value;
 
       let note = '';
