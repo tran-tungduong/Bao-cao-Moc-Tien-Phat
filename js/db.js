@@ -664,12 +664,23 @@ export const DB = {
       return activeProjects.filter(p => p.step <= 4 || (p.assignees && p.assignees.includes(user.id)));
     } else if (user.role === 'assistant_worker') {
       const selectedLeadId = this.getSelectedLeadWorkerForAssistant(user.id);
-      if (!selectedLeadId) return [];
-      
-      const leadUser = db.users.find(u => u.id === selectedLeadId);
-      if (!leadUser) return [];
-      
-      return this.getProjectsForUser(leadUser);
+      const leadUser = (selectedLeadId && selectedLeadId !== 'independent')
+        ? db.users.find(u => u.id === selectedLeadId)
+        : null;
+
+      const leadProjects = leadUser ? this.getProjectsForUser(leadUser) : [];
+
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecord = db.attendance ? db.attendance.find(a => a.userId === user.id && a.date === today) : null;
+      const todayProjectId = todayRecord && todayRecord.status === 'present' ? todayRecord.workingProjectId : '';
+
+      return activeProjects.filter(p => {
+        const isLeadProject = leadProjects.some(lp => lp.id === p.id);
+        const isProjectAssignee = p.assignees && p.assignees.includes(user.id);
+        const hasAssignedSubtask = p.subtasks && p.subtasks.some(st => st.assignedTo === user.id);
+        const isTodayWorkingProject = p.id === todayProjectId;
+        return isLeadProject || isProjectAssignee || hasAssignedSubtask || isTodayWorkingProject;
+      });
     } else if (user.role === 'lead_worker') {
       // Get today's working project assignment via attendance
       const today = new Date().toISOString().split('T')[0];
