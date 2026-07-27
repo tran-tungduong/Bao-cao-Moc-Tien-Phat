@@ -1058,9 +1058,12 @@ export const DB = {
       // Needs approval if: is assistant AND selected a specific lead worker (not empty or 'independent')
       const needsApproval = isAssistant && approverId && approverId !== 'independent';
 
+      const nowIso = new Date().toISOString();
       const newLog = {
         id: logId,
         date: today,
+        createdAt: nowIso,
+        timestamp: nowIso,
         reporterId: userId,
         reporterName: user ? user.name : 'Thợ thi công',
         reporterRole: user ? user.role : 'worker',

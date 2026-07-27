@@ -2267,15 +2267,22 @@ export const UI = {
 
                     let wrMetaTimeStr = '';
                     if (wrReportTime) {
-                      const dt = new Date(wrReportTime);
-                      if (!isNaN(dt.getTime())) {
-                        const h = dt.getHours().toString().padStart(2, '0');
-                        const m = dt.getMinutes().toString().padStart(2, '0');
-                        const day = dt.getDate().toString().padStart(2, '0');
-                        const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-                        wrMetaTimeStr = (h === '00' && m === '00') ? `${day}/${month}` : `${h}:${m} - ${day}/${month}`;
+                      if (wrReportTime.includes('T')) {
+                        const dt = new Date(wrReportTime);
+                        if (!isNaN(dt.getTime())) {
+                          const h = dt.getHours().toString().padStart(2, '0');
+                          const m = dt.getMinutes().toString().padStart(2, '0');
+                          const day = dt.getDate().toString().padStart(2, '0');
+                          const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+                          wrMetaTimeStr = `${h}:${m} - ${day}/${month}`;
+                        }
                       } else {
-                        wrMetaTimeStr = wrReportTime;
+                        const parts = wrReportTime.split('-');
+                        if (parts.length === 3) {
+                          wrMetaTimeStr = `${parts[2]}/${parts[1]}`;
+                        } else {
+                          wrMetaTimeStr = wrReportTime;
+                        }
                       }
                     }
                     const cleanWrReporter = wrReporterName ? wrReporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
@@ -2399,15 +2406,22 @@ export const UI = {
 
               let metaTimeStr = '';
               if (reportTime) {
-                const dt = new Date(reportTime);
-                if (!isNaN(dt.getTime())) {
-                  const h = dt.getHours().toString().padStart(2, '0');
-                  const m = dt.getMinutes().toString().padStart(2, '0');
-                  const day = dt.getDate().toString().padStart(2, '0');
-                  const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-                  metaTimeStr = (h === '00' && m === '00') ? `${day}/${month}` : `${h}:${m} - ${day}/${month}`;
+                if (reportTime.includes('T')) {
+                  const dt = new Date(reportTime);
+                  if (!isNaN(dt.getTime())) {
+                    const h = dt.getHours().toString().padStart(2, '0');
+                    const m = dt.getMinutes().toString().padStart(2, '0');
+                    const day = dt.getDate().toString().padStart(2, '0');
+                    const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+                    metaTimeStr = `${h}:${m} - ${day}/${month}`;
+                  }
                 } else {
-                  metaTimeStr = reportTime;
+                  const parts = reportTime.split('-');
+                  if (parts.length === 3) {
+                    metaTimeStr = `${parts[2]}/${parts[1]}`;
+                  } else {
+                    metaTimeStr = reportTime;
+                  }
                 }
               }
               const cleanReporter = reporterName ? reporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
