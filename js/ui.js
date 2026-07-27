@@ -2468,13 +2468,13 @@ export const UI = {
       }).join('');
 
       return `
-        <div class="fade-in" style="background:var(--bg-secondary); border:1px solid ${isOverdue ? 'rgba(201,91,91,0.35)' : 'var(--border-color)'}; border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm);">
+        <div class="fade-in progress-project-card" data-project="${p.id}" style="background:var(--bg-secondary); border:1px solid ${isOverdue ? 'rgba(201,91,91,0.35)' : 'var(--border-color)'}; border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm); cursor:pointer; transition:transform var(--transition-fast), box-shadow var(--transition-fast);">
 
           <!-- Header -->
           <div style="padding:13px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div style="flex:1; min-width:0;">
-                <div class="btn-board-open-details" data-project="${p.id}" style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3; cursor:pointer;">${p.name} <i class="fas fa-external-link-alt" style="font-size:0.68rem; opacity:0.6; margin-left:4px;"></i></div>
+                <div style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3;">${p.name}</div>
                 <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:3px; font-size:0.72rem; color:var(--text-secondary);">
                   <span>Hạn bàn giao: <strong>${p.deadline}</strong></span>
                   ${this.getCountdownBadge(p.deadline, p.isCompleted)}
@@ -2502,9 +2502,7 @@ export const UI = {
           <!-- Actions footer -->
           ${['manager', 'kts', 'sales', 'marketing'].includes(user.role) ? `
             <div style="padding:8px 14px; border-top:1px solid rgba(255,255,255,0.04); display:flex; justify-content:flex-end; gap:6px; background:rgba(0,0,0,0.08);">
-              <button class="btn-board-open-details" data-project="${p.id}" style="background:rgba(255,255,255,0.05); color:var(--text-secondary); border:1px solid var(--border-color); font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i> Chi tiết
-              </button>
+
               ${(user.role === 'kts' || user.role === 'manager') ? `
                 <button class="btn-board-assign-task" data-project="${p.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:5px 10px; border-radius:7px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;">
                   <i class="fas fa-plus"></i> Giao việc
@@ -2606,9 +2604,17 @@ export const UI = {
         this.openAssignTaskModal(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
       });
     });
-    container.querySelectorAll('.btn-board-open-details').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.openProjectDetailsDrawer(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
+    // Bind card click on empty space to open project details drawer
+    container.querySelectorAll('.progress-project-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        // Stop if clicking on interactive controls or accordion header
+        if (e.target.closest('button, .progress-room-header, .btn-resolve-rework, input, select, a, .room-toggle-icon')) {
+          return;
+        }
+        const pid = card.getAttribute('data-project');
+        if (pid) {
+          this.openProjectDetailsDrawer(pid, user, () => this.renderProgressBoard(user));
+        }
       });
     });
 
