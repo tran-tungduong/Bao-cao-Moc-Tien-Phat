@@ -2316,11 +2316,14 @@ export const UI = {
         roomsMap[item.room].push(item);
       });
 
-      // Build HTML for each room
-      // Build HTML for each room
-      const roomsHtml = Object.entries(roomsMap).map(([roomName, items]) => {
+      // Build HTML for each room with Accordion (Collapsible)
+      const roomsHtml = Object.entries(roomsMap).map(([roomName, items], roomIdx) => {
         const wholeRoomItem = items.find(item => item.item === 'Cả phòng');
         const regularItems = items.filter(item => item.item !== 'Cả phòng');
+
+        const totalRoomSubtasks = items.flatMap(i => i.subtasks).length;
+        const completedRoomSubtasks = items.flatMap(i => i.subtasks).filter(st => st.status === 'completed').length;
+        const isRoomComplete = totalRoomSubtasks > 0 && completedRoomSubtasks === totalRoomSubtasks;
 
         let wholeRoomBannerHtml = '';
         if (wholeRoomItem && wholeRoomItem.subtasks && wholeRoomItem.subtasks.length > 0) {
@@ -2467,17 +2470,36 @@ export const UI = {
           `;
         }).join('');
 
+        const isDefaultExpanded = roomIdx === 0;
+
         return `
-          <div style="margin-bottom:14px;">
-            <div style="font-size:0.76rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-folder-open" style="font-size:0.7rem; color:var(--primary);"></i> ${roomName}
-            </div>
-            ${wholeRoomBannerHtml}
-            ${regularItems.length > 0 ? `
-              <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px;">
-                ${itemsHtml}
+          <div class="progress-room-accordion" style="margin-bottom:10px; border:1px solid var(--border-color); border-radius:12px; overflow:hidden; background:rgba(0,0,0,0.12);">
+            <!-- Accordion Header -->
+            <div class="progress-room-header" style="padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; transition:background var(--transition-fast);">
+              <div style="font-size:0.82rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.85rem;"></i>
+                <span>${roomName}</span>
+                <span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted); opacity:0.8;">(${regularItems.length} hạng mục)</span>
               </div>
-            ` : ''}
+              <div style="display:flex; align-items:center; gap:10px;">
+                ${totalRoomSubtasks > 0 ? `
+                  <span style="font-size:0.7rem; font-weight:700; color:${isRoomComplete ? 'var(--status-approved)' : 'var(--primary)'}; background:${isRoomComplete ? 'rgba(78,141,124,0.12)' : 'rgba(197,168,128,0.12)'}; padding:2px 8px; border-radius:10px; border:1px solid ${isRoomComplete ? 'rgba(78,141,124,0.25)' : 'rgba(197,168,128,0.25)'};">
+                    ${completedRoomSubtasks}/${totalRoomSubtasks} xong
+                  </span>
+                ` : ''}
+                <i class="fas fa-chevron-down room-toggle-icon" style="font-size:0.7rem; color:var(--text-muted); transition:transform 0.25s; transform:${isDefaultExpanded ? 'rotate(180deg)' : 'rotate(0deg)'};"></i>
+              </div>
+            </div>
+
+            <!-- Accordion Body -->
+            <div class="progress-room-body" style="padding:12px; display:${isDefaultExpanded ? 'block' : 'none'}; border-top:1px solid rgba(255,255,255,0.04);">
+              ${wholeRoomBannerHtml}
+              ${regularItems.length > 0 ? `
+                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px;">
+                  ${itemsHtml}
+                </div>
+              ` : ''}
+            </div>
           </div>
         `;
       }).join('');
@@ -2565,6 +2587,22 @@ export const UI = {
         ` : ''}
       </div>
     `;
+
+    // Bind room accordion header expand/collapse
+    container.querySelectorAll('.progress-room-header').forEach(header => {
+      header.addEventListener('click', (e) => {
+        const accordion = header.closest('.progress-room-accordion');
+        const body = accordion.querySelector('.progress-room-body');
+        const icon = header.querySelector('.room-toggle-icon');
+        if (body.style.display === 'none') {
+          body.style.display = 'block';
+          icon.style.transform = 'rotate(180deg)';
+        } else {
+          body.style.display = 'none';
+          icon.style.transform = 'rotate(0deg)';
+        }
+      });
+    });
 
     // Bind completed items toggle expand/collapse
     container.querySelectorAll('.btn-toggle-completed-details').forEach(btn => {
