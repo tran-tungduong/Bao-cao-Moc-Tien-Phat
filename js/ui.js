@@ -4841,7 +4841,7 @@ export const UI = {
                         ${roomScopes.map(sc => {
                           const isWholeRoom = sc.item === 'Cả phòng';
                           return `
-                            <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:${isWholeRoom ? 'rgba(197,168,128,0.06)' : 'rgba(0,0,0,0.12)'}; border:1px solid ${isWholeRoom ? 'rgba(197,168,128,0.25)' : 'rgba(255,255,255,0.03)'}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+                            <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:${isWholeRoom ? 'rgba(197,168,128,0.08)' : 'var(--bg-secondary)'}; border:1px solid ${isWholeRoom ? 'rgba(197,168,128,0.3)' : 'var(--border-color)'}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
                               <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-weight:700; font-size:0.8rem; color:${isWholeRoom ? 'var(--primary)' : 'var(--text-primary)'};">
                                   ${isWholeRoom ? `
@@ -4857,7 +4857,7 @@ export const UI = {
 
                               <!-- Matched subtasks list -->
                               ${sc.tasks.length > 0 ? `
-                                <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.18); padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                                <div style="display:flex; flex-direction:column; gap:4px; background:var(--bg-input); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
                                   ${sc.tasks.map(st => {
                                     const notes = st.title.split(']:')[1]?.trim() || st.title;
                                     const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
@@ -4883,20 +4883,20 @@ export const UI = {
                               ` : ''}
 
                               <!-- Inline form to add task -->
-                              <div class="inline-add-task-form-container" style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:6px; margin-top:4px;">
+                              <div class="inline-add-task-form-container" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); box-shadow:var(--shadow-sm); padding:8px; border-radius:6px; margin-top:4px;">
                                 <div style="display:flex; flex-direction:column; gap:6px;">
                                   <div>
-                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chọn thợ phụ trách</label>
+                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px; color:var(--text-primary); font-weight:700;">Chọn thợ phụ trách</label>
                                     <select class="form-select inline-worker-select" style="height:32px; font-size:0.75rem; padding:2px 6px;">
                                       ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
                                     </select>
                                   </div>
                                   <div>
-                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chi tiết công việc bàn giao</label>
+                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px; color:var(--text-primary); font-weight:700;">Chi tiết công việc bàn giao</label>
                                     <input type="text" class="form-input inline-notes-input" placeholder="Ví dụ: cắt CNC, ráp khung, sơn..." style="height:32px; font-size:0.75rem; padding-left:8px;">
                                   </div>
                                   <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:2px;">
-                                    <button type="button" class="btn-cancel-inline-task" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border:none; cursor:pointer;">Hủy</button>
+                                    <button type="button" class="btn-cancel-inline-task" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color); cursor:pointer;">Hủy</button>
                                     <button type="button" class="btn-submit-inline-task" data-room="${sc.room}" data-item="${sc.item}" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:var(--primary); color:white; border:none; cursor:pointer;">Giao việc</button>
                                   </div>
                                 </div>
