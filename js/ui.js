@@ -2097,24 +2097,32 @@ export const UI = {
       const virtualScope = [];
 
       uniqueRooms.forEach(room => {
-        // Check whole room tasks
-        const hasWholeRoomTasks = subtasks.some(st => st.title && (st.title.startsWith(`[${room} - Cả phòng]:`) || st.title.startsWith(`[${room} - Cả Phòng]:`)));
-        if (hasWholeRoomTasks) {
+        // Check whole room subtasks
+        const wholeRoomSubtasks = subtasks.filter(st => st.title && (st.title.startsWith(`[${room} - Cả phòng]:`) || st.title.startsWith(`[${room} - Cả Phòng]:`)));
+        if (wholeRoomSubtasks.length > 0) {
           virtualScope.push({ room, item: 'Cả phòng' });
         }
 
         // Gather items from project.scope for this room
         const scopeItemsInRoom = scope.filter(s => s.room.trim() === room);
         scopeItemsInRoom.forEach(s => {
-          if (s.item.trim() !== 'Cả phòng' && !virtualScope.some(v => v.room === room && v.item === s.item.trim())) {
-            virtualScope.push({ room, item: s.item.trim() });
+          let itemName = s.item.trim();
+          if (itemName === 'Cả phòng') {
+            if (wholeRoomSubtasks.length === 0) {
+              itemName = room; // Use room name as item name so scope items without subtasks are fully visible outside!
+            } else {
+              return; // Already added as wholeRoomSubtasks
+            }
+          }
+          if (!virtualScope.some(v => v.room === room && v.item === itemName)) {
+            virtualScope.push({ room, item: itemName });
           }
         });
 
-        // Also gather any items from subtasks for this room
+        // Also gather any specific items from subtasks for this room
         subtasks.forEach(st => {
           const m = st.title ? st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/) : null;
-          if (m && m[1].trim() === room && m[2].trim() !== 'Cả phòng') {
+          if (m && m[1].trim() === room && m[2].trim() !== 'Cả phòng' && m[2].trim() !== 'Cả Phòng') {
             const itemTitle = m[2].trim();
             if (!virtualScope.some(v => v.room === room && v.item === itemTitle)) {
               virtualScope.push({ room, item: itemTitle });
@@ -2122,10 +2130,10 @@ export const UI = {
           }
         });
 
-        // Also gather any items from dailyLogs for this room
+        // Also gather any specific items from dailyLogs for this room
         (p.dailyLogs || []).forEach(l => {
           (l.items || []).forEach(it => {
-            if (it.room && it.room.trim() === room && it.item && it.item.trim() !== 'Cả phòng') {
+            if (it.room && it.room.trim() === room && it.item && it.item.trim() !== 'Cả phòng' && it.item.trim() !== 'Cả Phòng') {
               const itemTitle = it.item.trim();
               if (!virtualScope.some(v => v.room === room && v.item === itemTitle)) {
                 virtualScope.push({ room, item: itemTitle });
@@ -2133,6 +2141,11 @@ export const UI = {
             }
           });
         });
+
+        // Fallback: If room was in uniqueRooms but virtualScope has nothing for it yet, push the room item itself
+        if (!virtualScope.some(v => v.room === room)) {
+          virtualScope.push({ room, item: room });
+        }
       });
 
       // Map each scope item to its status and its matched subtasks
@@ -2330,7 +2343,7 @@ export const UI = {
             borderStyle = 'border: 1px solid rgba(245,158,11,0.15);';
             bgStyle = 'background: rgba(245,158,11,0.02);';
           } else {
-            itemBadge = `<span style="font-size:0.65rem; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px;">Chưa giao</span>`;
+            itemBadge = `<span style="font-size:0.65rem; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px;">Chưa có nhiệm vụ</span>`;
           }
 
           // Build subtask rows
@@ -2370,7 +2383,7 @@ export const UI = {
             }
             subtasksHtml = unassignedLogHtml || `
               <div style="font-size:0.72rem; color:var(--text-muted); padding-left:4px; margin-top:2px; display:flex; align-items:center; gap:4px;">
-                <i class="far fa-circle" style="font-size:0.65rem;"></i> Chưa giao nhiệm vụ riêng
+                <i class="far fa-circle" style="font-size:0.65rem;"></i> Chưa có nhiệm vụ
               </div>
             `;
           } else {
