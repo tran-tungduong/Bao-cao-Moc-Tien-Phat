@@ -3868,13 +3868,28 @@ export const UI = {
         <div>
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px;">Nhật Ký Hệ Thống</h5>
           <div style="background-color: var(--bg-primary); border-radius:12px; padding:12px; font-size:0.75rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px; max-height:150px; overflow-y:auto; border:1px solid var(--border-color);">
-            ${project.history.map(h => `
-              <div>
-                <span style="color:var(--text-muted);">${new Date(h.timestamp).toLocaleTimeString('vi-VN')}</span> • 
-                <strong>${h.action}</strong> 
-                <span style="color:var(--primary);">(${h.user})</span>
-              </div>
-            `).join('')}
+            ${[...(project.history || [])].reverse().map(h => {
+              const dt = new Date(h.timestamp);
+              let timeStr = '';
+              if (!isNaN(dt.getTime())) {
+                const hh = dt.getHours().toString().padStart(2, '0');
+                const mm = dt.getMinutes().toString().padStart(2, '0');
+                const dd = dt.getDate().toString().padStart(2, '0');
+                const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+                timeStr = `${hh}:${mm} - ${dd}/${mo}`;
+              } else {
+                timeStr = h.timestamp || '';
+              }
+              return `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                  <div style="flex:1; min-width:0;">
+                    <span style="color:var(--text-muted); font-size:0.7rem;">${timeStr}</span> • 
+                    <strong style="color:var(--text-primary);">${h.action}</strong>
+                  </div>
+                  <span style="color:var(--primary); font-weight:600; font-size:0.7rem; flex-shrink:0;">(${h.user})</span>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
       </div>
