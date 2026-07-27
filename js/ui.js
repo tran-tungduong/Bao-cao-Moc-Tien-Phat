@@ -517,73 +517,86 @@ export const UI = {
         <div class="material-stats-card" style="margin-bottom: 28px; background-color: var(--bg-secondary); padding:16px; border-radius:16px; border:1px solid var(--border-color);">
           <form id="daily-log-form" style="display:flex; flex-direction:column; gap:16px;">
             <div>
-              <label class="form-label">Chọn công trình</label>
-              <select id="log-project-id" class="form-select" required>
-                ${relevantProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                ${relevantProjects.length === 0 ? '<option value="" disabled>Không có công trình nào phù hợp</option>' : ''}
+              <label class="form-label" style="font-weight:700; color:var(--text-primary);">CHỌN CÔNG TRÌNH</label>
+              <select id="log-project-id" class="form-select" required style="padding:8px 12px; height:42px; font-size:0.88rem; border-color:var(--primary);">
+                ${relevantProjects.length > 1 ? '<option value="" disabled selected>-- Chọn công trình thi công --</option>' : ''}
+                ${relevantProjects.map(p => `<option value="${p.id}" ${relevantProjects.length === 1 ? 'selected' : ''}>${p.name}</option>`).join('')}
+                ${relevantProjects.length === 0 ? '<option value="" disabled selected>-- Chưa có công trình nào được giao --</option>' : ''}
               </select>
             </div>
 
-            ${user.role === 'assistant_worker' ? `
-              <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
-                <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
-                <select id="log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
-                  ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
-                  ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
-                </select>
+            <!-- Empty state when worker has 0 projects -->
+            ${relevantProjects.length === 0 ? `
+              <div style="background:var(--bg-primary); border:1px dashed var(--primary); border-radius:14px; padding:24px 16px; text-align:center; margin-top:4px;">
+                <i class="fas fa-hard-hat" style="font-size:2.2rem; color:var(--primary); margin-bottom:10px;"></i>
+                <h4 style="font-weight:700; color:var(--text-primary); font-size:0.95rem;">Bạn hiện chưa có công trình nào được giao</h4>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:6px; line-height:1.5;">Vui lòng liên hệ Quản lý / KTS hoặc Thợ chính để được gán nhân sự thi công!</p>
               </div>
             ` : ''}
 
-            <div>
-              <label class="form-label">Tình trạng tiến độ ngày hôm nay</label>
-              <div style="display:flex; gap:16px; margin-top:4px;">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                  <input type="radio" name="log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
-                  <span>Đúng tiến độ ✅</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                  <input type="radio" name="log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
-                  <span>Bị chậm ⚠️</span>
-                </label>
-              </div>
-            </div>
+            <!-- Report fields wrapper (Hidden by default until a project is selected) -->
+            <div id="report-form-fields-wrapper" style="display:${relevantProjects.length === 1 ? 'flex' : 'none'}; flex-direction:column; gap:16px;">
+              ${user.role === 'assistant_worker' ? `
+                <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
+                  <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
+                  <select id="log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
+                    ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+                    ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
+                  </select>
+                </div>
+              ` : ''}
 
-            ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
-              <!-- 3-level dynamic checklist for workers -->
-              <div id="checklist-builder-container" style="display:flex; flex-direction:column; gap:12px;">
-                <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
-                  <span>Hạng mục thi công chi tiết trong ngày</span>
-                  <button type="button" id="btn-add-checklist-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
-                    <i class="fas fa-plus"></i> Thêm hạng mục
-                  </button>
-                </label>
-                <div id="checklist-items-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-              </div>
-            ` : `
               <div>
-                <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
-                <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
+                <label class="form-label">TÌNH TRẠNG TIẾN ĐỘ NGÀY HÔM NAY</label>
+                <div style="display:flex; gap:16px; margin-top:4px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="log-status" value="on_track" checked style="accent-color:var(--status-approved); width:18px; height:18px;">
+                    <span>Đúng tiến độ ✅</span>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="log-status" value="delayed" style="accent-color:var(--status-rejected); width:18px; height:18px;">
+                    <span>Bị chậm ⚠️</span>
+                  </label>
+                </div>
               </div>
-            `}
 
-            <div>
-              <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
-              <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
-            </div>
+              ${['lead_worker', 'assistant_worker'].includes(user.role) ? `
+                <!-- 2-level dynamic checklist for workers -->
+                <div id="checklist-builder-container" style="display:flex; flex-direction:column; gap:12px;">
+                  <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
+                    <span>Hạng mục thi công chi tiết trong ngày</span>
+                    <button type="button" id="btn-add-checklist-item" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; border-radius:8px; height:auto; width:auto; display:flex; align-items:center; gap:4px;">
+                      <i class="fas fa-plus"></i> Thêm hạng mục
+                    </button>
+                  </label>
+                  <div id="checklist-items-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+                </div>
+              ` : `
+                <div>
+                  <label class="form-label">Chi tiết công việc / Ghi chú lý do nếu chậm</label>
+                  <textarea id="log-note" class="form-textarea" placeholder="Nhập nội dung báo cáo..." required></textarea>
+                </div>
+              `}
 
-            <div>
-              <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
-              <div class="photo-uploader" id="log-photo-uploader">
-                <i class="fas fa-camera"></i>
-                <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
-                <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
+              <div>
+                <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
+                <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
               </div>
-              <div class="upload-preview-container" id="log-preview-container"></div>
-            </div>
 
-            <button type="submit" class="btn-primary" style="margin-top:8px;" ${relevantProjects.length === 0 ? 'disabled' : ''}>
-              <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
-            </button>
+              <div>
+                <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
+                <div class="photo-uploader" id="log-photo-uploader">
+                  <i class="fas fa-camera"></i>
+                  <p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p>
+                  <input type="file" id="log-photo-file-input" accept="image/*" multiple style="display:none;">
+                </div>
+                <div class="upload-preview-container" id="log-preview-container"></div>
+              </div>
+
+              <button type="submit" class="btn-primary" style="margin-top:8px;">
+                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -688,31 +701,43 @@ export const UI = {
     // Seed one checklist item row by default if the user is a worker, filtered by the selected project scope
     const selectLogProject = document.getElementById('log-project-id');
     const checklistList = document.getElementById('checklist-items-list');
+    const reportFieldsWrapper = document.getElementById('report-form-fields-wrapper');
 
     const getSelectedProject = () => {
       if (!selectLogProject || !selectLogProject.value) return null;
       return DB.getProject(selectLogProject.value);
     };
 
-    if (checklistList) {
+    const updateReportFormVisibility = () => {
       const currentPrj = getSelectedProject();
-      this.addChecklistItemRow(checklistList, null, currentPrj, user);
-    }
+      if (reportFieldsWrapper) {
+        reportFieldsWrapper.style.display = currentPrj ? 'flex' : 'none';
+      }
+      if (checklistList) {
+        checklistList.innerHTML = '';
+        if (currentPrj) {
+          this.addChecklistItemRow(checklistList, null, currentPrj, user);
+        }
+      }
+    };
+
+    // Initial check
+    updateReportFormVisibility();
 
     const btnAddChecklistItem = document.getElementById('btn-add-checklist-item');
     if (btnAddChecklistItem && checklistList) {
       btnAddChecklistItem.addEventListener('click', () => {
         const currentPrj = getSelectedProject();
-        this.addChecklistItemRow(checklistList, null, currentPrj, user);
+        if (currentPrj) {
+          this.addChecklistItemRow(checklistList, null, currentPrj, user);
+        }
       });
     }
 
-    // Reset checklist items if project selection changes
-    if (selectLogProject && checklistList) {
+    // Reset checklist items & toggle fields wrapper if project selection changes
+    if (selectLogProject) {
       selectLogProject.addEventListener('change', () => {
-        checklistList.innerHTML = '';
-        const currentPrj = getSelectedProject();
-        this.addChecklistItemRow(checklistList, null, currentPrj, user);
+        updateReportFormVisibility();
       });
     }
 
