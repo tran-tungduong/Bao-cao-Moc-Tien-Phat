@@ -2183,15 +2183,67 @@ export const UI = {
                     : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.8rem;"></i>';
                   const assigneeName = getShortName(st.assignedTo);
                   const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
-                  return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">
-                      <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
-                        ${stIcon}
-                        <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary); text-decoration:${isStDone ? 'line-through' : 'none'};">${taskDesc}</span>
+                    let wrTodayWork = '';
+                    let wrPendingNotes = '';
+                    let wrExpectedDate = '';
+
+                    if (st.items && st.items[0]) {
+                      wrTodayWork = st.items[0].todayWork || '';
+                      wrPendingNotes = st.items[0].pendingNotes || '';
+                      wrExpectedDate = st.items[0].expectedCompletionDate || '';
+                    }
+
+                    if (project && project.dailyLogs) {
+                      for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+                        const dlog = project.dailyLogs[dlIdx];
+                        if (dlog.approved === false) continue;
+                        if (dlog.items && dlog.items.length > 0) {
+                          const matchedItem = dlog.items.find(it => it.taskId === st.id);
+                          if (matchedItem) {
+                            if (!wrTodayWork && matchedItem.todayWork) wrTodayWork = matchedItem.todayWork;
+                            if (!wrPendingNotes && matchedItem.pendingNotes) wrPendingNotes = matchedItem.pendingNotes;
+                            if (!wrExpectedDate && matchedItem.expectedCompletionDate) wrExpectedDate = matchedItem.expectedCompletionDate;
+                            break;
+                          }
+                        }
+                      }
+                    }
+
+                    const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
+
+                    return `
+                      <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
+                            ${stIcon}
+                            <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary); text-decoration:${isStDone ? 'line-through' : 'none'};">${taskDesc}</span>
+                          </div>
+                          <span style="font-size:0.7rem; color:var(--primary); font-weight:600; white-space:nowrap; flex-shrink:0;">👤 ${assigneeName}</span>
+                        </div>
+                        ${wrHasDetails ? `
+                          <div style="font-size:0.72rem; margin-top:2px; padding:6px 8px; border-radius:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:3px; line-height:1.35;">
+                            ${wrTodayWork ? `
+                              <div style="color:var(--status-approved); display:flex; align-items:flex-start; gap:4px;">
+                                <i class="fas fa-check-circle" style="font-size:0.68rem; margin-top:3px; flex-shrink:0;"></i>
+                                <span><strong>Đã làm:</strong> ${wrTodayWork}</span>
+                              </div>
+                            ` : ''}
+                            ${!isStDone && wrPendingNotes ? `
+                              <div style="color:var(--status-pending); display:flex; align-items:flex-start; gap:4px;">
+                                <i class="fas fa-exclamation-triangle" style="font-size:0.68rem; margin-top:3px; flex-shrink:0;"></i>
+                                <span><strong>Còn thiếu:</strong> ${wrPendingNotes}</span>
+                              </div>
+                            ` : ''}
+                            ${!isStDone && wrExpectedDate ? `
+                              <div style="color:var(--text-muted); font-size:0.68rem; display:flex; align-items:center; gap:4px; margin-top:1px;">
+                                <i class="far fa-calendar-alt" style="font-size:0.65rem; flex-shrink:0;"></i>
+                                <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(wrExpectedDate).toLocaleDateString('vi-VN')}</strong></span>
+                              </div>
+                            ` : ''}
+                          </div>
+                        ` : ''}
                       </div>
-                      <span style="font-size:0.7rem; color:var(--primary); font-weight:600; white-space:nowrap; flex-shrink:0;">👤 ${assigneeName}</span>
-                    </div>
-                  `;
+                    `;
                 }).join('')}
               </div>
             </div>
@@ -2232,28 +2284,52 @@ export const UI = {
               const textColor = isStDone ? 'var(--text-muted)' : 'var(--text-primary)';
               const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
 
-              // Retrieve progress details stored in the items JSONB column
-              const progressInfo = st.items && st.items[0] ? st.items[0] : null;
-              const progressVal = progressInfo ? progressInfo.progress : (isStDone ? 100 : 0);
-              const pendingNotes = progressInfo ? progressInfo.pendingNotes : '';
-              const expectedDate = progressInfo ? progressInfo.expectedCompletionDate : '';
+              // Retrieve latest report details for this task from st.items or dailyLogs
+              let todayWork = '';
+              let pendingNotes = '';
+              let expectedDate = '';
 
-              const progressDetailsHtml = (!isStDone && progressVal > 0) ? `
-                <div style="font-size:0.7rem; color:var(--primary); margin-left:20px; margin-top:2px; display:flex; flex-direction:column; gap:2px; line-height:1.3; opacity:0.9;">
-                  <div style="display:flex; align-items:center; gap:4px;">
-                    <i class="fas fa-chart-line" style="font-size:0.6rem;"></i>
-                    <span>Tiến độ: <strong>${progressVal}%</strong></span>
-                  </div>
-                  ${pendingNotes ? `
-                    <div style="display:flex; align-items:flex-start; gap:4px;">
-                      <i class="far fa-edit" style="font-size:0.6rem; margin-top:2px;"></i>
-                      <span>Còn lại: <strong>${pendingNotes}</strong></span>
+              if (st.items && st.items[0]) {
+                todayWork = st.items[0].todayWork || '';
+                pendingNotes = st.items[0].pendingNotes || '';
+                expectedDate = st.items[0].expectedCompletionDate || '';
+              }
+
+              if (project && project.dailyLogs) {
+                for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+                  const dlog = project.dailyLogs[dlIdx];
+                  if (dlog.approved === false) continue;
+                  if (dlog.items && dlog.items.length > 0) {
+                    const matchedItem = dlog.items.find(it => it.taskId === st.id);
+                    if (matchedItem) {
+                      if (!todayWork && matchedItem.todayWork) todayWork = matchedItem.todayWork;
+                      if (!pendingNotes && matchedItem.pendingNotes) pendingNotes = matchedItem.pendingNotes;
+                      if (!expectedDate && matchedItem.expectedCompletionDate) expectedDate = matchedItem.expectedCompletionDate;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              const hasReportDetails = todayWork || pendingNotes || expectedDate;
+              const progressDetailsHtml = hasReportDetails ? `
+                <div style="font-size:0.73rem; margin-top:4px; padding:6px 10px; border-radius:8px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; gap:4px; line-height:1.35;">
+                  ${todayWork ? `
+                    <div style="color:var(--status-approved); display:flex; align-items:flex-start; gap:5px;">
+                      <i class="fas fa-check-circle" style="font-size:0.7rem; margin-top:3px; flex-shrink:0;"></i>
+                      <span><strong>Đã làm:</strong> ${todayWork}</span>
                     </div>
                   ` : ''}
-                  ${expectedDate ? `
-                    <div style="display:flex; align-items:center; gap:4px;">
-                      <i class="far fa-calendar-alt" style="font-size:0.6rem;"></i>
-                      <span>Dự kiến: <strong>${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong></span>
+                  ${!isStDone && pendingNotes ? `
+                    <div style="color:var(--status-pending); display:flex; align-items:flex-start; gap:5px;">
+                      <i class="fas fa-exclamation-triangle" style="font-size:0.7rem; margin-top:3px; flex-shrink:0;"></i>
+                      <span><strong>Còn thiếu:</strong> ${pendingNotes}</span>
+                    </div>
+                  ` : ''}
+                  ${!isStDone && expectedDate ? `
+                    <div style="color:var(--text-muted); font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-top:2px;">
+                      <i class="far fa-calendar-alt" style="font-size:0.68rem; flex-shrink:0;"></i>
+                      <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong></span>
                     </div>
                   ` : ''}
                 </div>
