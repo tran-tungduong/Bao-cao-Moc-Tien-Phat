@@ -2085,18 +2085,53 @@ export const UI = {
       const scope = p.scope || [];
       const subtasks = p.subtasks || [];
 
-      // Construct a scope list including virtual "Cả phòng" if a room has any whole-room tasks assigned
-      const uniqueRooms = [...new Set(scope.map(s => s.room.trim()))];
+      // Construct a scope list including ALL items across scope, subtasks, and dailyLogs for each room
+      const scopeRooms = scope.map(s => s.room.trim());
+      const subtaskRooms = subtasks.map(st => {
+        const m = st.title ? st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/) : null;
+        return m ? m[1].trim() : '';
+      }).filter(Boolean);
+      const dailyLogRooms = (p.dailyLogs || []).flatMap(l => (l.items || []).map(it => it.room ? it.room.trim() : '')).filter(Boolean);
+
+      const uniqueRooms = [...new Set([...scopeRooms, ...subtaskRooms, ...dailyLogRooms])];
       const virtualScope = [];
+
       uniqueRooms.forEach(room => {
-        const hasWholeRoomTasks = subtasks.some(st => st.title && st.title.startsWith(`[${room} - Cả phòng]:`));
+        // Check whole room tasks
+        const hasWholeRoomTasks = subtasks.some(st => st.title && (st.title.startsWith(`[${room} - Cả phòng]:`) || st.title.startsWith(`[${room} - Cả Phòng]:`)));
         if (hasWholeRoomTasks) {
           virtualScope.push({ room, item: 'Cả phòng' });
         }
-        scope.filter(s => s.room.trim() === room).forEach(s => {
-          if (s.item.trim() !== 'Cả phòng') {
-            virtualScope.push(s);
+
+        // Gather items from project.scope for this room
+        const scopeItemsInRoom = scope.filter(s => s.room.trim() === room);
+        scopeItemsInRoom.forEach(s => {
+          if (s.item.trim() !== 'Cả phòng' && !virtualScope.some(v => v.room === room && v.item === s.item.trim())) {
+            virtualScope.push({ room, item: s.item.trim() });
           }
+        });
+
+        // Also gather any items from subtasks for this room
+        subtasks.forEach(st => {
+          const m = st.title ? st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/) : null;
+          if (m && m[1].trim() === room && m[2].trim() !== 'Cả phòng') {
+            const itemTitle = m[2].trim();
+            if (!virtualScope.some(v => v.room === room && v.item === itemTitle)) {
+              virtualScope.push({ room, item: itemTitle });
+            }
+          }
+        });
+
+        // Also gather any items from dailyLogs for this room
+        (p.dailyLogs || []).forEach(l => {
+          (l.items || []).forEach(it => {
+            if (it.room && it.room.trim() === room && it.item && it.item.trim() !== 'Cả phòng') {
+              const itemTitle = it.item.trim();
+              if (!virtualScope.some(v => v.room === room && v.item === itemTitle)) {
+                virtualScope.push({ room, item: itemTitle });
+              }
+            }
+          });
         });
       });
 
@@ -2301,9 +2336,41 @@ export const UI = {
           // Build subtask rows
           let subtasksHtml = '';
           if (item.subtasks.length === 0) {
-            subtasksHtml = `
-              <div style="font-size:0.72rem; color:var(--text-muted); font-style:italic; padding-left:14px; margin-top:2px;">
-                ⚠️ Chưa có nhiệm vụ nào được giao
+            let unassignedLogHtml = '';
+            if (p.dailyLogs && p.dailyLogs.length > 0) {
+              for (let dlIdx = 0; dlIdx < p.dailyLogs.length; dlIdx++) {
+                const dlog = p.dailyLogs[dlIdx];
+                if (dlog.approved === false) continue;
+                if (dlog.items && dlog.items.length > 0) {
+                  const matchedItem = dlog.items.find(it => it.room === roomName && it.item === item.item);
+                  if (matchedItem) {
+                    const cleanRep = dlog.reporterName ? dlog.reporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : '';
+                    let rTimeStr = '';
+                    const rTime = dlog.createdAt || dlog.timestamp || matchedItem.reportedAt || dlog.date || '';
+                    if (rTime) {
+                      const dt = new Date(rTime);
+                      if (!isNaN(dt.getTime())) {
+                        const hh = dt.getHours().toString().padStart(2, '0');
+                        const mm = dt.getMinutes().toString().padStart(2, '0');
+                        const dd = dt.getDate().toString().padStart(2, '0');
+                        const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+                        rTimeStr = (rTime.includes('T') || hh !== '00' || mm !== '00') ? `${hh}:${mm} - ${dd}/${mo}` : `${dd}/${mo}`;
+                      }
+                    }
+                    unassignedLogHtml = `
+                      <div style="font-size:0.73rem; margin-top:4px; padding:6px 10px; border-radius:8px; background:var(--bg-primary); border:1px dashed var(--border-color); display:flex; flex-direction:column; gap:4px; line-height:1.35;">
+                        ${matchedItem.todayWork ? `<div style="color:var(--status-approved); display:flex; align-items:flex-start; gap:5px;"><i class="fas fa-check-circle" style="font-size:0.7rem; margin-top:3px; flex-shrink:0;"></i><span><strong>Đã làm:</strong> ${matchedItem.todayWork}</span></div>` : ''}
+                        ${cleanRep || rTimeStr ? `<div style="font-size:0.66rem; color:var(--text-muted); opacity:0.85; margin-top:2px; padding-top:3px; border-top:1px dashed var(--border-color); display:flex; align-items:center; gap:4px;"><i class="far fa-user-circle" style="color:var(--primary); font-size:0.65rem; flex-shrink:0;"></i><span>Báo cáo gần nhất: <strong style="color:var(--text-primary); font-weight:700;">${cleanRep}</strong>${rTimeStr ? ` lúc ${rTimeStr}` : ''}</span></div>` : ''}
+                      </div>
+                    `;
+                    break;
+                  }
+                }
+              }
+            }
+            subtasksHtml = unassignedLogHtml || `
+              <div style="font-size:0.72rem; color:var(--text-muted); padding-left:4px; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                <i class="far fa-circle" style="font-size:0.65rem;"></i> Chưa giao nhiệm vụ riêng
               </div>
             `;
           } else {
@@ -2465,7 +2532,7 @@ export const UI = {
               <div style="font-size:0.82rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
                 <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.85rem;"></i>
                 <span>${roomName}</span>
-                <span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted); opacity:0.8;">(${regularItems.length} hạng mục)</span>
+                <span style="font-size:0.7rem; font-weight:normal; color:var(--text-muted); opacity:0.8;">(${regularItems.length > 0 ? regularItems.length : (wholeRoomItem && wholeRoomItem.subtasks ? wholeRoomItem.subtasks.length : 0)} hạng mục)</span>
               </div>
               <div style="display:flex; align-items:center; gap:10px;">
                 ${totalRoomSubtasks > 0 ? `
