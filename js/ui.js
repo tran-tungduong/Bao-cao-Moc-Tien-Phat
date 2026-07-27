@@ -701,7 +701,8 @@ export const UI = {
       e.preventDefault();
       const prjId = document.getElementById('log-project-id').value;
       const status = 'on_track';
-      const expectedDate = document.getElementById('log-expected-completion').value;
+      const expEl = document.getElementById('log-expected-completion');
+      let expectedDate = expEl ? expEl.value : '';
 
       let note = '';
       let items = [];
@@ -810,6 +811,11 @@ export const UI = {
         if (hasError) {
           Toast.error('Vui lòng nhập đầy đủ thông tin phòng, nội thất và công việc đã làm.');
           return;
+        }
+
+        if (!expectedDate && items && items.length > 0) {
+          const validDates = items.map(it => it.expectedCompletionDate).filter(Boolean).sort();
+          if (validDates.length > 0) expectedDate = validDates[validDates.length - 1];
         }
 
         // Save local DB
@@ -4620,7 +4626,12 @@ export const UI = {
     modal.element.querySelector('#edit-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const status = modal.element.querySelector('input[name="edit-log-status"]:checked').value;
-      const expectedDate = modal.element.querySelector('#edit-log-expected-completion').value;
+      const expEl = modal.element.querySelector('#edit-log-expected-completion');
+      let expectedDate = expEl ? expEl.value : '';
+      if (!expectedDate && items && items.length > 0) {
+        const validDates = items.map(it => it.expectedCompletionDate).filter(Boolean).sort();
+        if (validDates.length > 0) expectedDate = validDates[validDates.length - 1];
+      }
 
       if (currentPhotos.length < 1) {
         Toast.error('Yêu cầu bắt buộc đính kèm tối thiểu 1 ảnh thực tế.');
