@@ -2317,8 +2317,42 @@ export const UI = {
       });
 
       // Build HTML for each room
+      // Build HTML for each room
       const roomsHtml = Object.entries(roomsMap).map(([roomName, items]) => {
-        const itemsHtml = items.map(item => {
+        const wholeRoomItem = items.find(item => item.item === 'Cả phòng');
+        const regularItems = items.filter(item => item.item !== 'Cả phòng');
+
+        let wholeRoomBannerHtml = '';
+        if (wholeRoomItem && wholeRoomItem.subtasks && wholeRoomItem.subtasks.length > 0) {
+          wholeRoomBannerHtml = `
+            <div style="background:linear-gradient(135deg, rgba(197,168,128,0.12) 0%, rgba(0,0,0,0.25) 100%); border:1px solid rgba(197,168,128,0.35); border-left:4px solid var(--primary); border-radius:10px; padding:10px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px; box-shadow:var(--shadow-sm);">
+              <div style="font-size:0.72rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-globe"></i> Nhiệm Vụ Cả Phòng (${wholeRoomItem.subtasks.length})
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                ${wholeRoomItem.subtasks.map(st => {
+                  const isStDone = st.status === 'completed';
+                  const stIcon = isStDone 
+                    ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.8rem;"></i>' 
+                    : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.8rem;"></i>';
+                  const assigneeName = getShortName(st.assignedTo);
+                  const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">
+                      <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
+                        ${stIcon}
+                        <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary); text-decoration:${isStDone ? 'line-through' : 'none'};">${taskDesc}</span>
+                      </div>
+                      <span style="font-size:0.7rem; color:var(--primary); font-weight:600; white-space:nowrap; flex-shrink:0;">👤 ${assigneeName}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        const itemsHtml = regularItems.map(item => {
           let itemBadge = '';
           let borderStyle = 'border: 1px solid var(--border-color);';
           let bgStyle = 'background: rgba(255,255,255,0.015);';
@@ -2434,13 +2468,16 @@ export const UI = {
         }).join('');
 
         return `
-          <div style="margin-bottom:12px;">
+          <div style="margin-bottom:14px;">
             <div style="font-size:0.76rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
               <i class="fas fa-folder-open" style="font-size:0.7rem; color:var(--primary);"></i> ${roomName}
             </div>
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px;">
-              ${itemsHtml}
-            </div>
+            ${wholeRoomBannerHtml}
+            ${regularItems.length > 0 ? `
+              <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px;">
+                ${itemsHtml}
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('');
@@ -4752,7 +4789,11 @@ export const UI = {
                     <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                       <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">
-                          <i class="fas fa-folder" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="font-weight:normal; color:var(--text-muted);">| ${sc.item}</span>
+                          ${sc.item === 'Cả phòng' ? `
+                            <i class="fas fa-globe" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="background:rgba(197,168,128,0.18); color:var(--primary); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:6px; margin-left:4px; border:1px solid rgba(197,168,128,0.3);">🏠 NHIỆM VỤ CẢ PHÒNG</span>
+                          ` : `
+                            <i class="fas fa-folder" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="font-weight:normal; color:var(--text-muted);">| ${sc.item}</span>
+                          `}
                         </span>
                       </div>
 
