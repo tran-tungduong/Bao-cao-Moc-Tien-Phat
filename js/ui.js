@@ -237,26 +237,18 @@ export const UI = {
         <i class="fas fa-times-circle"></i>
       </button>
 
-      <!-- Room Selection & Progress -->
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items:flex-end;">
-        <div>
-          <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color:var(--text-primary); font-weight:700;">Chọn Phòng / Hạng mục thi công</label>
-          <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.85rem; width:100%;">
-            ${rooms.map(r => `<option value="${r}" ${roomVal === r ? 'selected' : ''}>${r}</option>`).join('')}
-            <option value="Khác...">+ Nhập tên khác...</option>
-          </select>
-          <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng/hạng mục..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
-          <input type="hidden" class="select-chk-item" value="Cả phòng">
-          <input type="hidden" class="txt-chk-custom-item" value="Cả phòng">
-          <input type="hidden" class="select-chk-task" value="">
-        </div>
-
-        <div>
-          <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--primary); font-weight:700; white-space:nowrap;">Tiến độ phòng</label>
-          <select class="form-select select-chk-progress" required style="padding: 5px 22px 5px 8px; height: 38px; font-size: 0.85rem; width:100%;">
-            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% ✓ (Xong)' : p + '%'}</option>`).join('')}
-          </select>
-        </div>
+      <!-- Room Selection -->
+      <div>
+        <label class="form-label" style="font-size: 0.78rem; margin-bottom: 4px; color:var(--text-primary); font-weight:700;">Chọn Phòng / Hạng mục thi công</label>
+        <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.85rem; width:100%;">
+          ${rooms.map(r => `<option value="${r}" ${roomVal === r ? 'selected' : ''}>${r}</option>`).join('')}
+          <option value="Khác...">+ Nhập tên khác...</option>
+        </select>
+        <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng/hạng mục..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
+        <input type="hidden" class="select-chk-item" value="Cả phòng">
+        <input type="hidden" class="txt-chk-custom-item" value="Cả phòng">
+        <input type="hidden" class="select-chk-task" value="">
+        <input type="hidden" class="select-chk-progress" value="50">
       </div>
 
       <!-- 🟢 Quick Select Completed Stage Chips -->
