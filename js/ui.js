@@ -3643,41 +3643,10 @@ export const UI = {
             ${canAdd ? `
               <div style="display:flex; gap:6px;">
                 <button id="drawer-add-task-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> GIAO VIỆC</button>
-                <button id="btn-scope-add-new" style="background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid var(--border-color); font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px;"><i class="fas fa-folder-plus"></i> THÊM HẠNG MỤC</button>
               </div>
             ` : ''}
           </h5>
 
-          <!-- Add / Edit form (hidden by default) -->
-          <div id="scope-inline-form" style="display:none; background:rgba(197,168,128,0.07); border:1px dashed rgba(197,168,128,0.4); border-radius:12px; padding:12px; margin-bottom:10px;">
-            <div style="font-size:0.75rem; font-weight:700; color:var(--primary); margin-bottom:8px;" id="scope-form-title">Thêm hạng mục mới</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-              <div>
-                <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Phòng (Cấp 1)</label>
-                <select id="scope-form-room-select" class="form-select" style="height:34px; font-size:0.78rem; padding:4px 8px; box-sizing:border-box;">
-                  <option value="" disabled selected>-- Chọn phòng --</option>
-                  <option value="Phòng ngủ">Phòng ngủ</option>
-                  <option value="Phòng khách">Phòng khách</option>
-                  <option value="Phòng bếp">Phòng bếp</option>
-                  <option value="Phòng thờ">Phòng thờ</option>
-                  <option value="Phòng tắm">Phòng tắm</option>
-                  <option value="Khác...">Khác...</option>
-                </select>
-                <input type="text" id="scope-form-room-custom" class="form-input" placeholder="Tên phòng..." style="height:34px; font-size:0.78rem; padding-left:10px; margin-top:6px; display:none; box-sizing:border-box;">
-              </div>
-              <div>
-                <label class="form-label" style="font-size:0.72rem; margin-bottom:4px;">Nội thất (Cấp 2)</label>
-                <select id="scope-form-item-select" class="form-select" style="height:34px; font-size:0.78rem; padding:4px 8px; box-sizing:border-box;" disabled>
-                  <option value="" disabled selected>-- Chọn phòng trước --</option>
-                </select>
-                <input type="text" id="scope-form-item-custom" class="form-input" placeholder="Tên nội thất..." style="height:34px; font-size:0.78rem; padding-left:10px; margin-top:6px; display:none; box-sizing:border-box;">
-              </div>
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button id="scope-form-save" class="btn-primary" style="height:34px; font-size:0.78rem; flex:1;">Lưu</button>
-              <button id="scope-form-cancel" style="height:34px; font-size:0.78rem; flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); border-radius:8px; color:var(--text-secondary); cursor:pointer;">Huỷ</button>
-            </div>
-          </div>
           <!-- Items list -->
           <div id="scope-items-list" style="display:flex; flex-direction:column; gap:8px;">
             ${itemsHtml}
