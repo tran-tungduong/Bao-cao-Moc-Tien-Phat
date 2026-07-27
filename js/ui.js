@@ -2232,31 +2232,34 @@ export const UI = {
                     let wrExpectedDate = '';
                     let wrReporterName = '';
                     let wrReportTime = '';
+                    let wrLogFound = false;
 
-                    if (st.items && st.items[0]) {
-                      wrTodayWork = st.items[0].todayWork || '';
-                      wrPendingNotes = st.items[0].pendingNotes || '';
-                      wrExpectedDate = st.items[0].expectedCompletionDate || '';
-                      wrReporterName = st.items[0].reporterName || '';
-                      wrReportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
-                    }
-
-                    if (p && p.dailyLogs) {
-                      for (let dlIdx = p.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+                    // Prioritize the newest dailyLog (dailyLogs[0] is newest)
+                    if (p && p.dailyLogs && p.dailyLogs.length > 0) {
+                      for (let dlIdx = 0; dlIdx < p.dailyLogs.length; dlIdx++) {
                         const dlog = p.dailyLogs[dlIdx];
                         if (dlog.approved === false) continue;
                         if (dlog.items && dlog.items.length > 0) {
                           const matchedItem = dlog.items.find(it => it.taskId === st.id);
                           if (matchedItem) {
-                            if (!wrTodayWork && matchedItem.todayWork) wrTodayWork = matchedItem.todayWork;
-                            if (!wrPendingNotes && matchedItem.pendingNotes) wrPendingNotes = matchedItem.pendingNotes;
-                            if (!wrExpectedDate && matchedItem.expectedCompletionDate) wrExpectedDate = matchedItem.expectedCompletionDate;
-                            if (!wrReporterName) wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
-                            if (!wrReportTime) wrReportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                            wrTodayWork = matchedItem.todayWork || (matchedItem.progress === 100 || isStDone ? 'Đã hoàn thành' : '');
+                            wrPendingNotes = matchedItem.pendingNotes || '';
+                            wrExpectedDate = matchedItem.expectedCompletionDate || '';
+                            wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
+                            wrReportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                            wrLogFound = true;
                             break;
                           }
                         }
                       }
+                    }
+
+                    if (!wrLogFound && st.items && st.items[0]) {
+                      wrTodayWork = st.items[0].todayWork || (isStDone ? 'Đã hoàn thành' : '');
+                      wrPendingNotes = st.items[0].pendingNotes || '';
+                      wrExpectedDate = st.items[0].expectedCompletionDate || '';
+                      wrReporterName = st.items[0].reporterName || '';
+                      wrReportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
                     }
 
                     let wrMetaTimeStr = '';
@@ -2361,31 +2364,34 @@ export const UI = {
               let expectedDate = '';
               let reporterName = '';
               let reportTime = '';
+              let stLogFound = false;
 
-              if (st.items && st.items[0]) {
-                todayWork = st.items[0].todayWork || '';
-                pendingNotes = st.items[0].pendingNotes || '';
-                expectedDate = st.items[0].expectedCompletionDate || '';
-                reporterName = st.items[0].reporterName || '';
-                reportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
-              }
-
-              if (p && p.dailyLogs) {
-                for (let dlIdx = p.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+              // Prioritize the newest dailyLog (dailyLogs[0] is newest)
+              if (p && p.dailyLogs && p.dailyLogs.length > 0) {
+                for (let dlIdx = 0; dlIdx < p.dailyLogs.length; dlIdx++) {
                   const dlog = p.dailyLogs[dlIdx];
                   if (dlog.approved === false) continue;
                   if (dlog.items && dlog.items.length > 0) {
                     const matchedItem = dlog.items.find(it => it.taskId === st.id);
                     if (matchedItem) {
-                      if (!todayWork && matchedItem.todayWork) todayWork = matchedItem.todayWork;
-                      if (!pendingNotes && matchedItem.pendingNotes) pendingNotes = matchedItem.pendingNotes;
-                      if (!expectedDate && matchedItem.expectedCompletionDate) expectedDate = matchedItem.expectedCompletionDate;
-                      if (!reporterName) reporterName = dlog.reporterName || matchedItem.reporterName || '';
-                      if (!reportTime) reportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                      todayWork = matchedItem.todayWork || (matchedItem.progress === 100 || isStDone ? 'Đã hoàn thành' : '');
+                      pendingNotes = matchedItem.pendingNotes || '';
+                      expectedDate = matchedItem.expectedCompletionDate || '';
+                      reporterName = dlog.reporterName || matchedItem.reporterName || '';
+                      reportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                      stLogFound = true;
                       break;
                     }
                   }
                 }
+              }
+
+              if (!stLogFound && st.items && st.items[0]) {
+                todayWork = st.items[0].todayWork || (isStDone ? 'Đã hoàn thành' : '');
+                pendingNotes = st.items[0].pendingNotes || '';
+                expectedDate = st.items[0].expectedCompletionDate || '';
+                reporterName = st.items[0].reporterName || '';
+                reportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
               }
 
               let metaTimeStr = '';
