@@ -1949,7 +1949,7 @@ export const UI = {
   openScopeModal(projectId, user, onUpdate = null) {
     const project = DB.getProject(projectId);
     const db = DB.load();
-    const workers = db.users.filter(u => u.role !== 'manager');
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
     const isSupervisor = user.role === 'manager' || user.role === 'kts' || user.role === 'sales';
 
     const html = `
@@ -4672,7 +4672,7 @@ export const UI = {
   openAssignTaskModal(projectId, user, onTaskAdded) {
     const db = DB.load();
     const project = db.projects.find(p => p.id === projectId);
-    const workers = db.users.filter(u => u.role !== 'manager');
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
     const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
 
     if (!project) return;
@@ -4994,7 +4994,7 @@ export const UI = {
   // 10.1 OPEN ASSIGN EXISTING TASK MODAL FOR KTS
   openAssignExistingTaskModal(projectId, taskId, onAssigned) {
     const db = DB.load();
-    const workers = db.users.filter(u => u.role !== 'manager');
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
     const project = db.projects.find(p => p.id === projectId);
     const task = project ? project.subtasks.find(st => st.id === taskId) : null;
 
@@ -5057,7 +5057,7 @@ export const UI = {
     const db = DB.load();
     const project = db.projects.find(p => p.id === projectId);
     const task = project ? project.subtasks.find(st => st.id === taskId) : null;
-    const workers = db.users.filter(u => u.role !== 'manager');
+    const workers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
 
     if (!task) return;
 
