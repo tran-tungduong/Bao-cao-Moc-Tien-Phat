@@ -1114,6 +1114,31 @@ export const DB = {
         log.approvedBy = leadUser ? leadUser.name : 'Thợ chính';
         log.approvedAt = new Date().toISOString();
 
+        // Update subtasks status upon Lead Worker approval
+        if (log.items && log.items.length > 0 && project.subtasks) {
+          log.items.forEach(it => {
+            if (it.taskId) {
+              const st = project.subtasks.find(s => s.id === it.taskId);
+              if (st) {
+                const isDone = it.isCompleted === true || it.progress === 100;
+                st.status = isDone ? 'completed' : 'pending';
+                st.completedAt = isDone ? (log.createdAt || new Date().toISOString()) : null;
+                st.items = [{
+                  progress: it.progress || (isDone ? 100 : 50),
+                  todayWork: it.todayWork || '',
+                  pendingNotes: isDone ? '' : (it.pendingNotes || ''),
+                  expectedCompletionDate: isDone ? '' : (it.expectedCompletionDate || '')
+                }];
+                this.sbUpdateSubtask(st.id, {
+                  status: st.status,
+                  completed_at: st.completedAt,
+                  items: st.items
+                });
+              }
+            }
+          });
+        }
+
         const hist = {
           timestamp: new Date().toISOString(),
           action: `Phê duyệt báo cáo của thợ phụ: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,

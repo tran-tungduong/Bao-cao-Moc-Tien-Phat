@@ -748,10 +748,16 @@ export const UI = {
 
           let finalTaskId = selectedTaskId;
 
+          const isAssistant = user && user.role === 'assistant_worker';
+          const selectedLeadId = DB.getSelectedLeadWorkerForAssistant ? DB.getSelectedLeadWorkerForAssistant(user.id) : '';
+          const approverEl = document.getElementById('log-approver-id');
+          const approverId = selectedLeadId || (approverEl ? approverEl.value : '');
+          const needsApproval = isAssistant && approverId && approverId !== 'independent';
+
           if (selectedTaskId) {
-            // Update existing subtask status
+            // Update existing subtask status ONLY if this report does NOT need lead worker approval
             const existingTask = loadedProj.subtasks.find(st => st.id === selectedTaskId);
-            if (existingTask) {
+            if (existingTask && !needsApproval) {
               existingTask.status = isCompleted ? 'completed' : 'pending';
               existingTask.completedAt = isCompleted ? new Date().toISOString() : null;
               existingTask.items = [{
@@ -4611,8 +4617,11 @@ export const UI = {
           const expectedCompletionDate = isCompleted ? '' : row.querySelector('.edit-txt-expected-date').value;
           const taskId = row.getAttribute('data-task-id') || originalItem.taskId || '';
 
-          // Sync to the existing task if we have a taskId
-          if (taskId && loadedProj) {
+          const isAssistant = user && user.role === 'assistant_worker';
+          const needsApproval = isAssistant && log.approved === false;
+
+          // Sync to the existing task if we have a taskId AND report is approved (or created by non-assistant)
+          if (taskId && loadedProj && !needsApproval) {
             const existingTask = loadedProj.subtasks.find(st => st.id === taskId);
             if (existingTask) {
               existingTask.status = isCompleted ? 'completed' : 'pending';
