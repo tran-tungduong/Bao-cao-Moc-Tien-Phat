@@ -24,8 +24,8 @@
   --status-approved: #10B981; /* Emerald Green */
   --status-rejected: #EF4444; /* Crimson Red */
   
-  --font-title: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-title: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   
   --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 26px rgba(0, 0, 0, 0.4);
@@ -40,11 +40,11 @@
 
 /* Light Mode colors (Modern Crisp Gold Slate Theme) */
 [data-theme="light"] {
-  --bg-primary: #F4F6FA;
+  --bg-primary: #F8FAFC;
   --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
-  --bg-glass: rgba(255, 255, 255, 0.94);
-  --bg-input: #F8FAFC;
+  --bg-glass: rgba(255, 255, 255, 0.96);
+  --bg-input: #F1F5F9;
   
   --primary: #B88B27;
   --primary-hover: #996F19;
@@ -52,21 +52,21 @@
   --primary-glow: rgba(184, 139, 39, 0.2);
   
   --text-primary: #0F172A;
-  --text-secondary: #475569;
+  --text-secondary: #334155;
   --text-muted: #64748B;
   
-  --border-color: rgba(0, 0, 0, 0.12);
+  --border-color: #E2E8F0;
   --border-focus: #B88B27;
   
   --status-pending: #D97706;
   --status-approved: #059669;
   --status-rejected: #DC2626;
   
-  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.09);
-  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.13);
-  --shadow-primary: 0 8px 20px rgba(184, 139, 39, 0.25);
-  --shadow-color: rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.07), 0 2px 4px rgba(15, 23, 42, 0.03);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1), 0 4px 10px rgba(15, 23, 42, 0.04);
+  --shadow-primary: 0 6px 18px rgba(184, 139, 39, 0.2);
+  --shadow-color: rgba(15, 23, 42, 0.06);
 }
 
 /* Reset & Base Styles */
@@ -1294,4 +1294,58 @@ body {
 
 .progress-room-header:hover {
   background: rgba(229, 193, 88, 0.08) !important;
+}
+
+/* ==========================================================================
+   Comprehensive Theme Polish & Typography Optimizations for Light/Dark Mode
+   ========================================================================== */
+
+/* Full Vietnamese Diacritics Typography Fix */
+body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4, h5, h6 {
+  font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light Mode Overrides for Crisp, High-Contrast Luxury Slate-Gold Theme */
+[data-theme="light"] {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-glass: rgba(255, 255, 255, 0.96);
+  --bg-input: #F1F5F9;
+  --border-color: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+}
+
+[data-theme="light"] .material-stats-card,
+[data-theme="light"] .assign-room-card,
+[data-theme="light"] .scope-task-card,
+[data-theme="light"] .checklist-item-row {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-theme="light"] .form-select,
+[data-theme="light"] .form-input,
+[data-theme="light"] .form-textarea {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .form-select option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+/* Dark Mode Overrides */
+:root:not([data-theme="light"]) .material-stats-card,
+:root:not([data-theme="light"]) .assign-room-card,
+:root:not([data-theme="light"]) .scope-task-card {
+  background: #151D2A !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
