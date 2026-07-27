@@ -1021,8 +1021,12 @@ export const DB = {
     db.projects.push(newProject);
     this.save(db);
     
-    this.sbInsertProject(newProject);
-    this.sbInsertHistory(newProject.history[0], newProject.id);
+    try {
+      await this.sbInsertProject(newProject);
+      await this.sbInsertHistory(newProject.history[0], newProject.id);
+    } catch (err) {
+      console.error('Supabase write error details:', err);
+    }
     return newProject;
   },
 

@@ -5398,7 +5398,7 @@ export const UI = {
     d.setDate(d.getDate() + 10);
     document.getElementById('new-prj-deadline').value = d.toISOString().split('T')[0];
 
-    document.getElementById('create-project-form').addEventListener('submit', (e) => {
+    document.getElementById('create-project-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('new-prj-name').value;
       const deadline = document.getElementById('new-prj-deadline').value;
@@ -5438,8 +5438,12 @@ export const UI = {
 
       loadedDb.projects.push(newPrj);
       DB.save(loadedDb);
-      DB.sbInsertProject(newPrj);
-      DB.sbInsertHistory(newPrj.history[0], newPrj.id);
+      try {
+        await DB.sbInsertProject(newPrj);
+        await DB.sbInsertHistory(newPrj.history[0], newPrj.id);
+      } catch (err) {
+        console.error('Supabase write error details:', err);
+      }
       Toast.success('Đã thêm mới công trình ở Bước 1.');
       modal.close();
       onCreateSuccess();
