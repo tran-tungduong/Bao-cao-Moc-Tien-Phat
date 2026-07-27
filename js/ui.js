@@ -309,10 +309,12 @@ export const UI = {
         return;
       }
 
+      const isAssistant = currentUser && currentUser.role === 'assistant_worker';
+
       const filteredTasks = project.subtasks.filter(st => {
         const stTitle = (st.title || '').toLowerCase();
         const matchesRoom = stTitle.includes(rVal.toLowerCase());
-        const matchesUser = !currentUser || !st.assignedTo || st.assignedTo === currentUser.id;
+        const matchesUser = !currentUser || isAssistant || !st.assignedTo || st.assignedTo === currentUser.id;
         return matchesRoom && matchesUser && st.status !== 'completed';
       });
 
