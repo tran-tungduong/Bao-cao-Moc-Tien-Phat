@@ -218,28 +218,25 @@ export const UI = {
     row.className = 'checklist-item-row';
     row.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; position: relative; box-shadow: var(--shadow-sm);';
 
+    const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
     const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ 1', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
     const roomVal = initialData ? initialData.room : (rooms[0] || '');
     const todayWork = initialData ? (initialData.todayWork || '') : '';
-    const progressVal = initialData ? (parseInt(initialData.progress) || (initialData.isCompleted ? 100 : 50)) : 50;
-    const isCompleted = progressVal === 100;
+    const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true' || initialData.progress === 100) : false;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
     const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
-
-    // Standard Interior Woodworking Stage Chips
-    const standardDoneChips = ['Cắt CNC', 'Dán cạnh', 'Ráp thùng / Dựng khung', 'Lắp bản lề / Phụ kiện', 'Lắp cánh tủ', 'Sơn / Dát mặt', 'Vận chuyển / Bọc màng', 'Lắp đặt công trình'];
-    const standardPendingChips = ['Cánh tủ', 'Bản lề / Phụ kiện', 'Keo silicone / Nẹp chỉ', 'Mặt đá / Kính', 'Vệ sinh bọc màng'];
+    const selectedTaskId = initialData ? (initialData.taskId || '') : '';
 
     row.innerHTML = `
-      <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa phòng này khỏi báo cáo">
+      <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa phần báo cáo này">
         <i class="fas fa-times-circle"></i>
       </button>
 
-      <!-- Room Selection -->
+      <!-- 1. Chọn Phòng / Hạng mục -->
       <div>
-        <label class="form-label" style="font-size: 0.78rem; margin-bottom: 4px; color:var(--text-primary); font-weight:700;">Chọn Phòng / Hạng mục thi công</label>
+        <label class="form-label" style="font-size: 0.78rem; margin-bottom: 4px; color:var(--text-primary); font-weight:700;">CHỌN PHÒNG / HẠNG MỤC THI CÔNG</label>
         <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.85rem; width:100%;">
           ${rooms.map(r => `<option value="${r}" ${roomVal === r ? 'selected' : ''}>${r}</option>`).join('')}
           <option value="Khác...">+ Nhập tên khác...</option>
@@ -247,138 +244,93 @@ export const UI = {
         <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng/hạng mục..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
         <input type="hidden" class="select-chk-item" value="Cả phòng">
         <input type="hidden" class="txt-chk-custom-item" value="Cả phòng">
-        <input type="hidden" class="select-chk-task" value="">
-        <input type="hidden" class="select-chk-progress" value="50">
+        <input type="hidden" class="select-chk-progress" value="${isCompleted ? '100' : '50'}">
       </div>
 
-      <!-- 🟢 Quick Select Completed Stage Chips -->
-      <div style="border-top: 1px dashed var(--border-color); padding-top: 10px; display:flex; flex-direction:column; gap:6px;">
-        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 2px; color: var(--status-approved); font-weight:700; display:flex; align-items:center; gap:6px;">
-          <i class="fas fa-check-circle"></i> Công đoạn đã xong hôm nay (Bấm chạm để chọn)
+      <!-- 2. Chọn Nhiệm Vụ Được Giao -->
+      <div style="border-top: 1px dashed var(--border-color); padding-top: 10px;">
+        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--primary); font-weight:700; display:flex; align-items:center; gap:6px;">
+          <i class="fas fa-tasks"></i> CHỌN NHIỆM VỤ ĐƯỢC GIAO (Nếu có)
         </label>
-        <div class="done-chips-container" style="display:flex; flex-wrap:wrap; gap:6px;">
-          ${standardDoneChips.map(chip => {
-            const isActive = todayWork.includes(chip);
-            return `<button type="button" class="chip-btn chip-done ${isActive ? 'active' : ''}" data-value="${chip}" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px solid ${isActive ? 'var(--status-approved)' : 'var(--border-color)'}; background:${isActive ? 'rgba(16, 185, 129, 0.18)' : 'var(--bg-input)'}; color:${isActive ? 'var(--status-approved)' : 'var(--text-secondary)'}; cursor:pointer; transition:all 0.15s;">${chip}</button>`;
-          }).join('')}
-          <button type="button" class="chip-btn-custom-done" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px dashed var(--primary); background:rgba(229,193,88,0.08); color:var(--primary); cursor:pointer;">+ Việc khác...</button>
-        </div>
-        <input type="text" class="form-input txt-custom-done-input" placeholder="Gõ tên việc ngoại lệ đã làm..." style="display:none; height:34px; font-size:0.78rem; padding-left:10px; margin-top:4px;">
-        <input type="hidden" class="txt-chk-today-work" value="${todayWork}">
+        <select class="form-select select-chk-task" style="padding: 6px 28px 6px 10px; min-height: 38px; height: auto; font-size: 0.8rem; width:100%;">
+          <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
+        </select>
       </div>
 
-      <!-- 🔴 Quick Select Pending Items Chips -->
-      <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
-        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 2px; color: var(--status-pending); font-weight:700; display:flex; align-items:center; gap:6px;">
-          <i class="fas fa-exclamation-triangle"></i> Còn thiếu / Cần làm tiếp (Bấm chạm để chọn)
+      <!-- 3. Chi tiết công việc đã làm -->
+      <div style="border-top: 1px dashed var(--border-color); padding-top: 10px;">
+        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--status-approved); font-weight:700;">
+          CHI TIẾT CÔNG VIỆC ĐÃ LÀM HÔM NAY
         </label>
-        <div class="pending-chips-container" style="display:flex; flex-wrap:wrap; gap:6px;">
-          ${standardPendingChips.map(chip => {
-            const isActive = pendingNotes.includes(chip);
-            return `<button type="button" class="chip-btn chip-pending ${isActive ? 'active' : ''}" data-value="${chip}" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px solid ${isActive ? 'var(--status-pending)' : 'var(--border-color)'}; background:${isActive ? 'rgba(224, 159, 103, 0.18)' : 'var(--bg-input)'}; color:${isActive ? 'var(--status-pending)' : 'var(--text-secondary)'}; cursor:pointer; transition:all 0.15s;">${chip}</button>`;
-          }).join('')}
-          <button type="button" class="chip-btn-custom-pending" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px dashed var(--status-pending); background:rgba(224, 159, 103, 0.08); color:var(--status-pending); cursor:pointer;">+ Vấn đề khác...</button>
-        </div>
-        <input type="text" class="form-input txt-custom-pending-input" placeholder="Gõ tên việc ngoại lệ còn thiếu..." style="display:none; height:34px; font-size:0.78rem; padding-left:10px; margin-top:4px;">
-        <input type="hidden" class="txt-chk-pending-notes" value="${pendingNotes}">
+        <textarea class="form-input txt-chk-today-work" placeholder="Nhập nội dung chi tiết công việc đã thi công..." required style="height: auto; min-height: 52px; font-size: 0.82rem; padding: 10px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${todayWork}</textarea>
+      </div>
 
-        <div style="margin-top:4px;">
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Dự kiến hoàn thành xong phòng này</label>
-          <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}">
+      <!-- 4. Trạng thái Hoàn thành & Việc còn thiếu -->
+      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 700; color:var(--text-primary);">
+          <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--status-approved); flex-shrink:0;">
+          <span>Đã hoàn thành xong hoàn toàn nhiệm vụ/phòng này ✅</span>
+        </label>
+        
+        <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; margin-top: 4px;">
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Nội dung còn thiếu / Cần làm tiếp</label>
+            <textarea class="form-input txt-chk-pending-notes" placeholder="Nhập phần việc còn thiếu hoặc lý do chưa xong..." style="height: auto; min-height: 50px; font-size: 0.8rem; padding: 8px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${pendingNotes}</textarea>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Dự kiến xong phòng này</label>
+            <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}">
+          </div>
         </div>
       </div>
     `;
 
     container.appendChild(row);
 
-    // Bind Chip click handlers
-    const todayWorkInput = row.querySelector('.txt-chk-today-work');
-    const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
-    const customDoneInput = row.querySelector('.txt-custom-done-input');
-    const customPendingInput = row.querySelector('.txt-custom-pending-input');
-    const btnCustomDone = row.querySelector('.chip-btn-custom-done');
-    const btnCustomPending = row.querySelector('.chip-btn-custom-pending');
-
-    const updateTodayWorkSummary = () => {
-      const activeChips = Array.from(row.querySelectorAll('.chip-done.active')).map(c => c.getAttribute('data-value'));
-      const customVal = customDoneInput.value.trim();
-      let summary = activeChips.join(', ');
-      if (customVal) {
-        summary = summary ? `${summary}; Việc khác: ${customVal}` : customVal;
-      }
-      todayWorkInput.value = summary || 'Khảo sát / Thi công';
-    };
-
-    const updatePendingSummary = () => {
-      const activeChips = Array.from(row.querySelectorAll('.chip-pending.active')).map(c => c.getAttribute('data-value'));
-      const customVal = customPendingInput.value.trim();
-      let summary = activeChips.join(', ');
-      if (customVal) {
-        summary = summary ? `${summary}; Việc khác: ${customVal}` : customVal;
-      }
-      pendingNotesInput.value = summary;
-    };
-
-    row.querySelectorAll('.chip-done').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.classList.toggle('active');
-        if (btn.classList.contains('active')) {
-          btn.style.border = '1px solid var(--status-approved)';
-          btn.style.background = 'rgba(16, 185, 129, 0.18)';
-          btn.style.color = 'var(--status-approved)';
-        } else {
-          btn.style.border = '1px solid var(--border-color)';
-          btn.style.background = 'var(--bg-input)';
-          btn.style.color = 'var(--text-secondary)';
-        }
-        updateTodayWorkSummary();
-      });
-    });
-
-    row.querySelectorAll('.chip-pending').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.classList.toggle('active');
-        if (btn.classList.contains('active')) {
-          btn.style.border = '1px solid var(--status-pending)';
-          btn.style.background = 'rgba(224, 159, 103, 0.18)';
-          btn.style.color = 'var(--status-pending)';
-        } else {
-          btn.style.border = '1px solid var(--border-color)';
-          btn.style.background = 'var(--bg-input)';
-          btn.style.color = 'var(--text-secondary)';
-        }
-        updatePendingSummary();
-      });
-    });
-
-    btnCustomDone.addEventListener('click', () => {
-      customDoneInput.style.display = customDoneInput.style.display === 'none' ? 'block' : 'none';
-      if (customDoneInput.style.display === 'block') customDoneInput.focus();
-    });
-
-    btnCustomPending.addEventListener('click', () => {
-      customPendingInput.style.display = customPendingInput.style.display === 'none' ? 'block' : 'none';
-      if (customPendingInput.style.display === 'block') customPendingInput.focus();
-    });
-
-    customDoneInput.addEventListener('input', updateTodayWorkSummary);
-    customPendingInput.addEventListener('input', updatePendingSummary);
-
-    // Progress dropdown logic
-    const selectProgress = row.querySelector('.select-chk-progress');
-    const pendingWrapper = row.querySelector('.chk-pending-notes-wrapper');
-    selectProgress.addEventListener('change', () => {
-      const p = parseInt(selectProgress.value);
-      if (p === 100) {
-        pendingWrapper.style.display = 'none';
-      } else {
-        pendingWrapper.style.display = 'flex';
-      }
-    });
-
-    // Custom Room toggle
     const selectRoom = row.querySelector('.select-chk-room');
     const customRoom = row.querySelector('.txt-chk-custom-room');
+    const selectTask = row.querySelector('.select-chk-task');
+    const txtTodayWork = row.querySelector('.txt-chk-today-work');
+    const isCompletedCheckbox = row.querySelector('.chk-item-completed');
+    const selectProgress = row.querySelector('.select-chk-progress');
+    const pendingNotesWrapper = row.querySelector('.chk-pending-notes-wrapper');
+    const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
+    const expectedDateInput = row.querySelector('.txt-chk-expected-date');
+
+    const updateTasksDropdown = () => {
+      if (!project || !project.subtasks) {
+        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>`;
+        return;
+      }
+      
+      const rVal = selectRoom.value === 'Khác...' ? customRoom.value.trim() : selectRoom.value;
+      if (!rVal) {
+        selectTask.innerHTML = `<option value="">-- Chọn phòng trước --</option>`;
+        return;
+      }
+
+      const filteredTasks = project.subtasks.filter(st => {
+        const stTitle = (st.title || '').toLowerCase();
+        const matchesRoom = stTitle.includes(rVal.toLowerCase());
+        const matchesUser = !currentUser || !st.assignedTo || st.assignedTo === currentUser.id;
+        return matchesRoom && matchesUser && st.status !== 'completed';
+      });
+
+      if (filteredTasks.length === 0) {
+        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>`;
+      } else {
+        selectTask.innerHTML = `
+          <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
+          ${filteredTasks.map(st => {
+            const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
+            const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+            const shortWorker = workerName.replace(/\s*\([^)]*\)/g, '').split(' ').pop();
+            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>${taskDesc} (${shortWorker})</option>`;
+          }).join('')}
+        `;
+      }
+    };
+
     selectRoom.addEventListener('change', () => {
       if (selectRoom.value === 'Khác...') {
         customRoom.style.display = 'block';
@@ -387,9 +339,35 @@ export const UI = {
         customRoom.style.display = 'none';
         customRoom.required = false;
       }
+      updateTasksDropdown();
     });
 
-    // Remove row button
+    selectTask.addEventListener('change', () => {
+      const taskId = selectTask.value;
+      if (taskId && project && project.subtasks) {
+        const task = project.subtasks.find(st => st.id === taskId);
+        if (task) {
+          const taskDesc = task.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
+          txtTodayWork.value = taskDesc;
+        }
+      }
+    });
+
+    isCompletedCheckbox.addEventListener('change', () => {
+      const isDone = isCompletedCheckbox.checked;
+      selectProgress.value = isDone ? '100' : '50';
+      pendingNotesWrapper.style.display = isDone ? 'none' : 'flex';
+    });
+
+    // Default expected date
+    if (!expectedDate && expectedDateInput) {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      expectedDateInput.value = d.toISOString().split('T')[0];
+    }
+
+    updateTasksDropdown();
+
     row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
       row.remove();
     });
