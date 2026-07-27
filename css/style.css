@@ -1,70 +1,72 @@
-/* FurniReport Design System & CSS Rules */
+/* FurniReport Design System & Premium UI Enhancement Rules */
 
 :root {
-  /* Default Dark Mode colors */
-  --bg-primary: #0F0F11;
-  --bg-secondary: #18181C;
-  --bg-card: rgba(26, 26, 32, 0.75);
-  --bg-glass: rgba(18, 18, 22, 0.7);
-  --bg-input: rgba(255, 255, 255, 0.04);
+  /* Default Dark Mode colors (Obsidian Luxury Gold Theme) */
+  --bg-primary: #0B0F17;
+  --bg-secondary: #131B2D;
+  --bg-card: rgba(22, 30, 48, 0.88);
+  --bg-glass: rgba(19, 27, 45, 0.85);
+  --bg-input: rgba(255, 255, 255, 0.05);
   
-  --primary: #C5A880;
-  --primary-hover: #B0926A;
-  --primary-glow: rgba(197, 168, 128, 0.15);
+  --primary: #E5C158;
+  --primary-hover: #F5D77F;
+  --primary-gradient: linear-gradient(135deg, #F5D77F 0%, #B88B27 100%);
+  --primary-glow: rgba(229, 193, 88, 0.25);
   
-  --text-primary: #F3F4F6;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
   
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(197, 168, 128, 0.4);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-focus: #F5D77F;
   
-  --status-pending: #D29062; /* Terracotta */
-  --status-approved: #4E8D7C; /* Sage Green */
-  --status-rejected: #C95B5B; /* Muted Red */
+  --status-pending: #E09F67; /* Terracotta Amber */
+  --status-approved: #10B981; /* Emerald Green */
+  --status-rejected: #EF4444; /* Crimson Red */
   
   --font-title: 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
   
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
-  --shadow-primary: 0 8px 20px rgba(197, 168, 128, 0.25);
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 26px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-primary: 0 8px 24px rgba(229, 193, 88, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.4);
   
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Light Mode colors */
+/* Light Mode colors (Modern Crisp Gold Slate Theme) */
 [data-theme="light"] {
-  --bg-primary: #F3F4F6;
+  --bg-primary: #F4F6FA;
   --bg-secondary: #FFFFFF;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-glass: rgba(243, 244, 246, 0.8);
-  --bg-input: rgba(0, 0, 0, 0.03);
+  --bg-card: #FFFFFF;
+  --bg-glass: rgba(255, 255, 255, 0.94);
+  --bg-input: #F8FAFC;
   
-  --primary: #9B7E54;
-  --primary-hover: #7E653F;
-  --primary-glow: rgba(155, 126, 84, 0.1);
+  --primary: #B88B27;
+  --primary-hover: #996F19;
+  --primary-gradient: linear-gradient(135deg, #D4A937 0%, #996F19 100%);
+  --primary-glow: rgba(184, 139, 39, 0.2);
   
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #9CA3AF;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
   
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-focus: rgba(155, 126, 84, 0.4);
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-focus: #B88B27;
   
-  --status-pending: #C27E4D;
-  --status-approved: #3A7061;
-  --status-rejected: #B34646;
+  --status-pending: #D97706;
+  --status-approved: #059669;
+  --status-rejected: #DC2626;
   
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
-  --shadow-primary: 0 8px 20px rgba(155, 126, 84, 0.15);
-  --shadow-color: rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.09);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.13);
+  --shadow-primary: 0 8px 20px rgba(184, 139, 39, 0.25);
+  --shadow-color: rgba(15, 23, 42, 0.08);
 }
 
 /* Reset & Base Styles */
@@ -288,18 +290,18 @@ body {
 
 .btn-primary {
   width: 100%;
-  background: linear-gradient(135deg, var(--primary), #9E815B);
-  color: #121214;
+  background: var(--primary-gradient);
+  color: #0F172A !important;
   border: none;
   border-radius: 12px;
-  padding: 16px;
+  padding: 14px 18px;
   font-family: var(--font-title);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -307,17 +309,18 @@ body {
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-primary);
+  transform: translateY(-2px) scale(1.01);
+  filter: brightness(1.08);
+  box-shadow: 0 8px 25px rgba(229, 193, 88, 0.45);
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .btn-primary:disabled {
   background: var(--border-color);
-  color: var(--text-muted);
+  color: var(--text-muted) !important;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -625,15 +628,16 @@ body {
   position: absolute;
   bottom: 24px;
   right: 24px;
-  width: 56px;
-  height: 56px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #9E815B);
-  color: var(--bg-primary);
+  background: var(--primary-gradient);
+  color: #0F172A !important;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 24px rgba(229, 193, 88, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -642,8 +646,8 @@ body {
 }
 
 .fab:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: var(--shadow-primary);
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 12px 32px rgba(229, 193, 88, 0.6);
 }
 
 .fab:active {
@@ -654,10 +658,11 @@ body {
 .manager-tabs {
   display: flex;
   background-color: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 4px;
   margin-bottom: 20px;
   border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .tab-btn {
@@ -668,15 +673,21 @@ body {
   font-family: var(--font-title);
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--primary);
+  background: var(--primary-gradient) !important;
+  color: #0F172A !important;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(229, 193, 88, 0.35);
 }
 
 .filter-bar {
@@ -1217,4 +1228,70 @@ body {
   div[style*="font-size:0.7rem"] {
     font-size: 0.76rem !important;
   }
+}
+
+/* ==========================================================================
+   PRIMARY ACTION BUTTONS & SECTION HIGHLIGHTS (Theme-wide)
+   ========================================================================== */
+/* Giao việc (Task Assign) primary button */
+.btn-board-assign-task,
+.btn-submit-inline-task {
+  background: var(--primary-gradient) !important;
+  color: #0F172A !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px rgba(229, 193, 88, 0.35) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.btn-board-assign-task:hover,
+.btn-submit-inline-task:hover {
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 6px 18px rgba(229, 193, 88, 0.5) !important;
+}
+
+/* Lưu trữ (Archive/Complete) button */
+.btn-board-complete-project {
+  background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.btn-board-complete-project:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* Chi tiết (Details) button */
+.btn-board-open-details {
+  border: 1px solid var(--border-color) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.btn-board-open-details:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  background: rgba(229, 193, 88, 0.08) !important;
+  transform: translateY(-1.5px) !important;
+}
+
+/* Sửa (Edit) button */
+.btn-board-edit-project {
+  border: 1px solid rgba(229, 193, 88, 0.3) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.btn-board-edit-project:hover {
+  background: rgba(229, 193, 88, 0.12) !important;
+  transform: translateY(-1.5px) !important;
+}
+
+/* Room Accordion Header visual highlight */
+.progress-room-header {
+  border-left: 3px solid var(--primary) !important;
+}
+
+.progress-room-header:hover {
+  background: rgba(229, 193, 88, 0.08) !important;
 }
