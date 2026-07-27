@@ -1087,11 +1087,6 @@ export const UI = {
         </div>
 
         <div>
-          <label class="form-label">Thời gian xong dự kiến</label>
-          <input type="date" id="review-expected-completion" class="form-input" required style="padding-left:14px; height:40px;" value="${log.expectedCompletionDate || ''}">
-        </div>
-
-        <div>
           <label class="form-label">Hình ảnh thực tế đính kèm (Bắt buộc tối thiểu 1 ảnh)</label>
           <div class="photo-uploader" id="review-photo-uploader">
             <i class="fas fa-camera"></i>
@@ -1178,7 +1173,8 @@ export const UI = {
     document.getElementById('lead-review-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const status = log.status || 'on_track';
-      const expectedDate = document.getElementById('review-expected-completion').value;
+      const expectedEl = document.getElementById('review-expected-completion');
+      const expectedDate = expectedEl ? expectedEl.value : (log.expectedCompletionDate || '');
 
       const rows = document.querySelectorAll('#review-checklist-list .checklist-item-row');
       if (rows.length === 0) {
