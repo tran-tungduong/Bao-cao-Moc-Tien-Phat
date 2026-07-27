@@ -216,328 +216,188 @@ export const UI = {
     const row = document.createElement('div');
     row.id = rowId;
     row.className = 'checklist-item-row';
-    row.style.cssText = 'background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0, 0, 0, 0.2);';
+    row.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: 4px solid var(--primary); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; position: relative; box-shadow: var(--shadow-sm);';
 
-    const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
-    const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
+    const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ 1', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
-    const roomVal = initialData ? initialData.room : '';
-    const itemVal = initialData ? initialData.item : '';
+    const roomVal = initialData ? initialData.room : (rooms[0] || '');
     const todayWork = initialData ? (initialData.todayWork || '') : '';
     const progressVal = initialData ? (parseInt(initialData.progress) || (initialData.isCompleted ? 100 : 50)) : 50;
     const isCompleted = progressVal === 100;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
     const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
 
-    const isCustomRoom = roomVal && !rooms.includes(roomVal);
-
-    // Dynamic initial items list
-    let currentItemsList = [];
-    if (roomVal) {
-      if (hasScope) {
-        currentItemsList = project.scope.filter(s => s.room === roomVal).map(s => s.item);
-        if (itemVal && !currentItemsList.includes(itemVal)) {
-          currentItemsList.push(itemVal);
-        }
-      } else {
-        const fallbackMap = {
-          'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
-          'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
-          'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
-          'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
-          'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
-        };
-        currentItemsList = fallbackMap[roomVal] || ['Khác...'];
-      }
-      if (roomVal && roomVal !== 'Chung / Khác' && !currentItemsList.includes('Cả phòng')) {
-        currentItemsList = ['Cả phòng', ...currentItemsList];
-      }
-    }
-
-    const isCustomItem = itemVal && !currentItemsList.includes(itemVal);
-    if (isCustomItem && !currentItemsList.includes('Khác...')) {
-      currentItemsList.push('Khác...');
-    }
+    // Standard Interior Woodworking Stage Chips
+    const standardDoneChips = ['Cắt CNC', 'Dán cạnh', 'Ráp thùng / Dựng khung', 'Lắp bản lề / Phụ kiện', 'Lắp cánh tủ', 'Sơn / Dát mặt', 'Vận chuyển / Bọc màng', 'Lắp đặt công trình'];
+    const standardPendingChips = ['Cánh tủ', 'Bản lề / Phụ kiện', 'Keo silicone / Nẹp chỉ', 'Mặt đá / Kính', 'Vệ sinh bọc màng'];
 
     row.innerHTML = `
-      <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa hạng mục này">
+      <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa phòng này khỏi báo cáo">
         <i class="fas fa-times-circle"></i>
       </button>
 
-      <!-- Cấp 1 & 2: Phòng + Nội thất (2 cột) -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <!-- Room Selection & Progress -->
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items:flex-end;">
         <div>
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 1: Phòng</label>
-          <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem;">
-            <option value="" disabled ${!roomVal ? 'selected' : ''}>-- Chọn phòng --</option>
-            ${rooms.map(r => `<option value="${r}" ${roomVal === r || (r === 'Khác...' && isCustomRoom) ? 'selected' : ''}>${r}</option>`).join('')}
+          <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color:var(--text-primary); font-weight:700;">Chọn Phòng / Hạng mục thi công</label>
+          <select class="form-select select-chk-room" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.85rem; width:100%;">
+            ${rooms.map(r => `<option value="${r}" ${roomVal === r ? 'selected' : ''}>${r}</option>`).join('')}
+            <option value="Khác...">+ Nhập tên khác...</option>
           </select>
-          <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: ${isCustomRoom ? 'block' : 'none'}; padding-left: 10px;" value="${isCustomRoom ? roomVal : ''}" ${isCustomRoom ? 'required' : ''}>
+          <input type="text" class="form-input txt-chk-custom-room" placeholder="Nhập tên phòng/hạng mục..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: none; padding-left: 10px;">
+          <input type="hidden" class="select-chk-item" value="Cả phòng">
+          <input type="hidden" class="txt-chk-custom-item" value="Cả phòng">
+          <input type="hidden" class="select-chk-task" value="">
         </div>
 
         <div>
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px;">Cấp 2: Nội thất</label>
-          <select class="form-select select-chk-item" required style="padding: 6px 28px 6px 10px; height: 38px; font-size: 0.82rem;">
-            <option value="" disabled ${!itemVal ? 'selected' : ''}>-- Chọn nội thất --</option>
-            ${currentItemsList.map(f => `<option value="${f}" ${itemVal === f || (f === 'Khác...' && isCustomItem) ? 'selected' : ''}>${f}</option>`).join('')}
-            ${(!roomVal) ? `<option value="" disabled selected>-- Chọn phòng trước --</option>` : ''}
-          </select>
-          <input type="text" class="form-input txt-chk-custom-item" placeholder="Nhập nội thất khác..." style="margin-top: 6px; height: 36px; font-size: 0.8rem; display: ${isCustomItem ? 'block' : 'none'}; padding-left: 10px;" value="${isCustomItem ? itemVal : ''}" ${isCustomItem ? 'required' : ''}>
-        </div>
-      </div>
-
-      <!-- Cấp 3: Nhiệm vụ được giao (1 cột, full width) -->
-      <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px;">
-        <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Cấp 3: Chọn nhiệm vụ được giao (Nếu có)</label>
-        <select class="form-select select-chk-task" style="padding: 6px 28px 6px 10px; min-height: 38px; height: auto; font-size: 0.8rem; width:100%;">
-          <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
-        </select>
-        <!-- Banner tiến độ từ lần báo cáo trước -->
-        <div class="chk-prev-progress-banner" style="display:none; margin-top:6px; padding:7px 10px; border-radius:8px; font-size:0.75rem; color:var(--text-secondary); background:rgba(197,168,128,0.08); border:1px solid rgba(197,168,128,0.2); line-height:1.5;"></div>
-      </div>
-
-      <!-- Công việc đã làm + Tiến độ % trên cùng 1 hàng -->
-      <div style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; display:flex; align-items:flex-start; gap:8px;">
-        <div style="flex:1; min-width:0;">
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary);">Công việc đã làm hôm nay</label>
-          <textarea class="form-input txt-chk-today-work" placeholder="Cắt CNC / Lắp khung / Sơn..." required style="height: auto; min-height: 52px; font-size: 0.82rem; padding: 10px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${todayWork}</textarea>
-        </div>
-        <div style="flex-shrink:0; width:88px;">
-          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--primary); white-space:nowrap;">Tiến độ</label>
-          <select class="form-select select-chk-progress" required style="padding: 5px 22px 5px 8px; height: 38px; font-size: 0.82rem; width:100%;">
-            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% ✓' : p + '%'}</option>`).join('')}
+          <label class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--primary); font-weight:700; white-space:nowrap;">Tiến độ phòng</label>
+          <select class="form-select select-chk-progress" required style="padding: 5px 22px 5px 8px; height: 38px; font-size: 0.85rem; width:100%;">
+            ${[10,20,30,40,50,60,70,80,90,100].map(p => `<option value="${p}" ${progressVal === p ? 'selected' : ''}>${p === 100 ? '100% ✓ (Xong)' : p + '%'}</option>`).join('')}
           </select>
         </div>
       </div>
 
-      <!-- Checkbox hoàn thành + ghi chú còn lại -->
-      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
-          <input type="checkbox" class="chk-item-completed" ${isCompleted ? 'checked' : ''} style="width: 17px; height: 17px; accent-color: var(--status-approved); flex-shrink:0;">
-          <span>Đã hoàn thành xong hoàn toàn</span>
+      <!-- 🟢 Quick Select Completed Stage Chips -->
+      <div style="border-top: 1px dashed var(--border-color); padding-top: 10px; display:flex; flex-direction:column; gap:6px;">
+        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 2px; color: var(--status-approved); font-weight:700; display:flex; align-items:center; gap:6px;">
+          <i class="fas fa-check-circle"></i> Công đoạn đã xong hôm nay (Bấm chạm để chọn)
         </label>
-        
-        <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; margin-top: 2px;">
-          <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Việc còn lại cần làm</label>
-            <textarea class="form-input txt-chk-pending-notes" placeholder="Ví dụ: thiếu nẹp chỉ, chưa đi silicone..." style="height: auto; min-height: 52px; font-size: 0.82rem; padding: 10px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2" ${!isCompleted ? 'required' : ''}>${pendingNotes}</textarea>
-          </div>
-          <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Ngày dự kiến xong món này</label>
-            <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}" ${!isCompleted ? 'required' : ''}>
-          </div>
+        <div class="done-chips-container" style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${standardDoneChips.map(chip => {
+            const isActive = todayWork.includes(chip);
+            return `<button type="button" class="chip-btn chip-done ${isActive ? 'active' : ''}" data-value="${chip}" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px solid ${isActive ? 'var(--status-approved)' : 'var(--border-color)'}; background:${isActive ? 'rgba(16, 185, 129, 0.18)' : 'var(--bg-input)'}; color:${isActive ? 'var(--status-approved)' : 'var(--text-secondary)'}; cursor:pointer; transition:all 0.15s;">${chip}</button>`;
+          }).join('')}
+          <button type="button" class="chip-btn-custom-done" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px dashed var(--primary); background:rgba(229,193,88,0.08); color:var(--primary); cursor:pointer;">+ Việc khác...</button>
+        </div>
+        <input type="text" class="form-input txt-custom-done-input" placeholder="Gõ tên việc ngoại lệ đã làm..." style="display:none; height:34px; font-size:0.78rem; padding-left:10px; margin-top:4px;">
+        <input type="hidden" class="txt-chk-today-work" value="${todayWork}">
+      </div>
+
+      <!-- 🔴 Quick Select Pending Items Chips -->
+      <div class="chk-pending-notes-wrapper" style="display: ${isCompleted ? 'none' : 'flex'}; flex-direction:column; gap:8px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 2px; color: var(--status-pending); font-weight:700; display:flex; align-items:center; gap:6px;">
+          <i class="fas fa-exclamation-triangle"></i> Còn thiếu / Cần làm tiếp (Bấm chạm để chọn)
+        </label>
+        <div class="pending-chips-container" style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${standardPendingChips.map(chip => {
+            const isActive = pendingNotes.includes(chip);
+            return `<button type="button" class="chip-btn chip-pending ${isActive ? 'active' : ''}" data-value="${chip}" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px solid ${isActive ? 'var(--status-pending)' : 'var(--border-color)'}; background:${isActive ? 'rgba(224, 159, 103, 0.18)' : 'var(--bg-input)'}; color:${isActive ? 'var(--status-pending)' : 'var(--text-secondary)'}; cursor:pointer; transition:all 0.15s;">${chip}</button>`;
+          }).join('')}
+          <button type="button" class="chip-btn-custom-pending" style="padding:5px 10px; border-radius:18px; font-size:0.75rem; font-weight:600; border:1px dashed var(--status-pending); background:rgba(224, 159, 103, 0.08); color:var(--status-pending); cursor:pointer;">+ Vấn đề khác...</button>
+        </div>
+        <input type="text" class="form-input txt-custom-pending-input" placeholder="Gõ tên việc ngoại lệ còn thiếu..." style="display:none; height:34px; font-size:0.78rem; padding-left:10px; margin-top:4px;">
+        <input type="hidden" class="txt-chk-pending-notes" value="${pendingNotes}">
+
+        <div style="margin-top:4px;">
+          <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending);">Dự kiến hoàn thành xong phòng này</label>
+          <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}">
         </div>
       </div>
     `;
 
     container.appendChild(row);
 
-    // Bind event listeners for dynamic UI behaviour
-    const selectRoom = row.querySelector('.select-chk-room');
-    const customRoom = row.querySelector('.txt-chk-custom-room');
-    const selectItem = row.querySelector('.select-chk-item');
-    const customItem = row.querySelector('.txt-chk-custom-item');
-    const selectTask = row.querySelector('.select-chk-task');
-    const txtTodayWork = row.querySelector('.txt-chk-today-work');
+    // Bind Chip click handlers
+    const todayWorkInput = row.querySelector('.txt-chk-today-work');
+    const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
+    const customDoneInput = row.querySelector('.txt-custom-done-input');
+    const customPendingInput = row.querySelector('.txt-custom-pending-input');
+    const btnCustomDone = row.querySelector('.chip-btn-custom-done');
+    const btnCustomPending = row.querySelector('.chip-btn-custom-pending');
 
-    const updateTasksDropdown = () => {
-      if (!project || !project.subtasks) {
-        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>`;
-        return;
+    const updateTodayWorkSummary = () => {
+      const activeChips = Array.from(row.querySelectorAll('.chip-done.active')).map(c => c.getAttribute('data-value'));
+      const customVal = customDoneInput.value.trim();
+      let summary = activeChips.join(', ');
+      if (customVal) {
+        summary = summary ? `${summary}; Việc khác: ${customVal}` : customVal;
       }
-      
-      const rVal = selectRoom.value === 'Khác...' ? customRoom.value.trim() : selectRoom.value;
-      const iVal = selectItem.value === 'Khác...' ? customItem.value.trim() : selectItem.value;
-
-      if (!rVal || !iVal) {
-        selectTask.innerHTML = `<option value="">-- Chọn phòng và nội thất trước --</option>`;
-        return;
-      }
-
-      // Title prefix: [Room - Item]:
-      const prefix = `[${rVal} - ${iVal}]:`.toLowerCase();
-      const filteredTasks = project.subtasks.filter(st => {
-        const stTitle = (st.title || '').toLowerCase();
-        const matchesRoomItem = stTitle.includes(prefix) || stTitle.includes(iVal.toLowerCase());
-        const matchesUser = !currentUser || !st.assignedTo || st.assignedTo === currentUser.id;
-        return matchesRoomItem && matchesUser && st.status !== 'completed';
-      });
-
-      if (filteredTasks.length === 0) {
-        selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>`;
-      } else {
-        const selectedTaskId = initialData ? (initialData.taskId || '') : '';
-        selectTask.innerHTML = `
-          <option value="">-- Báo cáo việc tự phát sinh (Không có sẵn nhiệm vụ) --</option>
-          ${filteredTasks.map(st => {
-            const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
-            const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
-            const shortWorker = workerName.replace(/\s*\(.*?\)/g, '').split(' ').pop();
-            // Show previous progress compactly
-            const lastProgress = st.items && st.items.length > 0 ? (st.items[0].progress || 0) : 0;
-            const pBadge = st.status === 'completed' ? '✓100%' : (lastProgress > 0 ? `${lastProgress}%` : '0%');
-            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>[${pBadge}] ${taskDesc} (${shortWorker})</option>`;
-          }).join('')}
-        `;
-      }
+      todayWorkInput.value = summary || 'Khảo sát / Thi công';
     };
 
+    const updatePendingSummary = () => {
+      const activeChips = Array.from(row.querySelectorAll('.chip-pending.active')).map(c => c.getAttribute('data-value'));
+      const customVal = customPendingInput.value.trim();
+      let summary = activeChips.join(', ');
+      if (customVal) {
+        summary = summary ? `${summary}; Việc khác: ${customVal}` : customVal;
+      }
+      pendingNotesInput.value = summary;
+    };
+
+    row.querySelectorAll('.chip-done').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        if (btn.classList.contains('active')) {
+          btn.style.border = '1px solid var(--status-approved)';
+          btn.style.background = 'rgba(16, 185, 129, 0.18)';
+          btn.style.color = 'var(--status-approved)';
+        } else {
+          btn.style.border = '1px solid var(--border-color)';
+          btn.style.background = 'var(--bg-input)';
+          btn.style.color = 'var(--text-secondary)';
+        }
+        updateTodayWorkSummary();
+      });
+    });
+
+    row.querySelectorAll('.chip-pending').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        if (btn.classList.contains('active')) {
+          btn.style.border = '1px solid var(--status-pending)';
+          btn.style.background = 'rgba(224, 159, 103, 0.18)';
+          btn.style.color = 'var(--status-pending)';
+        } else {
+          btn.style.border = '1px solid var(--border-color)';
+          btn.style.background = 'var(--bg-input)';
+          btn.style.color = 'var(--text-secondary)';
+        }
+        updatePendingSummary();
+      });
+    });
+
+    btnCustomDone.addEventListener('click', () => {
+      customDoneInput.style.display = customDoneInput.style.display === 'none' ? 'block' : 'none';
+      if (customDoneInput.style.display === 'block') customDoneInput.focus();
+    });
+
+    btnCustomPending.addEventListener('click', () => {
+      customPendingInput.style.display = customPendingInput.style.display === 'none' ? 'block' : 'none';
+      if (customPendingInput.style.display === 'block') customPendingInput.focus();
+    });
+
+    customDoneInput.addEventListener('input', updateTodayWorkSummary);
+    customPendingInput.addEventListener('input', updatePendingSummary);
+
+    // Progress dropdown logic
+    const selectProgress = row.querySelector('.select-chk-progress');
+    const pendingWrapper = row.querySelector('.chk-pending-notes-wrapper');
+    selectProgress.addEventListener('change', () => {
+      const p = parseInt(selectProgress.value);
+      if (p === 100) {
+        pendingWrapper.style.display = 'none';
+      } else {
+        pendingWrapper.style.display = 'flex';
+      }
+    });
+
+    // Custom Room toggle
+    const selectRoom = row.querySelector('.select-chk-room');
+    const customRoom = row.querySelector('.txt-chk-custom-room');
     selectRoom.addEventListener('change', () => {
-      const val = selectRoom.value;
-      if (val === 'Khác...') {
+      if (selectRoom.value === 'Khác...') {
         customRoom.style.display = 'block';
         customRoom.required = true;
-
-        selectItem.innerHTML = `<option value="Khác...">Khác...</option>`;
-        customItem.style.display = 'block';
-        customItem.required = true;
       } else {
         customRoom.style.display = 'none';
         customRoom.required = false;
-        customRoom.value = '';
-
-        let itemsList = [];
-        if (hasScope) {
-          itemsList = project.scope.filter(s => s.room === val).map(s => s.item);
-        } else {
-          const fallbackMap = {
-            'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
-            'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
-            'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
-            'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
-            'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
-          };
-          itemsList = fallbackMap[val] || ['Khác...'];
-        }
-        if (val !== 'Chung / Khác' && !itemsList.includes('Cả phòng')) {
-          itemsList = ['Cả phòng', ...itemsList];
-        }
-
-        selectItem.innerHTML = `
-          <option value="" disabled selected>-- Chọn nội thất --</option>
-          ${itemsList.map(item => `<option value="${item}">${item}</option>`).join('')}
-        `;
-        customItem.style.display = 'none';
-        customItem.required = false;
-        customItem.value = '';
-      }
-      updateTasksDropdown();
-    });
-
-    selectItem.addEventListener('change', () => {
-      if (selectItem.value === 'Khác...') {
-        customItem.style.display = 'block';
-        customItem.required = true;
-      } else {
-        customItem.style.display = 'none';
-        customItem.required = false;
-        customItem.value = '';
-      }
-      updateTasksDropdown();
-    });
-
-    const isCompletedCheckbox = row.querySelector('.chk-item-completed');
-    const selectProgress = row.querySelector('.select-chk-progress');
-    const pendingNotesWrapper = row.querySelector('.chk-pending-notes-wrapper');
-    const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
-    const expectedDateInput = row.querySelector('.txt-chk-expected-date');
-
-    const updateVisibility = (isDone) => {
-      if (isDone) {
-        pendingNotesWrapper.style.display = 'none';
-        pendingNotesInput.required = false;
-        expectedDateInput.required = false;
-      } else {
-        pendingNotesWrapper.style.display = 'flex';
-        pendingNotesInput.required = true;
-        expectedDateInput.required = true;
-      }
-    };
-
-    isCompletedCheckbox.addEventListener('change', () => {
-      if (isCompletedCheckbox.checked) {
-        selectProgress.value = '100';
-        updateVisibility(true);
-      } else {
-        if (selectProgress.value === '100') {
-          selectProgress.value = '50';
-        }
-        updateVisibility(false);
       }
     });
 
-    selectProgress.addEventListener('change', () => {
-      const isDone = selectProgress.value === '100';
-      isCompletedCheckbox.checked = isDone;
-      updateVisibility(isDone);
-    });
-
-    // Helper: show/hide the "previous progress" info banner
-    const prevProgressBanner = row.querySelector('.chk-prev-progress-banner');
-
-    selectTask.addEventListener('change', () => {
-      const taskId = selectTask.value;
-      
-      // Hide banner when no task selected
-      if (prevProgressBanner) prevProgressBanner.style.display = 'none';
-      
-      if (taskId && project && project.subtasks) {
-        const task = project.subtasks.find(st => st.id === taskId);
-        if (task) {
-          const taskDesc = task.title.replace(/^\s*\[.*?\].*?\:\s*/, '').trim();
-          txtTodayWork.value = taskDesc;
-
-          // --- TIẾP NỐI TIẾN ĐỘ: Đọc dữ liệu từ lần báo cáo trước ---
-          const lastReport = task.items && task.items.length > 0 ? task.items[0] : null;
-
-          if (task.status === 'completed') {
-            selectProgress.value = '100';
-            isCompletedCheckbox.checked = true;
-            updateVisibility(true);
-            if (prevProgressBanner) {
-              prevProgressBanner.innerHTML = `<i class="fas fa-check-circle" style="color:var(--status-approved);"></i> Nhiệm vụ này đã hoàn thành 100% từ trước.`;
-              prevProgressBanner.style.cssText = prevProgressBanner.style.cssText.replace(/background:[^;]+;?/, 'background:rgba(78,141,124,0.1);');
-              prevProgressBanner.style.display = 'block';
-            }
-          } else if (lastReport && lastReport.progress > 0) {
-            // Pre-fill progress from last report
-            const prevPct = parseInt(lastReport.progress) || 0;
-            selectProgress.value = String(prevPct);
-            isCompletedCheckbox.checked = prevPct === 100;
-            if (lastReport.pendingNotes) pendingNotesInput.value = lastReport.pendingNotes;
-            if (lastReport.expectedCompletionDate) expectedDateInput.value = lastReport.expectedCompletionDate;
-            updateVisibility(prevPct === 100);
-
-            if (prevProgressBanner) {
-              prevProgressBanner.innerHTML = `<i class="fas fa-history"></i> Tiến độ báo cáo lần trước: <strong>${prevPct}%</strong>${lastReport.pendingNotes ? ` — Còn lại: <em>${lastReport.pendingNotes}</em>` : ''}`;
-              prevProgressBanner.style.display = 'block';
-            }
-          } else {
-            // No previous report - start at 0
-            selectProgress.value = '10';
-            isCompletedCheckbox.checked = false;
-            pendingNotesInput.value = '';
-            updateVisibility(false);
-            if (prevProgressBanner) {
-              prevProgressBanner.innerHTML = `<i class="fas fa-info-circle"></i> Chưa có báo cáo nào trước đó — bắt đầu từ 0%.`;
-              prevProgressBanner.style.display = 'block';
-            }
-          }
-        }
-      }
-    });
-
-    // Default expected date
-    if (!expectedDate && expectedDateInput) {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      expectedDateInput.value = d.toISOString().split('T')[0];
-    }
-
-    // Initial update of tasks dropdown if room/item are pre-populated
-    updateTasksDropdown();
-
+    // Remove row button
     row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
       row.remove();
     });
@@ -5177,156 +5037,52 @@ export const UI = {
   },
 
   initScopeEditor(container, initialScope = null) {
-    const roomTemplates = {};
-    // Group items by room
-    const grouped = {};
+    const roomsList = [];
     if (initialScope && initialScope.length > 0) {
       initialScope.forEach(s => {
-        if (!grouped[s.room]) {
-          grouped[s.room] = [];
-
-          // Deduce template type
-          const nameLower = s.room.toLowerCase();
-          let deduced = 'Khác...';
-          if (nameLower.includes('ngủ') || nameLower.includes('bed')) deduced = 'Phòng ngủ';
-          else if (nameLower.includes('khách') || nameLower.includes('living')) deduced = 'Phòng khách';
-          else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) deduced = 'Phòng bếp';
-          else if (nameLower.includes('thờ') || nameLower.includes('altar')) deduced = 'Phòng thờ';
-          else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) deduced = 'Phòng tắm';
-          roomTemplates[s.room] = deduced;
+        if (!roomsList.includes(s.room)) {
+          roomsList.push(s.room);
         }
-        grouped[s.room].push(s.item);
       });
     }
-
-    const templateItems = {
-      'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
-      'Phòng khách': ['Tủ giày', 'Vách trang trí', 'Kệ TV', 'Sofa', 'Bàn trà', 'Khác...'],
-      'Phòng bếp': ['Bếp trên', 'Bếp dưới', 'Tủ đồ khô', 'Quầy bar', 'Bàn ăn', 'Khác...'],
-      'Phòng thờ': ['Bàn thờ', 'Vách CNC', 'Khác...'],
-      'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...'],
-      'Khác...': ['Hạng mục 1', 'Hạng mục 2', 'Khác...']
-    };
 
     const render = () => {
       container.innerHTML = `
         <div style="display:block;">
           <!-- Add new Room inline panel -->
-          <div style="display:flex; gap:10px; background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px dashed rgba(255,255,255,0.15); margin-bottom:12px; align-items:stretch;">
-            <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
-              <select id="scope-add-template" class="form-select" style="height:40px; font-size:0.8rem; padding:4px 8px; margin:0;">
-                <option value="Phòng ngủ">Mẫu: Phòng ngủ</option>
-                <option value="Phòng khách">Mẫu: Phòng khách</option>
-                <option value="Phòng bếp">Mẫu: Phòng bếp</option>
-                <option value="Phòng thờ">Mẫu: Phòng thờ</option>
-                <option value="Phòng tắm">Mẫu: Phòng tắm</option>
-                <option value="Khác...">Mẫu: Khác...</option>
-              </select>
-              <input type="text" id="scope-add-name" class="form-input" placeholder="Tên phòng (VD: Phòng ngủ con)" style="height:40px; font-size:0.8rem; padding-left:10px; margin:0;">
+          <div style="display:flex; gap:10px; background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px dashed var(--border-color); margin-bottom:12px; align-items:center;">
+            <div style="flex:1;">
+              <input type="text" id="scope-add-name" class="form-input" placeholder="Tên phòng / Hạng mục (VD: Phòng ngủ 1, Bếp, Cửa tầng 2...)" style="height:40px; font-size:0.85rem; padding-left:12px; margin:0; width:100%;">
             </div>
-            <button type="button" id="scope-btn-add-room" class="btn-primary" style="width:75px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:0.8rem; margin:0; height:auto; padding:0;"><i class="fas fa-plus"></i> Thêm</button>
+            <button type="button" id="scope-btn-add-room" class="btn-primary" style="width:90px; flex-shrink:0; font-size:0.82rem; margin:0; height:40px; padding:0 12px; display:flex; align-items:center; justify-content:center; gap:6px;"><i class="fas fa-plus"></i> Thêm</button>
           </div>
 
-          <!-- Accordion list: block layout so items never get squished -->
-          <div id="scope-accordion-list" style="max-height:300px; overflow-y:auto; padding:2px;">
-            ${Object.keys(grouped).map(room => {
-        // Look up or deduce template type
-        let templateType = roomTemplates[room];
-        if (!templateType) {
-          const nameLower = room.toLowerCase();
-          templateType = 'Khác...';
-          if (nameLower.includes('ngủ') || nameLower.includes('bed')) templateType = 'Phòng ngủ';
-          else if (nameLower.includes('khách') || nameLower.includes('living')) templateType = 'Phòng khách';
-          else if (nameLower.includes('bếp') || nameLower.includes('kitchen') || nameLower.includes('ăn')) templateType = 'Phòng bếp';
-          else if (nameLower.includes('thờ') || nameLower.includes('altar')) templateType = 'Phòng thờ';
-          else if (nameLower.includes('tắm') || nameLower.includes('wc') || nameLower.includes('toilet') || nameLower.includes('bath') || nameLower.includes('vệ sinh')) templateType = 'Phòng tắm';
-          roomTemplates[room] = templateType;
-        }
-
-        const items = templateItems[templateType] || templateItems['Khác...'];
-        const checkedItems = grouped[room] || [];
-
-        return `
-                <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:rgba(0,0,0,0.1); margin-bottom:8px;">
-                  <div class="scope-room-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); cursor:pointer; user-select:none; min-height:42px; box-sizing:border-box;">
-                    <span style="font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                      <i class="fas fa-chevron-right scope-toggle-icon" style="font-size:0.7rem; transition:transform 0.2s; flex-shrink:0;"></i>
-                      <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.75rem; flex-shrink:0;"></i>
-                      <span style="word-break:break-word; line-height:1.4;">${room} <span class="scope-room-count-label" style="font-size:0.7rem; font-weight:normal; color:var(--text-muted);">(${checkedItems.length} đã chọn)</span></span>
-                    </span>
-                    <button type="button" class="scope-btn-delete-room" data-room="${room}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.8rem; padding:4px; flex-shrink:0;" title="Xóa phòng này">
-                      <i class="fas fa-trash-alt"></i>
-                    </button>
-                  </div>
-                  <div class="scope-room-body" style="display:none; padding:12px; border-top:1px solid var(--border-color); background:rgba(0,0,0,0.15);">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
-                      ${items.map(item => {
-          const isChecked = checkedItems.includes(item);
-          return `
-                          <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary); cursor:pointer;">
-                            <input type="checkbox" class="scope-checkbox-input" data-room="${room}" data-item="${item}" ${isChecked ? 'checked' : ''} style="width:14px; height:14px; accent-color:var(--primary); flex-shrink:0;">
-                            <span>${item}</span>
-                          </label>
-                        `;
-        }).join('')}
-                    </div>
-                  </div>
-                </div>
-              `;
-      }).join('')}
-            ${Object.keys(grouped).length === 0 ? '<p style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin:12px 0;">Chưa thiết lập phòng nào.</p>' : ''}
+          <!-- List of rooms -->
+          <div id="scope-accordion-list" style="max-height:260px; overflow-y:auto; padding:2px; display:flex; flex-direction:column; gap:8px;">
+            ${roomsList.map((room, idx) => `
+              <div class="scope-room-card" data-room="${room}" style="border:1px solid var(--border-color); border-radius:10px; padding:10px 14px; background:var(--bg-secondary); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                  <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.85rem;"></i>
+                  <span>${room}</span>
+                </span>
+                <button type="button" class="scope-btn-delete-room" data-idx="${idx}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.85rem; padding:4px;" title="Xóa phòng này">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+            `).join('')}
+            ${roomsList.length === 0 ? '<p style="text-align:center; font-size:0.8rem; color:var(--text-muted); margin:12px 0;">Chưa thiết lập phòng/hạng mục nào.</p>' : ''}
           </div>
         </div>
       `;
 
-      // Bind Accordion headers toggle
-      container.querySelectorAll('.scope-room-header').forEach(header => {
-        header.addEventListener('click', (e) => {
-          if (e.target.closest('.scope-btn-delete-room')) return;
-
-          const card = header.closest('.scope-room-card');
-          const body = card.querySelector('.scope-room-body');
-          const icon = card.querySelector('.scope-toggle-icon');
-
-          if (body.style.display === 'none') {
-            body.style.display = 'block';
-            icon.style.transform = 'rotate(90deg)';
-          } else {
-            body.style.display = 'none';
-            icon.style.transform = 'none';
-          }
-        });
-      });
-
       // Bind Delete Room button
       container.querySelectorAll('.scope-btn-delete-room').forEach(btn => {
         btn.addEventListener('click', () => {
-          const room = btn.getAttribute('data-room');
+          const idx = parseInt(btn.getAttribute('data-idx'));
+          const room = roomsList[idx];
           if (confirm(`Bạn có chắc chắn muốn XÓA phòng "${room}" khỏi danh sách thi công?`)) {
-            delete grouped[room];
+            roomsList.splice(idx, 1);
             render();
-          }
-        });
-      });
-
-      // Bind checkbox change
-      container.querySelectorAll('.scope-checkbox-input').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const room = cb.getAttribute('data-room');
-          const item = cb.getAttribute('data-item');
-          if (!grouped[room]) grouped[room] = [];
-
-          if (cb.checked) {
-            if (!grouped[room].includes(item)) grouped[room].push(item);
-          } else {
-            grouped[room] = grouped[room].filter(x => x !== item);
-          }
-
-          // Update count label in header
-          const card = cb.closest('.scope-room-card');
-          const label = card.querySelector('.scope-room-count-label');
-          if (label) {
-            label.textContent = `(${grouped[room].length} đã chọn)`;
           }
         });
       });
@@ -5334,35 +5090,21 @@ export const UI = {
       // Bind Add Room Button
       const btnAdd = document.getElementById('scope-btn-add-room');
       const inputName = document.getElementById('scope-add-name');
-      const selectTemplate = document.getElementById('scope-add-template');
-      if (btnAdd && inputName && selectTemplate) {
+      if (btnAdd && inputName) {
         btnAdd.addEventListener('click', () => {
-          const template = selectTemplate.value;
-          let name = inputName.value.trim();
+          const name = inputName.value.trim();
           if (!name) {
-            const existingCount = Object.keys(grouped).filter(k => k.startsWith(template)).length;
-            name = existingCount > 0 ? `${template} ${existingCount + 1}` : template;
+            Toast.error('Vui lòng nhập tên phòng hoặc hạng mục!');
+            return;
           }
-
-          if (grouped[name]) {
-            Toast.error('Phòng này đã tồn tại!');
+          if (roomsList.includes(name)) {
+            Toast.error('Phòng/Hạng mục này đã tồn tại!');
             return;
           }
 
-          roomTemplates[name] = template;
-          grouped[name] = [];
+          roomsList.push(name);
+          inputName.value = '';
           render();
-
-          // Automatically expand the newly added room
-          const newCard = container.querySelector(`.scope-room-card[data-room="${name}"]`);
-          if (newCard) {
-            const body = newCard.querySelector('.scope-room-body');
-            const icon = newCard.querySelector('.scope-toggle-icon');
-            if (body && icon) {
-              body.style.display = 'block';
-              icon.style.transform = 'rotate(90deg)';
-            }
-          }
         });
       }
     };
@@ -5371,14 +5113,7 @@ export const UI = {
 
     return {
       getSelectedScope() {
-        const list = [];
-        container.querySelectorAll('.scope-checkbox-input:checked').forEach(cb => {
-          list.push({
-            room: cb.getAttribute('data-room'),
-            item: cb.getAttribute('data-item')
-          });
-        });
-        return list;
+        return roomsList.map(r => ({ room: r, item: 'Cả phòng' }));
       }
     };
   },
