@@ -1369,14 +1369,16 @@ export const UI = {
             ` : ''}
 
             <!-- Rework -->
-            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span 1; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span ${isManagementRole ? 1 : 2}; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
               <i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi
             </button>
 
-            <!-- Add Scope -->
-            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; grid-column: span 1; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
-              <i class="fas fa-plus"></i> Phát Sinh Thêm
-            </button>
+            <!-- Add Scope (Management Only) -->
+            ${isManagementRole ? `
+              <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; grid-column: span 1; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+                <i class="fas fa-plus"></i> Phát Sinh Thêm
+              </button>
+            ` : ''}
 
             <!-- KTS/Sales Assign Task to Worker -->
             ${(user.role === 'kts' || user.role === 'sales') ? `
@@ -3715,7 +3717,9 @@ export const UI = {
           ${!project.isCompleted
         ? `
               <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2; width:100%; margin-bottom:8px;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
-              <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
+              ${isManagementRole ? `
+                <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
+              ` : ''}
             `
         : ''
       }
