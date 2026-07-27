@@ -278,7 +278,7 @@ export const UI = {
             <textarea class="form-input txt-chk-pending-notes" placeholder="Nhập phần việc còn thiếu hoặc lý do chưa xong..." style="height: auto; min-height: 50px; font-size: 0.8rem; padding: 8px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${pendingNotes}</textarea>
           </div>
           <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Dự kiến xong phòng này</label>
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Ngày dự kiến xong nhiệm vụ</label>
             <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}">
           </div>
         </div>
@@ -536,10 +536,7 @@ export const UI = {
                 </div>
               `}
 
-              <div>
-                <label class="form-label">Thời gian xong dự kiến (Ngày hoàn thành nhiệm vụ)</label>
-                <input type="date" id="log-expected-completion" class="form-input" required style="padding-left:14px; height:40px;">
-              </div>
+
 
               <div>
                 <label class="form-label">Hình ảnh thực tế công việc (Bắt buộc tối thiểu 1 ảnh)</label>
@@ -4518,10 +4515,7 @@ export const UI = {
           </div>
         `}
 
-        <div>
-          <label class="form-label">Thời gian xong dự kiến (Toàn bộ công trình)</label>
-          <input type="date" id="edit-log-expected-completion" class="form-input" value="${log.expectedCompletionDate || ''}" required style="padding-left:14px; height:40px;">
-        </div>
+
 
         <div>
           <label class="form-label">Hình ảnh thực tế đính kèm (Bắt buộc tối thiểu 1 ảnh)</label>
