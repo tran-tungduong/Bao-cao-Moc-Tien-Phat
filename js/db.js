@@ -1559,9 +1559,56 @@ export const DB = {
         const removed = project.dailyLogs[idx];
         project.dailyLogs.splice(idx, 1);
         
+        // Re-evaluate and synchronize subtasks to the latest remaining daily log
+        if (project.subtasks && project.subtasks.length > 0) {
+          project.subtasks.forEach(st => {
+            let latestMatchedLog = null;
+            let latestMatchedItem = null;
+
+            if (project.dailyLogs && project.dailyLogs.length > 0) {
+              for (let lIdx = 0; lIdx < project.dailyLogs.length; lIdx++) {
+                const dlog = project.dailyLogs[lIdx];
+                if (dlog.approved === false) continue;
+                if (dlog.items && dlog.items.length > 0) {
+                  const mItem = dlog.items.find(it => it.taskId === st.id);
+                  if (mItem) {
+                    latestMatchedLog = dlog;
+                    latestMatchedItem = mItem;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (latestMatchedItem) {
+              const isDone = latestMatchedItem.progress === 100 || latestMatchedItem.isCompleted === true;
+              st.status = isDone ? 'completed' : 'pending';
+              st.completedAt = isDone ? (latestMatchedLog.createdAt || new Date().toISOString()) : null;
+              st.items = [{
+                progress: latestMatchedItem.progress,
+                todayWork: latestMatchedItem.todayWork || '',
+                pendingNotes: isDone ? '' : (latestMatchedItem.pendingNotes || ''),
+                expectedCompletionDate: isDone ? '' : (latestMatchedItem.expectedCompletionDate || '')
+              }];
+            } else {
+              // Revert subtask to initial clean state if no reports remain
+              st.status = 'pending';
+              st.completedAt = null;
+              st.items = [];
+            }
+
+            // Sync updated subtask to Supabase
+            this.sbUpdateSubtask(st.id, {
+              status: st.status,
+              completed_at: st.completedAt,
+              items: st.items
+            });
+          });
+        }
+
         const hist = {
           timestamp: new Date().toISOString(),
-          action: `Xóa báo cáo của: ${removed.reporterName} (Ngày: ${removed.date})`,
+          action: `🗑️ [XÓA BÁO CÁO] Đã xóa báo cáo của: ${removed.reporterName} (Ngày: ${removed.date})`,
           user: user ? user.name : 'Sếp'
         };
         project.history.push(hist);
