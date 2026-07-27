@@ -2256,7 +2256,7 @@ export const UI = {
                             wrPendingNotes = matchedItem.pendingNotes || '';
                             wrExpectedDate = matchedItem.expectedCompletionDate || '';
                             wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
-                            wrReportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                            wrReportTime = dlog.createdAt || dlog.timestamp || matchedItem.reportedAt || dlog.date || '';
                             wrLogFound = true;
                             break;
                           }
@@ -2274,22 +2274,19 @@ export const UI = {
 
                     let wrMetaTimeStr = '';
                     if (wrReportTime) {
-                      if (wrReportTime.includes('T')) {
-                        const dt = new Date(wrReportTime);
-                        if (!isNaN(dt.getTime())) {
-                          const h = dt.getHours().toString().padStart(2, '0');
-                          const m = dt.getMinutes().toString().padStart(2, '0');
-                          const day = dt.getDate().toString().padStart(2, '0');
-                          const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-                          wrMetaTimeStr = `${h}:${m} - ${day}/${month}`;
+                      const dt = new Date(wrReportTime);
+                      if (!isNaN(dt.getTime())) {
+                        const hh = dt.getHours().toString().padStart(2, '0');
+                        const mm = dt.getMinutes().toString().padStart(2, '0');
+                        const dd = dt.getDate().toString().padStart(2, '0');
+                        const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+                        if (wrReportTime.includes('T') || hh !== '00' || mm !== '00') {
+                          wrMetaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
+                        } else {
+                          wrMetaTimeStr = `${dd}/${mo}`;
                         }
                       } else {
-                        const parts = wrReportTime.split('-');
-                        if (parts.length === 3) {
-                          wrMetaTimeStr = `${parts[2]}/${parts[1]}`;
-                        } else {
-                          wrMetaTimeStr = wrReportTime;
-                        }
+                        wrMetaTimeStr = wrReportTime;
                       }
                     }
                     const cleanWrReporter = wrReporterName ? wrReporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
@@ -2395,7 +2392,7 @@ export const UI = {
                       pendingNotes = matchedItem.pendingNotes || '';
                       expectedDate = matchedItem.expectedCompletionDate || '';
                       reporterName = dlog.reporterName || matchedItem.reporterName || '';
-                      reportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
+                      reportTime = dlog.createdAt || dlog.timestamp || matchedItem.reportedAt || dlog.date || '';
                       stLogFound = true;
                       break;
                     }
@@ -2413,22 +2410,19 @@ export const UI = {
 
               let metaTimeStr = '';
               if (reportTime) {
-                if (reportTime.includes('T')) {
-                  const dt = new Date(reportTime);
-                  if (!isNaN(dt.getTime())) {
-                    const h = dt.getHours().toString().padStart(2, '0');
-                    const m = dt.getMinutes().toString().padStart(2, '0');
-                    const day = dt.getDate().toString().padStart(2, '0');
-                    const month = (dt.getMonth() + 1).toString().padStart(2, '0');
-                    metaTimeStr = `${h}:${m} - ${day}/${month}`;
+                const dt = new Date(reportTime);
+                if (!isNaN(dt.getTime())) {
+                  const hh = dt.getHours().toString().padStart(2, '0');
+                  const mm = dt.getMinutes().toString().padStart(2, '0');
+                  const dd = dt.getDate().toString().padStart(2, '0');
+                  const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+                  if (reportTime.includes('T') || hh !== '00' || mm !== '00') {
+                    metaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
+                  } else {
+                    metaTimeStr = `${dd}/${mo}`;
                   }
                 } else {
-                  const parts = reportTime.split('-');
-                  if (parts.length === 3) {
-                    metaTimeStr = `${parts[2]}/${parts[1]}`;
-                  } else {
-                    metaTimeStr = reportTime;
-                  }
+                  metaTimeStr = reportTime;
                 }
               }
               const cleanReporter = reporterName ? reporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
