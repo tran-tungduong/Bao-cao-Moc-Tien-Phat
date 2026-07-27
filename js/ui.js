@@ -2194,7 +2194,7 @@ export const UI = {
                     }
 
                     if (p && p.dailyLogs) {
-                      for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+                      for (let dlIdx = p.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
                         const dlog = p.dailyLogs[dlIdx];
                         if (dlog.approved === false) continue;
                         if (dlog.items && dlog.items.length > 0) {
@@ -2296,7 +2296,7 @@ export const UI = {
               }
 
               if (p && p.dailyLogs) {
-                for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
+                for (let dlIdx = p.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
                   const dlog = p.dailyLogs[dlIdx];
                   if (dlog.approved === false) continue;
                   if (dlog.items && dlog.items.length > 0) {
