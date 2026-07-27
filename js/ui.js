@@ -2185,7 +2185,7 @@ export const UI = {
           wholeRoomBannerHtml = `
             <div class="whole-room-banner" style="background:var(--bg-primary); border:1px solid var(--border-color); border-left:4px solid var(--primary); border-radius:10px; padding:10px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;">
               <div style="font-size:0.72rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
-                <i class="fas fa-globe"></i> Nhiệm Vụ Cả Phòng (${wholeRoomItem.subtasks.length})
+                <i class="fas fa-tasks"></i> Công Việc Còn Lại (${wholeRoomItem.subtasks.length})
               </div>
               <div style="display:flex; flex-direction:column; gap:4px;">
                 ${wholeRoomItem.subtasks.map(st => {
@@ -4843,7 +4843,7 @@ export const UI = {
                               <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-weight:700; font-size:0.8rem; color:${isWholeRoom ? 'var(--primary)' : 'var(--text-primary)'};">
                                   ${isWholeRoom ? `
-                                    <i class="fas fa-globe" style="color:var(--primary); margin-right:4px;"></i> NHIỆM VỤ CẢ PHÒNG
+                                    <i class="fas fa-tasks" style="color:var(--primary); margin-right:4px;"></i> CÔNG VIỆC CÒN LẠI
                                   ` : `
                                     <i class="fas fa-cube" style="color:var(--text-muted); margin-right:4px; font-size:0.75rem;"></i> ${sc.item}
                                   `}
