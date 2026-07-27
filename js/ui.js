@@ -2193,9 +2193,9 @@ export const UI = {
                       wrExpectedDate = st.items[0].expectedCompletionDate || '';
                     }
 
-                    if (project && project.dailyLogs) {
+                    if (p && p.dailyLogs) {
                       for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
-                        const dlog = project.dailyLogs[dlIdx];
+                        const dlog = p.dailyLogs[dlIdx];
                         if (dlog.approved === false) continue;
                         if (dlog.items && dlog.items.length > 0) {
                           const matchedItem = dlog.items.find(it => it.taskId === st.id);
@@ -2295,9 +2295,9 @@ export const UI = {
                 expectedDate = st.items[0].expectedCompletionDate || '';
               }
 
-              if (project && project.dailyLogs) {
+              if (p && p.dailyLogs) {
                 for (let dlIdx = project.dailyLogs.length - 1; dlIdx >= 0; dlIdx--) {
-                  const dlog = project.dailyLogs[dlIdx];
+                  const dlog = p.dailyLogs[dlIdx];
                   if (dlog.approved === false) continue;
                   if (dlog.items && dlog.items.length > 0) {
                     const matchedItem = dlog.items.find(it => it.taskId === st.id);
