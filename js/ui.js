@@ -3594,12 +3594,10 @@ export const UI = {
               </div>
               
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                ${st.status === 'pending' && !proj.isCompleted && user.role !== 'manager'
-              ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
-              : isDone
-                ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Xong</span>'
-                : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa làm</span>'
-            }
+                ${isDone
+                  ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Đã xong</span>'
+                  : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa xong</span>'
+                }
                 ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
                   <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                   <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
