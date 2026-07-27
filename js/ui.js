@@ -1695,8 +1695,6 @@ export const UI = {
     });
   },
 
-
-
   // 5. OPEN REWORK MODAL DIALOG (BÁO LỖI SỬA HÀNG)
   openReworkModal(projectId, user, onUpdate = null) {
     const db = DB.load();
@@ -1704,38 +1702,45 @@ export const UI = {
     const workshopWorkers = db.users.filter(u => u.role === 'lead_worker' || u.role === 'assistant_worker');
     const isSupervisor = user.role === 'manager' || user.role === 'kts' || user.role === 'sales';
     const rooms = project && project.scope ? [...new Set(project.scope.map(s => s.room))] : [];
+    let selectedPhotos = [];
 
     const html = `
       <form id="rework-form" style="display:flex; flex-direction:column; gap:16px;">
         <div>
-          <label class="form-label">Chọn Hạng mục bị lỗi</label>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <select id="rework-room" class="form-select" required>
-              <option value="">-- Chọn phòng --</option>
-              ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
-              <option value="Chung / Khác">Chung / Khác</option>
-            </select>
-            <select id="rework-item" class="form-select" required disabled>
-              <option value="">-- Chọn nội thất --</option>
-            </select>
-          </div>
+          <label class="form-label">Chọn Phòng / Hạng mục bị lỗi</label>
+          <select id="rework-room" class="form-select" required style="padding-left:14px;">
+            <option value="">-- Chọn phòng bị lỗi --</option>
+            ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
+            <option value="Chung / Toàn công trình">Chung / Toàn công trình</option>
+          </select>
         </div>
 
         <div>
           <label class="form-label">Mô tả lỗi sản xuất / thi công</label>
-          <textarea id="rework-desc" class="form-textarea" placeholder="Ví dụ: Cánh tủ bếp bị mẻ Acrylic, ray ngăn kéo trượt rít..." required></textarea>
+          <textarea id="rework-desc" class="form-textarea" placeholder="Ví dụ: Cánh tủ bếp bị mẻ Acrylic, trượt ray ngăn kéo rít..." required style="padding-left:14px; min-height:80px;"></textarea>
+        </div>
+
+        <div>
+          <label class="form-label">Hình ảnh thực tế vết lỗi (Tải tệp / Chụp ảnh)</label>
+          <div class="photo-uploader" id="rework-photo-uploader" style="padding:14px; text-align:center; border:2px dashed var(--border-color); border-radius:10px; cursor:pointer; background:var(--bg-input);">
+            <i class="fas fa-camera" style="font-size:1.4rem; color:var(--primary); margin-bottom:4px;"></i>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin:0;">Bấm chụp ảnh hoặc chọn tệp vết lỗi</p>
+            <input type="file" id="rework-photo-input" accept="image/*" multiple style="display:none;">
+          </div>
+          <div class="upload-preview-container" id="rework-preview-container" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
         </div>
 
         ${isSupervisor ? `
           <div>
-            <label class="form-label">Chỉ định Thợ Xưởng xử lý</label>
-            <select id="rework-assigned" class="form-select" required>
+            <label class="form-label">Chỉ định Thợ xử lý lỗi (Tùy chọn)</label>
+            <select id="rework-assigned" class="form-select" style="padding-left:14px;">
+              <option value="">-- Để Thợ chính / Xưởng tự phân công --</option>
               ${workshopWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
             </select>
           </div>
         ` : ''}
 
-        <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--status-rejected), #A54343);">
+        <button type="submit" class="btn-primary" style="margin-top:8px; background:linear-gradient(135deg, var(--status-rejected), #A54343);">
           <i class="fas fa-exclamation-triangle"></i> Gửi Yêu Cầu Sửa Hàng
         </button>
       </form>
@@ -1743,47 +1748,50 @@ export const UI = {
 
     const modal = Modal.create('Báo Lỗi & Yêu Cầu Sửa Hàng', html);
 
-    const roomSelect = modal.element.querySelector('#rework-room');
-    const itemSelect = modal.element.querySelector('#rework-item');
+    // Handle Photo Uploader
+    const uploader = modal.element.querySelector('#rework-photo-uploader');
+    const fileInput = modal.element.querySelector('#rework-photo-input');
+    const previewContainer = modal.element.querySelector('#rework-preview-container');
 
-    roomSelect.addEventListener('change', () => {
-      const selectedRoom = roomSelect.value;
-      if (!selectedRoom || selectedRoom === 'Chung / Khác') {
-        itemSelect.innerHTML = `<option value="">-- Chọn nội thất --</option>`;
-        itemSelect.disabled = true;
-        if (selectedRoom === 'Chung / Khác') {
-          itemSelect.innerHTML = `<option value="Chung / Khác">Chung / Khác</option>`;
-          itemSelect.disabled = false;
-        }
-        return;
-      }
+    if (uploader && fileInput) {
+      uploader.addEventListener('click', () => fileInput.click());
 
-      const items = project.scope.filter(s => s.room === selectedRoom).map(s => s.item);
-      itemSelect.innerHTML = `
-        <option value="">-- Chọn nội thất --</option>
-        ${items.map(it => `<option value="${it}">${it}</option>`).join('')}
-        <option value="Khác...">Khác...</option>
-      `;
-      itemSelect.disabled = false;
-    });
+      fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const photoUrl = event.target.result;
+            selectedPhotos.push(photoUrl);
+
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-color);';
+            wrapper.innerHTML = `
+              <img src="${photoUrl}" style="width:100%; height:100%; object-fit:cover;">
+              <button type="button" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+            `;
+            wrapper.querySelector('button').addEventListener('click', () => {
+              selectedPhotos = selectedPhotos.filter(p => p !== photoUrl);
+              wrapper.remove();
+            });
+            previewContainer.appendChild(wrapper);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    }
 
     document.getElementById('rework-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const roomVal = document.getElementById('rework-room').value;
       const desc = document.getElementById('rework-desc').value;
       const workerSelect = document.getElementById('rework-assigned');
       const workerId = workerSelect ? workerSelect.value : '';
 
-      const roomVal = roomSelect.value;
-      const itemVal = itemSelect.value;
-      let finalTitle = desc;
-      if (roomVal && itemVal && roomVal !== 'Chung / Khác') {
-        finalTitle = `[${roomVal} - ${itemVal}]: ${desc}`;
-      } else {
-        finalTitle = `[Chung - Khác]: ${desc}`;
-      }
+      const finalTitle = `[${roomVal} - SỬA LỖI]: ${desc}`;
 
       await DB.triggerRework(projectId, finalTitle, workerId, user.id);
-      Toast.success('Đã gắn nhãn [SỬA HÀNG LỖI] thành công.');
+      Toast.success('Đã gửi yêu cầu sửa hàng thành công.');
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
     });
