@@ -1164,3 +1164,57 @@ body {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* ==========================================================================
+   RESPONSIVE TYPOGRAPHY & LAYOUT SCALING FOR DESKTOP (min-width: 768px)
+   ========================================================================== */
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+
+  .header-title {
+    font-size: 1.3rem;
+  }
+
+  .tab-btn {
+    font-size: 0.88rem !important;
+    padding: 8px 16px !important;
+  }
+
+  /* Responsive font-size scaling for cards, items and badges on desktop */
+  .btn-board-open-details[data-project] {
+    font-size: 1.08rem !important;
+  }
+
+  /* Action buttons */
+  .btn-board-open-details,
+  .btn-board-assign-task,
+  .btn-board-edit-project,
+  .btn-board-delete-project,
+  .btn-board-complete-project {
+    font-size: 0.8rem !important;
+    padding: 6px 12px !important;
+  }
+
+  /* Scope room names & item titles */
+  .completed-item-group span,
+  div[style*="font-size:0.78rem"],
+  div[style*="font-size:0.76rem"] {
+    font-size: 0.86rem !important;
+  }
+
+  /* Task titles */
+  span[style*="font-size:0.75rem"],
+  div[style*="font-size:0.75rem"] {
+    font-size: 0.82rem !important;
+  }
+
+  /* Status badges & assignees */
+  span[style*="font-size:0.65rem"],
+  span[style*="font-size:0.66rem"],
+  span[style*="font-size:0.7rem"],
+  div[style*="font-size:0.7rem"] {
+    font-size: 0.76rem !important;
+  }
+}

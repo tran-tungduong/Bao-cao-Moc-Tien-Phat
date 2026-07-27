@@ -2402,7 +2402,7 @@ export const UI = {
 
           if (item.status === 'done') {
             return `
-              <div class="completed-item-group" style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
+              <div class="completed-item-group" style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
                 <div class="btn-toggle-completed-details" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;">
                   <span style="font-size:0.78rem; font-weight:700; color:var(--text-secondary); display:flex; align-items:center; gap:6px;">
                     <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted); opacity:0.6;"></i>
@@ -2419,7 +2419,7 @@ export const UI = {
           }
 
           return `
-            <div style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
+            <div style="${bgStyle} ${borderStyle} border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;">
                 <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
                   <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted);"></i> ${item.item}
@@ -2434,11 +2434,11 @@ export const UI = {
         }).join('');
 
         return `
-          <div style="margin-bottom:10px;">
-            <div style="font-size:0.76rem; font-weight:700; color:var(--text-muted); margin-bottom:5px; display:flex; align-items:center; gap:6px;">
+          <div style="margin-bottom:12px;">
+            <div style="font-size:0.76rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
               <i class="fas fa-folder-open" style="font-size:0.7rem; color:var(--primary);"></i> ${roomName}
             </div>
-            <div style="display:flex; flex-direction:column; gap:2px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:8px;">
               ${itemsHtml}
             </div>
           </div>
