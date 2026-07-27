@@ -1356,73 +1356,31 @@ export const UI = {
             ${p.isRework ? '<span class="status-badge rejected" style="font-weight:700;"><i class="fas fa-exclamation-triangle"></i> [SỬA HÀNG LỖI]</span>' : ''}
           </div>
 
-          <div class="report-content" style="font-size:0.85rem;">
-            <strong>Mô tả giai đoạn:</strong> ${stepInfo.desc}
-          </div>
-
-          <!-- Subtasks assigned to this user -->
-          ${mySubtasks.length > 0 ? `
-            <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
-              <p style="font-size:0.8rem; font-weight:600; color:var(--primary); margin-bottom:10px;"><i class="fas fa-tasks"></i> ${(user.role === 'kts' || user.role === 'sales') ? 'Nhiệm vụ cần phân công & xử lý:' : 'Nhiệm vụ của bạn:'}</p>
-              <div style="display:flex; flex-direction:column; gap:10px;">
-                ${mySubtasks.map(st => {
-        const compTimeText = st.status === 'completed' && st.completedAt
-          ? `<div style="font-size:0.7rem; color:var(--status-approved); font-weight:500; margin-top:2px;"><i class="fas fa-clock"></i> Xong lúc: ${new Date(st.completedAt).toLocaleTimeString('vi-VN')} - ${new Date(st.completedAt).toLocaleDateString('vi-VN')}</div>`
-          : '';
-        return `
-                    <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; box-shadow:var(--shadow-sm); width:100%; box-sizing:border-box;">
-                      <div style="flex:1; display:flex; flex-direction:column;">
-                        <span style="font-size:0.82rem; font-weight:600; text-decoration: ${st.status === 'completed' ? 'line-through' : 'none'}; color: ${st.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)'}; line-height:1.4;">
-                          ${st.type === 'rework' ? '<strong style="color:var(--status-rejected)">[LỖI]</strong> ' : ''}
-                          ${st.type === 'small_scope' ? '<strong style="color:var(--status-pending)">[PHÁT SINH]</strong> ' : ''}
-                          ${st.title}
-                        </span>
-                        ${compTimeText}
-                      </div>
-                      <div style="display:flex; align-items:center; gap:8px;">
-                        ${st.status === 'pending'
-            ? ((user.role === 'kts' || user.role === 'sales') && !st.assignedTo
-              ? `<button class="btn-assign-existing-task" data-project="${p.id}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">Giao việc</button>`
-              : `<button class="btn-complete-subtask" data-project="${p.id}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer; height:auto; margin-right:4px;">Xong</button>`)
-            : '<span style="color:var(--status-approved); font-weight:700; font-size:0.75rem; white-space:nowrap; margin-right:4px;"><i class="fas fa-check-double"></i> Đã xong</span>'
-          }
-                        ${(user.role === 'kts' || user.role === 'sales') && !p.isCompleted ? `
-                          <button class="btn-card-edit-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa nhiệm vụ"><i class="fas fa-edit"></i></button>
-                          <button class="btn-card-delete-subtask" data-project="${p.id}" data-task="${st.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt"></i></button>
-                        ` : ''}
-                      </div>
-                    </div>
-                  `;
-      }).join('')}
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Actions Board for project progression -->
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-top:12px;">
+          <!-- Actions Board: Báo Hàng Lỗi & Phát Sinh Thêm -->
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:12px;">
             
-            <!-- Advance step -->
+            <!-- Advance step for management -->
             ${isManagementRole ? `
               <button class="btn-advance-step btn-action" data-project="${p.id}" 
-                style="background: ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700; grid-column: span 2;"
+                style="background: ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700; grid-column: span 2; padding:10px; border-radius:10px;"
                 ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 4 ? 'disabled' : ''}>
                 <i class="fas fa-arrow-circle-right"></i> Qua Giai Đoạn Tiếp Theo
               </button>
             ` : ''}
 
             <!-- Rework -->
-            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span 1;">
+            <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span 1; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
               <i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi
             </button>
 
             <!-- Add Scope -->
-            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; grid-column: span 1;">
+            <button class="btn-scope-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; font-weight:700; grid-column: span 1; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
               <i class="fas fa-plus"></i> Phát Sinh Thêm
             </button>
 
             <!-- KTS/Sales Assign Task to Worker -->
             ${(user.role === 'kts' || user.role === 'sales') ? `
-              <button class="btn-assign-subtask-modal btn-action" data-project="${p.id}" style="grid-column: span 2; background: linear-gradient(135deg, var(--primary), #9E815B); color: var(--bg-primary); border: none; font-weight: 700; box-shadow: var(--shadow-sm);">
+              <button class="btn-assign-subtask-modal btn-action" data-project="${p.id}" style="grid-column: span 2; background: linear-gradient(135deg, var(--primary), #9E815B); color: var(--bg-primary); border: none; font-weight: 700; padding:10px; border-radius:10px; box-shadow: var(--shadow-sm);">
                 <i class="fas fa-tasks"></i> GIAO VIỆC CHO THỢ
               </button>
             ` : ''}
