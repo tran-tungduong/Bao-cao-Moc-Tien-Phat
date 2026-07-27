@@ -2230,11 +2230,15 @@ export const UI = {
                     let wrTodayWork = '';
                     let wrPendingNotes = '';
                     let wrExpectedDate = '';
+                    let wrReporterName = '';
+                    let wrReportTime = '';
 
                     if (st.items && st.items[0]) {
                       wrTodayWork = st.items[0].todayWork || '';
                       wrPendingNotes = st.items[0].pendingNotes || '';
                       wrExpectedDate = st.items[0].expectedCompletionDate || '';
+                      wrReporterName = st.items[0].reporterName || '';
+                      wrReportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
                     }
 
                     if (p && p.dailyLogs) {
@@ -2247,11 +2251,28 @@ export const UI = {
                             if (!wrTodayWork && matchedItem.todayWork) wrTodayWork = matchedItem.todayWork;
                             if (!wrPendingNotes && matchedItem.pendingNotes) wrPendingNotes = matchedItem.pendingNotes;
                             if (!wrExpectedDate && matchedItem.expectedCompletionDate) wrExpectedDate = matchedItem.expectedCompletionDate;
+                            if (!wrReporterName) wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
+                            if (!wrReportTime) wrReportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
                             break;
                           }
                         }
                       }
                     }
+
+                    let wrMetaTimeStr = '';
+                    if (wrReportTime) {
+                      const dt = new Date(wrReportTime);
+                      if (!isNaN(dt.getTime())) {
+                        const h = dt.getHours().toString().padStart(2, '0');
+                        const m = dt.getMinutes().toString().padStart(2, '0');
+                        const day = dt.getDate().toString().padStart(2, '0');
+                        const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+                        wrMetaTimeStr = (h === '00' && m === '00') ? `${day}/${month}` : `${h}:${m} - ${day}/${month}`;
+                      } else {
+                        wrMetaTimeStr = wrReportTime;
+                      }
+                    }
+                    const cleanWrReporter = wrReporterName ? wrReporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
 
                     const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
 
@@ -2282,6 +2303,12 @@ export const UI = {
                               <div style="color:var(--text-muted); font-size:0.68rem; display:flex; align-items:center; gap:4px; margin-top:1px;">
                                 <i class="far fa-calendar-alt" style="font-size:0.65rem; flex-shrink:0;"></i>
                                 <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(wrExpectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(wrExpectedDate)}</span>
+                              </div>
+                            ` : ''}
+                            ${(cleanWrReporter || wrMetaTimeStr) ? `
+                              <div style="font-size:0.65rem; color:var(--text-muted); opacity:0.85; margin-top:2px; padding-top:3px; border-top:1px dashed var(--border-color); display:flex; align-items:center; gap:4px;">
+                                <i class="far fa-user-circle" style="color:var(--primary); font-size:0.65rem; flex-shrink:0;"></i>
+                                <span>Báo cáo gần nhất: <strong style="color:var(--text-primary); font-weight:700;">${cleanWrReporter}</strong>${wrMetaTimeStr ? ` lúc ${wrMetaTimeStr}` : ''}</span>
                               </div>
                             ` : ''}
                           </div>
@@ -2332,11 +2359,15 @@ export const UI = {
               let todayWork = '';
               let pendingNotes = '';
               let expectedDate = '';
+              let reporterName = '';
+              let reportTime = '';
 
               if (st.items && st.items[0]) {
                 todayWork = st.items[0].todayWork || '';
                 pendingNotes = st.items[0].pendingNotes || '';
                 expectedDate = st.items[0].expectedCompletionDate || '';
+                reporterName = st.items[0].reporterName || '';
+                reportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
               }
 
               if (p && p.dailyLogs) {
@@ -2349,11 +2380,28 @@ export const UI = {
                       if (!todayWork && matchedItem.todayWork) todayWork = matchedItem.todayWork;
                       if (!pendingNotes && matchedItem.pendingNotes) pendingNotes = matchedItem.pendingNotes;
                       if (!expectedDate && matchedItem.expectedCompletionDate) expectedDate = matchedItem.expectedCompletionDate;
+                      if (!reporterName) reporterName = dlog.reporterName || matchedItem.reporterName || '';
+                      if (!reportTime) reportTime = dlog.date || dlog.createdAt || dlog.timestamp || '';
                       break;
                     }
                   }
                 }
               }
+
+              let metaTimeStr = '';
+              if (reportTime) {
+                const dt = new Date(reportTime);
+                if (!isNaN(dt.getTime())) {
+                  const h = dt.getHours().toString().padStart(2, '0');
+                  const m = dt.getMinutes().toString().padStart(2, '0');
+                  const day = dt.getDate().toString().padStart(2, '0');
+                  const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+                  metaTimeStr = (h === '00' && m === '00') ? `${day}/${month}` : `${h}:${m} - ${day}/${month}`;
+                } else {
+                  metaTimeStr = reportTime;
+                }
+              }
+              const cleanReporter = reporterName ? reporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
 
               const hasReportDetails = todayWork || pendingNotes || expectedDate;
               const progressDetailsHtml = hasReportDetails ? `
@@ -2374,6 +2422,12 @@ export const UI = {
                     <div style="color:var(--text-muted); font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-top:2px;">
                       <i class="far fa-calendar-alt" style="font-size:0.68rem; flex-shrink:0;"></i>
                       <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(expectedDate)}</span>
+                    </div>
+                  ` : ''}
+                  ${(cleanReporter || metaTimeStr) ? `
+                    <div style="font-size:0.66rem; color:var(--text-muted); opacity:0.85; margin-top:2px; padding-top:3px; border-top:1px dashed var(--border-color); display:flex; align-items:center; gap:4px;">
+                      <i class="far fa-user-circle" style="color:var(--primary); font-size:0.65rem; flex-shrink:0;"></i>
+                      <span>Báo cáo gần nhất: <strong style="color:var(--text-primary); font-weight:700;">${cleanReporter}</strong>${metaTimeStr ? ` lúc ${metaTimeStr}` : ''}</span>
                     </div>
                   ` : ''}
                 </div>
