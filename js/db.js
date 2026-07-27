@@ -944,12 +944,19 @@ export const DB = {
       dl.setDate(dl.getDate() + parseInt(extendDays));
       project.deadline = dl.toISOString().split('T')[0];
 
-      // Add subtask
+      // Add to project scope as a new room/item
+      if (!project.scope) project.scope = [];
+      const scopeExists = project.scope.some(s => s.room.trim().toLowerCase() === description.trim().toLowerCase());
+      if (!scopeExists) {
+        project.scope.push({ room: description.trim(), item: 'Cả phòng' });
+      }
+
+      // Add subtask for this room
       const subtaskId = 'sub_' + Math.random().toString(36).substr(2, 9);
       const st = {
         id: subtaskId,
-        title: `[PHÁT SINH NHỎ] ${description}`,
-        assignedTo: assignedWorkerId,
+        title: `[${description.trim()} - Cả phòng]: Thi công phát sinh nhỏ`,
+        assignedTo: assignedWorkerId || '',
         status: 'pending',
         type: 'small_scope'
       };
@@ -957,7 +964,7 @@ export const DB = {
 
       const hist = {
         timestamp: new Date().toISOString(),
-        action: `Thêm phát sinh nhỏ: "${description}" (+${extendDays} ngày deadline, Giao cho: ${worker ? worker.name : 'Chưa rõ'})`,
+        action: `Thêm hạng mục phát sinh (Phòng mới): "${description.trim()}" (+${extendDays} ngày deadline)`,
         user: user ? user.name : 'Nhân viên'
       };
       project.history.push(hist);

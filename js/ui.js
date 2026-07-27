@@ -1804,36 +1804,29 @@ export const UI = {
       <!-- Small Scope Form -->
       <form id="scope-small-form" style="display:flex; flex-direction:column; gap:16px;">
         <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.4;">
-          <strong>Quy tắc Phát sinh Nhỏ:</strong> Giữ nguyên dự án + Gắn nhãn Cam <code>[PHÁT SINH NHỎ]</code> + Cộng thêm ngày deadline + Giao sub-task xử lý nhanh.
+          <strong>Phát sinh Hạng mục/Phòng mới:</strong> Tự động thêm hạng mục này thành 1 Phòng mới trong Công trình + Cộng gia hạn ngày hoàn thành.
         </p>
 
         <div>
-          <label class="form-label">Tên hạng mục phát sinh nhỏ</label>
-          <input type="text" id="small-scope-title" class="form-input" placeholder="Ví dụ: Làm thêm tab đầu giường, kệ giày..." required style="padding-left:14px;">
+          <label class="form-label">Tên hạng mục / phòng phát sinh mới</label>
+          <input type="text" id="small-scope-title" class="form-input" placeholder="Ví dụ: Làm thêm tab đầu giường, kệ giày, tủ balcony..." required style="padding-left:14px;">
         </div>
 
         ${isSupervisor ? `
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div>
-              <label class="form-label">Gia hạn deadline (ngày)</label>
-              <select id="small-scope-days" class="form-select">
-                <option value="1">+1 ngày</option>
-                <option value="2" selected>+2 ngày</option>
-                <option value="3">+3 ngày</option>
-                <option value="5">+5 ngày</option>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Giao nhân sự phụ trách</label>
-              <select id="small-scope-worker" class="form-select" required>
-                ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-              </select>
-            </div>
+          <div>
+            <label class="form-label">Gia hạn deadline công trình (ngày)</label>
+            <select id="small-scope-days" class="form-select">
+              <option value="0">+0 ngày (Không gia hạn)</option>
+              <option value="1">+1 ngày</option>
+              <option value="2" selected>+2 ngày</option>
+              <option value="3">+3 ngày</option>
+              <option value="5">+5 ngày</option>
+            </select>
           </div>
         ` : ''}
 
         <button type="submit" class="btn-primary" style="margin-top:12px; background:linear-gradient(135deg, var(--status-pending), #B07C59);">
-          Xác Nhận Phát Sinh Nhỏ
+          Xác Nhận Thêm Hạng Mục Phát Sinh
         </button>
       </form>
 
@@ -1894,11 +1887,9 @@ export const UI = {
       const desc = document.getElementById('small-scope-title').value;
       const daysSelect = document.getElementById('small-scope-days');
       const days = daysSelect ? daysSelect.value : '2';
-      const workerSelect = document.getElementById('small-scope-worker');
-      const workerId = workerSelect ? workerSelect.value : '';
 
-      await DB.addSmallScope(projectId, desc, days, workerId, user.id);
-      Toast.success('Đã thêm phát sinh nhỏ thành công.');
+      await DB.addSmallScope(projectId, desc, days, '', user.id);
+      Toast.success(`Đã thêm hạng mục phát sinh "${desc}" vào công trình.`);
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
     });
