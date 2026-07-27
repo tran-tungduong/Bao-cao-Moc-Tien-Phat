@@ -217,6 +217,9 @@ export const UI = {
     row.id = rowId;
     row.className = 'checklist-item-row';
     row.style.cssText = 'position: relative;';
+    if (initialData && initialData.taskId) {
+      row.setAttribute('data-task-id', initialData.taskId);
+    }
 
     const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
@@ -1184,7 +1187,7 @@ export const UI = {
 
       let items = [];
       let hasError = false;
-      rows.forEach(row => {
+      rows.forEach((row, idx) => {
         const selectRoom = row.querySelector('.select-chk-room').value;
         const customRoom = row.querySelector('.txt-chk-custom-room').value;
         const room = selectRoom === 'Khác...' ? customRoom.trim() : selectRoom;
@@ -1192,6 +1195,13 @@ export const UI = {
         const selectItem = row.querySelector('.select-chk-item').value;
         const customItem = row.querySelector('.txt-chk-custom-item').value;
         const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
+
+        const selectTask = row.querySelector('.select-chk-task');
+        const txtTodayWork = row.querySelector('.txt-chk-today-work');
+
+        const origItem = (log.items && log.items[idx]) ? log.items[idx] : null;
+        const taskId = (selectTask && selectTask.value) ? selectTask.value : (row.getAttribute('data-task-id') || (origItem ? origItem.taskId : ''));
+        const todayWork = (txtTodayWork ? txtTodayWork.value.trim() : '') || (origItem ? origItem.todayWork : '');
 
         const isCompleted = row.querySelector('.chk-item-completed').checked;
         const pendingNotes = row.querySelector('.txt-chk-pending-notes').value.trim();
@@ -1203,8 +1213,11 @@ export const UI = {
         items.push({
           room,
           item,
+          todayWork,
+          progress: isCompleted ? 100 : 50,
           isCompleted,
-          pendingNotes: isCompleted ? '' : pendingNotes
+          pendingNotes: isCompleted ? '' : pendingNotes,
+          taskId: taskId
         });
       });
 
