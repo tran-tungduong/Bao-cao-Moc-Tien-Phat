@@ -824,7 +824,6 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-                 `  + Tiến độ: ${it.progress}%\n` +
                  (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
         }).join('\n\n');
 
@@ -894,9 +893,7 @@ export const UI = {
                   Ngày báo cáo: <strong>${l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved);">Đã duyệt ✅</span>' : '<span style="color:var(--status-pending);">Chờ duyệt ⏳</span>'}
                 </p>
               </div>
-              <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}" style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space:nowrap;">
-                ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
-              </span>
+
             </div>
             
             <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${l.note}</div>
@@ -4295,9 +4292,7 @@ export const UI = {
               Người gửi: <strong>${log.reporterName}</strong> (${roleDisplay}) ${log.approvedBy ? ` | Duyệt bởi: <strong>${log.approvedBy}</strong>` : ''}
             </p>
           </div>
-          <span class="status-badge ${log.status === 'on_track' ? 'approved' : 'rejected'}" style="font-weight:600; padding:6px 12px;">
-            ${log.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
-          </span>
+
         </div>
 
         ${log.items && log.items.length > 0 ? `
@@ -4315,8 +4310,8 @@ export const UI = {
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
                         ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>
                       </span>
-                      <span style="font-size:0.75rem; font-weight:600; color:${statusColor}; display:flex; align-items:center; gap:4px;">
-                        ${statusIcon} Tiến độ: ${progressPercent}%
+                      <span style="font-size:0.75rem; font-weight:700; color:${statusColor}; display:flex; align-items:center; gap:4px;">
+                        ${statusIcon} ${isDone ? 'Đã hoàn thành' : 'Đang làm'}
                       </span>
                     </div>
                     
@@ -4574,7 +4569,6 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-                 `  + Tiến độ: ${it.progress}%\n` +
                  (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
         }).join('\n\n');
 
