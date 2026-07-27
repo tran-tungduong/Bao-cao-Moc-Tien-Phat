@@ -2064,6 +2064,51 @@ export const UI = {
   },
 
   // PROGRESS BOARD — shared across all management roles
+  
+  // Helper to compute live countdown timer badge
+  getCountdownBadge(deadlineStr, isCompleted = false) {
+    if (isCompleted) {
+      return `<span style="font-size:0.68rem; font-weight:700; color:var(--status-approved); background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;"><i class="fas fa-check-circle"></i> Đã hoàn thành</span>`;
+    }
+    if (!deadlineStr) return '';
+
+    const now = new Date();
+    const target = new Date(deadlineStr.includes('T') ? deadlineStr : deadlineStr + 'T23:59:59');
+    const diffMs = target - now;
+
+    if (diffMs <= 0) {
+      const overdueHoursTotal = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+      const overdueDays = Math.floor(overdueHoursTotal / 24);
+      const overdueHours = overdueHoursTotal % 24;
+      const text = overdueDays > 0 ? `${overdueDays} ngày ${overdueHours}h` : `${overdueHours} giờ`;
+      return `<span style="font-size:0.68rem; font-weight:800; color:#EF4444; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; animation:pulse 2s infinite;"><i class="fas fa-exclamation-triangle"></i> Quá hạn ${text}</span>`;
+    }
+
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const text = days > 0 ? `${days} ngày ${hours}h` : `${hours} giờ`;
+
+    let badgeColor = 'var(--status-approved)';
+    let badgeBg = 'rgba(16,185,129,0.1)';
+    let badgeBorder = 'rgba(16,185,129,0.25)';
+    let icon = 'fa-clock';
+
+    if (days <= 2) {
+      badgeColor = '#EF4444';
+      badgeBg = 'rgba(239,68,68,0.12)';
+      badgeBorder = 'rgba(239,68,68,0.3)';
+      icon = 'fa-bolt';
+    } else if (days <= 5) {
+      badgeColor = 'var(--status-pending)';
+      badgeBg = 'rgba(217,119,6,0.12)';
+      badgeBorder = 'rgba(217,119,6,0.3)';
+      icon = 'fa-hourglass-half';
+    }
+
+    return `<span style="font-size:0.68rem; font-weight:700; color:${badgeColor}; background:${badgeBg}; border:1px solid ${badgeBorder}; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;"><i class="fas ${icon}"></i> Còn ${text}</span>`;
+  },
+
   renderProgressBoard(user) {
     const container = document.getElementById('manager-tab-content');
     if (!container) return;
@@ -2236,7 +2281,7 @@ export const UI = {
                             ${!isStDone && wrExpectedDate ? `
                               <div style="color:var(--text-muted); font-size:0.68rem; display:flex; align-items:center; gap:4px; margin-top:1px;">
                                 <i class="far fa-calendar-alt" style="font-size:0.65rem; flex-shrink:0;"></i>
-                                <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(wrExpectedDate).toLocaleDateString('vi-VN')}</strong></span>
+                                <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(wrExpectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(wrExpectedDate)}</span>
                               </div>
                             ` : ''}
                           </div>
@@ -2328,7 +2373,7 @@ export const UI = {
                   ${!isStDone && expectedDate ? `
                     <div style="color:var(--text-muted); font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-top:2px;">
                       <i class="far fa-calendar-alt" style="font-size:0.68rem; flex-shrink:0;"></i>
-                      <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong></span>
+                      <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(expectedDate)}</span>
                     </div>
                   ` : ''}
                 </div>
@@ -2430,8 +2475,11 @@ export const UI = {
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
               <div style="flex:1; min-width:0;">
                 <div class="btn-board-open-details" data-project="${p.id}" style="font-family:var(--font-title); font-size:0.95rem; font-weight:700; color:var(--text-primary); margin-bottom:3px; word-break:break-word; line-height:1.3; cursor:pointer;">${p.name} <i class="fas fa-external-link-alt" style="font-size:0.68rem; opacity:0.6; margin-left:4px;"></i></div>
-                <div style="font-size:0.7rem; color:${isOverdue ? 'var(--status-rejected)' : 'var(--text-muted)'};">
-                  ${isOverdue ? '<i class="fas fa-exclamation-circle"></i> ' : ''}Hạn: <strong>${p.deadline}</strong>${isOverdue ? ' — TRỄ HẠN!' : ''}${p.isRework ? ' • <span style="color:var(--status-rejected); font-weight:700;">[LỖI]</span>' : ''}${p.isSmallScope ? ' • <span style="color:var(--status-pending);">[PHÁT SINH]</span>' : ''}
+                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:3px; font-size:0.72rem; color:var(--text-secondary);">
+                  <span>Hạn bàn giao: <strong>${p.deadline}</strong></span>
+                  ${this.getCountdownBadge(p.deadline, p.isCompleted)}
+                  ${p.isRework ? '<span style="color:var(--status-rejected); font-weight:700;">[LỖI]</span>' : ''}
+                  ${p.isSmallScope ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span>' : ''}
                 </div>
               </div>
               <div style="text-align:right; flex-shrink:0;">
