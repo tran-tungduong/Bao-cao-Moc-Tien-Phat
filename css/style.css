@@ -1349,3 +1349,26 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   background: #151D2A !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
+
+/* Whole Room Banner styling for Light/Dark Mode */
+.whole-room-banner {
+  background: rgba(229, 193, 88, 0.06) !important;
+  border: 1px solid rgba(229, 193, 88, 0.25) !important;
+  border-left: 4px solid var(--primary) !important;
+}
+
+.whole-room-banner-item {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+[data-theme="light"] .whole-room-banner {
+  background: #FFFBEB !important; /* Soft Luxury Cream Amber */
+  border: 1px solid #FDE68A !important;
+  border-left: 4px solid #D97706 !important;
+}
+
+[data-theme="light"] .whole-room-banner-item {
+  background: #FFFFFF !important;
+  border: 1px solid #FEF3C7 !important;
+}

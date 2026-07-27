@@ -2215,7 +2215,7 @@ export const UI = {
         let wholeRoomBannerHtml = '';
         if (wholeRoomItem && wholeRoomItem.subtasks && wholeRoomItem.subtasks.length > 0) {
           wholeRoomBannerHtml = `
-            <div style="background:linear-gradient(135deg, rgba(197,168,128,0.12) 0%, rgba(0,0,0,0.25) 100%); border:1px solid rgba(197,168,128,0.35); border-left:4px solid var(--primary); border-radius:10px; padding:10px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px; box-shadow:var(--shadow-sm);">
+            <div class="whole-room-banner" style="background:var(--bg-primary); border:1px solid var(--border-color); border-left:4px solid var(--primary); border-radius:10px; padding:10px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;">
               <div style="font-size:0.72rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
                 <i class="fas fa-globe"></i> Nhiệm Vụ Cả Phòng (${wholeRoomItem.subtasks.length})
               </div>
@@ -2256,7 +2256,7 @@ export const UI = {
                     const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
 
                     return `
-                      <div style="display:flex; flex-direction:column; gap:4px; background:var(--bg-primary); border:1px solid var(--border-color); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);">
+                      <div class="whole-room-banner-item" style="display:flex; flex-direction:column; gap:4px; background:var(--bg-secondary); border:1px solid var(--border-color); padding:8px 10px; border-radius:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
                             ${stIcon}
