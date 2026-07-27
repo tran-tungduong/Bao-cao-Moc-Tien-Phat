@@ -1021,12 +1021,11 @@ export const DB = {
     db.projects.push(newProject);
     this.save(db);
     
-    try {
-      await this.sbInsertProject(newProject);
-      await this.sbInsertHistory(newProject.history[0], newProject.id);
-    } catch (err) {
+    this.sbInsertProject(newProject).then(() => {
+      this.sbInsertHistory(newProject.history[0], newProject.id);
+    }).catch(err => {
       console.error('Supabase write error details:', err);
-    }
+    });
     return newProject;
   },
 
