@@ -5641,19 +5641,22 @@ export const UI = {
     if (!userRoleTag) return; // Not logged in yet
 
     // 9.1 If manager is logged in, refresh the active tab's specific render function
+    const btnProgress = document.getElementById('tab-progress-btn');
     const btnKanban = document.getElementById('tab-kanban-btn');
-    if (btnKanban) {
-      const btnCompleted = document.getElementById('tab-completed-btn');
-      const btnLogs = document.getElementById('tab-logs-btn');
-      const btnDashboard = document.getElementById('tab-dashboard-btn');
+    const btnCompleted = document.getElementById('tab-completed-btn');
+    const btnLogs = document.getElementById('tab-logs-btn');
+    const btnDashboard = document.getElementById('tab-dashboard-btn');
 
-      if (btnKanban.classList.contains('active')) {
+    if (btnProgress || btnKanban || btnCompleted || btnLogs || btnDashboard) {
+      if (btnProgress && btnProgress.classList.contains('active')) {
+        this.renderProgressBoard(user);
+      } else if (btnKanban && btnKanban.classList.contains('active')) {
         this.renderManagerKanban(user);
-      } else if (btnCompleted.classList.contains('active')) {
+      } else if (btnCompleted && btnCompleted.classList.contains('active')) {
         this.renderManagerCompleted(user);
-      } else if (btnLogs.classList.contains('active')) {
+      } else if (btnLogs && btnLogs.classList.contains('active')) {
         this.renderManagerLogs(user);
-      } else if (btnDashboard.classList.contains('active')) {
+      } else if (btnDashboard && btnDashboard.classList.contains('active')) {
         this.renderManagerDashboard();
       }
     } else {
