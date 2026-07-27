@@ -4815,79 +4815,99 @@ export const UI = {
 
         const renderSection = (title, items, badgeColor, badgeBg, themeClass) => {
           if (items.length === 0) return '';
+
+          // Group items by Room
+          const roomMap = {};
+          items.forEach(sc => {
+            if (!roomMap[sc.room]) roomMap[sc.room] = [];
+            roomMap[sc.room].push(sc);
+          });
+
           return `
-            <div class="scope-group-section" style="margin-bottom:6px;">
+            <div class="scope-group-section" style="margin-bottom:12px;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-weight:700; font-size:0.8rem; color:${badgeColor}; text-transform:uppercase; letter-spacing:0.5px;">${title}</span>
                 <span style="background:${badgeBg}; color:${badgeColor}; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:10px;">${items.length}</span>
               </div>
-              <div style="display:grid; grid-template-columns:1fr; gap:10px;">
-                ${items.map(sc => {
-            return `
-                    <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-                      <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">
-                          ${sc.item === 'Cả phòng' ? `
-                            <i class="fas fa-globe" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="background:rgba(197,168,128,0.18); color:var(--primary); font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:6px; margin-left:4px; border:1px solid rgba(197,168,128,0.3);">🏠 NHIỆM VỤ CẢ PHÒNG</span>
-                          ` : `
-                            <i class="fas fa-folder" style="color:var(--primary); margin-right:4px;"></i> ${sc.room} <span style="font-weight:normal; color:var(--text-muted);">| ${sc.item}</span>
-                          `}
-                        </span>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                ${Object.entries(roomMap).map(([roomName, roomScopes]) => {
+                  return `
+                    <div class="assign-room-card" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                      <div style="font-weight:700; font-size:0.86rem; color:var(--text-primary); border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:6px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.85rem;"></i> ${roomName}
                       </div>
 
-                      <!-- Matched subtasks list -->
-                      ${sc.tasks.length > 0 ? `
-                        <div style="display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.03);">
-                          ${sc.tasks.map(st => {
-              const notes = st.title.split(']:')[1]?.trim() || st.title;
-              const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
-              const isDone = st.status === 'completed';
-              return `
-                              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:4px 0;">
-                                <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; padding-right:8px;">
-                                  ${isDone
-                  ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.8rem;"></i>'
-                  : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.8rem;"></i>'
-                }
-                                  <span style="color:var(--text-secondary); line-height:1.4; word-break:break-word;">
-                                    <strong>${workerName}</strong>: ${notes}
-                                  </span>
-                                </div>
-                                <button type="button" class="btn-delete-scope-task" data-taskid="${st.id}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.75rem; padding:2px; display:flex; align-items:center;" title="Xóa nhiệm vụ">
-                                  <i class="fas fa-trash-alt"></i>
+                      <div style="display:flex; flex-direction:column; gap:6px;">
+                        ${roomScopes.map(sc => {
+                          const isWholeRoom = sc.item === 'Cả phòng';
+                          return `
+                            <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:${isWholeRoom ? 'rgba(197,168,128,0.06)' : 'rgba(0,0,0,0.12)'}; border:1px solid ${isWholeRoom ? 'rgba(197,168,128,0.25)' : 'rgba(255,255,255,0.03)'}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+                              <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:700; font-size:0.8rem; color:${isWholeRoom ? 'var(--primary)' : 'var(--text-primary)'};">
+                                  ${isWholeRoom ? `
+                                    <i class="fas fa-globe" style="color:var(--primary); margin-right:4px;"></i> NHIỆM VỤ CẢ PHÒNG
+                                  ` : `
+                                    <i class="fas fa-cube" style="color:var(--text-muted); margin-right:4px; font-size:0.75rem;"></i> ${sc.item}
+                                  `}
+                                </span>
+                                <button type="button" class="btn-trigger-inline-add" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px;">
+                                  <i class="fas fa-plus-circle"></i> + Giao thêm việc
                                 </button>
                               </div>
-                            `;
-            }).join('')}
-                        </div>
-                      ` : ''}
 
-                      <!-- Inline form to add task -->
-                      <div class="inline-add-task-form-container" style="display:none; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
-                        <div style="display:flex; flex-direction:column; gap:8px;">
-                          <div>
-                            <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chọn người phụ trách</label>
-                            <select class="form-select inline-worker-select" style="height:32px; font-size:0.75rem; padding:2px 6px;">
-                              ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-                            </select>
-                          </div>
-                          <div>
-                            <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chi tiết công việc bàn giao</label>
-                            <input type="text" class="form-input inline-notes-input" placeholder="Ví dụ: đo đạc, ráp tủ, đi silicone..." style="height:32px; font-size:0.75rem; padding-left:8px;">
-                          </div>
-                          <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:2px;">
-                            <button type="button" class="btn-cancel-inline-task" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border:none; cursor:pointer;">Hủy</button>
-                            <button type="button" class="btn-submit-inline-task" data-room="${sc.room}" data-item="${sc.item}" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:var(--primary); color:white; border:none; cursor:pointer;">Giao việc</button>
-                          </div>
-                        </div>
+                              <!-- Matched subtasks list -->
+                              ${sc.tasks.length > 0 ? `
+                                <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.18); padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                                  ${sc.tasks.map(st => {
+                                    const notes = st.title.split(']:')[1]?.trim() || st.title;
+                                    const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
+                                    const isDone = st.status === 'completed';
+                                    return `
+                                      <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:2px 0;">
+                                        <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; padding-right:8px;">
+                                          ${isDone
+                                            ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.75rem;"></i>'
+                                            : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.75rem;"></i>'
+                                          }
+                                          <span style="color:var(--text-secondary); line-height:1.4; word-break:break-word;">
+                                            <strong>${workerName}</strong>: ${notes}
+                                          </span>
+                                        </div>
+                                        <button type="button" class="btn-delete-scope-task" data-taskid="${st.id}" style="background:none; border:none; color:var(--status-rejected); cursor:pointer; font-size:0.75rem; padding:2px; display:flex; align-items:center;" title="Xóa nhiệm vụ">
+                                          <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                      </div>
+                                    `;
+                                  }).join('')}
+                                </div>
+                              ` : ''}
+
+                              <!-- Inline form to add task -->
+                              <div class="inline-add-task-form-container" style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:6px; margin-top:4px;">
+                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                  <div>
+                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chọn thợ phụ trách</label>
+                                    <select class="form-select inline-worker-select" style="height:32px; font-size:0.75rem; padding:2px 6px;">
+                                      ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label class="form-label" style="font-size:0.7rem; margin-bottom:2px;">Chi tiết công việc bàn giao</label>
+                                    <input type="text" class="form-input inline-notes-input" placeholder="Ví dụ: cắt CNC, ráp khung, sơn..." style="height:32px; font-size:0.75rem; padding-left:8px;">
+                                  </div>
+                                  <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:2px;">
+                                    <button type="button" class="btn-cancel-inline-task" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border:none; cursor:pointer;">Hủy</button>
+                                    <button type="button" class="btn-submit-inline-task" data-room="${sc.room}" data-item="${sc.item}" style="padding:4px 10px; font-size:0.7rem; border-radius:6px; background:var(--primary); color:white; border:none; cursor:pointer;">Giao việc</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
                       </div>
-
-                      <button type="button" class="btn-trigger-inline-add" style="align-self:flex-start; background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px; padding:4px 0; margin-top:2px;">
-                        <i class="fas fa-plus-circle"></i> + Giao thêm việc
-                      </button>
                     </div>
                   `;
-          }).join('')}
+                }).join('')}
               </div>
             </div>
           `;
