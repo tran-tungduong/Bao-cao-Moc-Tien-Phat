@@ -901,6 +901,11 @@ export const UI = {
             
             <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${l.note}</div>
             
+            ${l.isEdited ? `
+              <div style="font-size:0.72rem; color:var(--status-pending); font-style:italic; font-weight:600; display:flex; align-items:center; gap:4px; background:rgba(245,158,11,0.08); padding:4px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.2);">
+                <i class="fas fa-edit" style="font-size:0.68rem;"></i> Đã chỉnh sửa ${l.editedAt ? `lúc ${new Date(l.editedAt).getHours().toString().padStart(2,'0')}:${new Date(l.editedAt).getMinutes().toString().padStart(2,'0')} - ${new Date(l.editedAt).getDate().toString().padStart(2,'0')}/${(new Date(l.editedAt).getMonth()+1).toString().padStart(2,'0')}` : ''} ${l.editedBy ? `bởi ${l.editedBy}` : ''}
+              </div>
+            ` : ''}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px; flex-wrap:wrap; gap:8px;">
               <span style="font-size: 0.72rem; color: var(--text-muted);">
                 <i class="fas fa-camera"></i> ${l.photos ? l.photos.length : 0} ảnh | <i class="fas fa-calendar-alt"></i> Dự kiến xong: ${l.expectedCompletionDate ? new Date(l.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}
@@ -909,9 +914,11 @@ export const UI = {
                 <button type="button" class="btn-action btn-edit-my-log" data-projectid="${p.id}" data-logid="${l.id}" style="padding: 6px 12px; font-size: 0.75rem; background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; border-radius: 8px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;">
                   <i class="fas fa-edit"></i> Sửa
                 </button>
-                <button type="button" class="btn-action btn-delete-my-log" data-projectid="${p.id}" data-logid="${l.id}" style="padding: 6px 12px; font-size: 0.75rem; background:linear-gradient(135deg, var(--status-rejected), #B91C1C); color:white; border:none; border-radius: 8px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;">
-                  <i class="fas fa-trash-alt"></i> Xóa
-                </button>
+                ${['manager', 'kts', 'sales'].includes(user.role) ? `
+                  <button type="button" class="btn-action btn-delete-my-log" data-projectid="${p.id}" data-logid="${l.id}" style="padding: 6px 12px; font-size: 0.75rem; background:linear-gradient(135deg, var(--status-rejected), #B91C1C); color:white; border:none; border-radius: 8px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;">
+                    <i class="fas fa-trash-alt"></i> Xóa
+                  </button>
+                ` : ''}
               </div>
             </div>
           </div>
@@ -3840,13 +3847,13 @@ export const UI = {
                   <div class="btn-view-log-item" data-log-index="${actualIdx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
-                      <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName}</div>
+                      <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName} ${l.isEdited ? '<span style="font-size:0.68rem; color:var(--status-pending); font-weight:700; margin-left:4px;">[ĐÃ SỬA]</span>' : ''}</div>
                       <div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.4;">${roleDisplay} • ${l.note}</div>
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <div class="btn-view-log-item" data-log-index="${actualIdx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
-                    ${user.role !== 'manager' && user.role !== 'marketing' ? `
+                    ${['manager', 'kts', 'sales'].includes(user.role) ? `
                       <button class="btn-delete-log-item" data-log-id="${l.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa báo cáo"><i class="fas fa-trash-alt"></i></button>
                     ` : ''}
                   </div>

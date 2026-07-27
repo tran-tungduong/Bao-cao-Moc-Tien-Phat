@@ -1510,9 +1510,13 @@ export const DB = {
         if (items !== undefined) log.items = items;
         if (approverId !== undefined) log.approverId = approverId;
         
+        log.isEdited = true;
+        log.editedAt = new Date().toISOString();
+        log.editedBy = user ? user.name : 'Nhân viên';
+
         const hist = {
           timestamp: new Date().toISOString(),
-          action: `Chỉnh sửa báo cáo của: ${log.reporterName} (Ngày: ${log.date})`,
+          action: `✏️ [ĐÃ SỬA BÁO CÁO] Báo cáo ngày ${log.date} của ${log.reporterName} đã được chỉnh sửa bởi ${user ? user.name : 'Nhân viên'}`,
           user: user ? user.name : 'Nhân viên'
         };
         project.history.push(hist);
@@ -1525,7 +1529,10 @@ export const DB = {
           expected_completion_date: log.expectedCompletionDate,
           photos: log.photos,
           items: log.items,
-          approver_id: log.approverId
+          approver_id: log.approverId,
+          is_edited: true,
+          edited_at: log.editedAt,
+          edited_by: log.editedBy
         });
         this.sbInsertHistory(hist, projectId);
         return true;
@@ -1537,8 +1544,15 @@ export const DB = {
   // Delete daily log (Xóa báo cáo nhật ký hàng ngày)
   deleteDailyLog(projectId, logId, userId) {
     const db = this.load();
-    const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
+    
+    // Workers cannot delete submitted daily report history
+    if (user && ['lead_worker', 'assistant_worker'].includes(user.role)) {
+      console.warn('Thợ không có quyền xóa báo cáo đã gửi.');
+      return false;
+    }
+    
+    const project = db.projects.find(p => p.id === projectId);
     if (project && project.dailyLogs) {
       const idx = project.dailyLogs.findIndex(l => l.id === logId);
       if (idx > -1) {
