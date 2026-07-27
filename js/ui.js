@@ -1528,7 +1528,7 @@ export const UI = {
                 </div>
                 ${!st.assignedTo
           ? `<button class="btn-modal-assign-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); padding:10px 14px; border-radius:10px; font-size:0.8rem; font-weight:700; height:auto; cursor:pointer;"><i class="fas fa-user-plus"></i> Giao việc</button>`
-          : `<button class="btn-modal-complete-task btn-action" data-project="${st.projectId}" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:10px 14px; border-radius:10px; font-size:0.8rem; height:auto; cursor:pointer;"><i class="fas fa-check-circle"></i> Xong</button>`
+          : `<span style="color:var(--status-pending); font-size:0.75rem; font-weight:700; background:rgba(245,158,11,0.12); padding:6px 12px; border-radius:8px; border:1px solid rgba(245,158,11,0.3); white-space:nowrap;"><i class="fas fa-clock"></i> Đang làm</span>`
         }
               </div>
             `;
@@ -1544,18 +1544,6 @@ export const UI = {
     `;
 
     const modal = Modal.create('Việc Cần Xử Lý', html);
-
-    // Bind complete button clicks
-    modal.element.querySelectorAll('.btn-modal-complete-task').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const prjId = btn.getAttribute('data-project');
-        const taskId = btn.getAttribute('data-task');
-        await DB.completeSubtask(prjId, taskId, user.id);
-        Toast.success('Đã hoàn thành nhiệm vụ!');
-        modal.close();
-        onComplete();
-      });
-    });
 
     // Bind assign button clicks
     modal.element.querySelectorAll('.btn-modal-assign-task').forEach(btn => {
