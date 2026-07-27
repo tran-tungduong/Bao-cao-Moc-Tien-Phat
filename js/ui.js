@@ -2212,7 +2212,7 @@ export const UI = {
                     const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
 
                     return `
-                      <div style="display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);">
+                      <div style="display:flex; flex-direction:column; gap:4px; background:var(--bg-primary); border:1px solid var(--border-color); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
                             ${stIcon}
@@ -2221,7 +2221,7 @@ export const UI = {
                           <span style="font-size:0.7rem; color:var(--primary); font-weight:600; white-space:nowrap; flex-shrink:0;">👤 ${assigneeName}</span>
                         </div>
                         ${wrHasDetails ? `
-                          <div style="font-size:0.72rem; margin-top:2px; padding:6px 8px; border-radius:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:3px; line-height:1.35;">
+                          <div style="font-size:0.72rem; margin-top:2px; padding:6px 8px; border-radius:6px; background:var(--bg-secondary); border:1px dashed var(--border-color); display:flex; flex-direction:column; gap:3px; line-height:1.35;">
                             ${wrTodayWork ? `
                               <div style="color:var(--status-approved); display:flex; align-items:flex-start; gap:4px;">
                                 <i class="fas fa-check-circle" style="font-size:0.68rem; margin-top:3px; flex-shrink:0;"></i>
@@ -2313,7 +2313,7 @@ export const UI = {
 
               const hasReportDetails = todayWork || pendingNotes || expectedDate;
               const progressDetailsHtml = hasReportDetails ? `
-                <div style="font-size:0.73rem; margin-top:4px; padding:6px 10px; border-radius:8px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; gap:4px; line-height:1.35;">
+                <div style="font-size:0.73rem; margin-top:4px; padding:6px 10px; border-radius:8px; background:var(--bg-primary); border:1px dashed var(--border-color); display:flex; flex-direction:column; gap:4px; line-height:1.35;">
                   ${todayWork ? `
                     <div style="color:var(--status-approved); display:flex; align-items:flex-start; gap:5px;">
                       <i class="fas fa-check-circle" style="font-size:0.7rem; margin-top:3px; flex-shrink:0;"></i>
@@ -2336,7 +2336,7 @@ export const UI = {
               ` : '';
 
               return `
-                <div style="display:flex; flex-direction:column; gap:2px; padding:4px 6px; border-radius:6px; background:rgba(255,255,255,0.015); margin-top:2px;">
+                <div style="display:flex; flex-direction:column; gap:2px; padding:4px 6px; border-radius:6px; background:var(--bg-secondary); border:1px solid var(--border-color); margin-top:4px;">
                   <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                     <div style="flex:1; min-width:0; display:flex; align-items:center; gap:6px;">
                       <span style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">${stIcon}</span>
