@@ -12,7 +12,7 @@ window.showPhotoLightbox = (url) => {
   `;
   document.body.appendChild(lightbox);
   setTimeout(() => { lightbox.style.opacity = '1'; }, 20);
-  
+
   const close = () => {
     lightbox.style.opacity = '0';
     lightbox.addEventListener('transitionend', () => lightbox.remove());
@@ -183,18 +183,18 @@ export const UI = {
         const icon = syncBtn.querySelector('i');
         icon.classList.add('fa-spin');
         syncBtn.disabled = true;
-        
+
         // Force full refresh by resetting indicators
         DB.lastWriteTime = 0;
         DB.activeWriteRequests = 0;
-        
+
         const success = await DB.syncWithServer((syncedDb) => {
           this.refreshActiveView(user);
         });
-        
+
         icon.classList.remove('fa-spin');
         syncBtn.disabled = false;
-        
+
         if (success) {
           Toast.success('Đã đồng bộ dữ liệu mới nhất từ máy chủ!');
         } else {
@@ -305,7 +305,7 @@ export const UI = {
         selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>`;
         return;
       }
-      
+
       const rVal = selectRoom.value === 'Khác...' ? customRoom.value.trim() : selectRoom.value;
       if (!rVal) {
         selectTask.innerHTML = `<option value="">-- Chọn phòng trước --</option>`;
@@ -327,11 +327,27 @@ export const UI = {
         selectTask.innerHTML = `
           <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
           ${filteredTasks.map(st => {
-            const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
-            const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
-            const shortWorker = workerName.replace(/\s*\([^)]*\)/g, '').split(' ').pop();
-            return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>${taskDesc} (${shortWorker})</option>`;
-          }).join('')}
+          const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
+          const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+          const shortWorker = workerName.replace(/\s*\([^)]*\)/g, '').split(' ').pop();
+
+          let prevWorkText = '';
+          if (project && project.dailyLogs) {
+            const prevLog = project.dailyLogs.find(l =>
+              l.approved !== false &&
+              l.items && l.items.some(pIt => pIt.taskId === st.id)
+            );
+            if (prevLog) {
+              const pIt = prevLog.items.find(pItem => pItem.taskId === st.id);
+              if (pIt) {
+                const txt = pIt.todayWork || pIt.pendingNotes || '';
+                if (txt) prevWorkText = ` (Lần trước: ${txt})`;
+              }
+            }
+          }
+
+          return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>${taskDesc} (${shortWorker})${prevWorkText}</option>`;
+        }).join('')}
         `;
       }
     };
@@ -768,10 +784,10 @@ export const UI = {
                 pendingNotes: isCompleted ? '' : pendingNotes,
                 expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
               }];
-              
+
               // Sync with Supabase
-              DB.sbUpdateSubtask(selectedTaskId, { 
-                status: existingTask.status, 
+              DB.sbUpdateSubtask(selectedTaskId, {
+                status: existingTask.status,
                 completed_at: existingTask.completedAt,
                 items: existingTask.items
               });
@@ -797,7 +813,7 @@ export const UI = {
 
             // Sync with Supabase
             DB.sbInsertSubtask(newSt, prjId);
-            
+
             const hist = {
               timestamp: new Date().toISOString(),
               action: `Báo cáo tự phát sinh: "${newSt.title}" (Tiến độ: ${progress}%)`,
@@ -835,7 +851,7 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-                 (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
         }).join('\n\n');
 
       } else {
@@ -911,7 +927,7 @@ export const UI = {
             
             ${l.isEdited ? `
               <div style="font-size:0.72rem; color:var(--status-pending); font-style:italic; font-weight:600; display:flex; align-items:center; gap:4px; background:rgba(245,158,11,0.08); padding:4px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.2);">
-                <i class="fas fa-edit" style="font-size:0.68rem;"></i> Đã chỉnh sửa ${l.editedAt ? `lúc ${new Date(l.editedAt).getHours().toString().padStart(2,'0')}:${new Date(l.editedAt).getMinutes().toString().padStart(2,'0')} - ${new Date(l.editedAt).getDate().toString().padStart(2,'0')}/${(new Date(l.editedAt).getMonth()+1).toString().padStart(2,'0')}` : ''} ${l.editedBy ? `bởi ${l.editedBy}` : ''}
+                <i class="fas fa-edit" style="font-size:0.68rem;"></i> Đã chỉnh sửa ${l.editedAt ? `lúc ${new Date(l.editedAt).getHours().toString().padStart(2, '0')}:${new Date(l.editedAt).getMinutes().toString().padStart(2, '0')} - ${new Date(l.editedAt).getDate().toString().padStart(2, '0')}/${(new Date(l.editedAt).getMonth() + 1).toString().padStart(2, '0')}` : ''} ${l.editedBy ? `bởi ${l.editedBy}` : ''}
               </div>
             ` : ''}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px; flex-wrap:wrap; gap:8px;">
@@ -2021,7 +2037,7 @@ export const UI = {
   },
 
   // PROGRESS BOARD — shared across all management roles
-  
+
   // Helper to compute live countdown timer badge
   getCountdownBadge(deadlineStr, isCompleted = false) {
     if (isCompleted) {
@@ -2178,10 +2194,10 @@ export const UI = {
           </div>
           <div style="display:flex; flex-direction:column; gap:6px;">
             ${pendingReworks.map(st => {
-              const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
-              const cleanWorker = workerName.replace(/\\s*\\(.*?\\)/g, '').trim().split(' ').pop();
-              const taskDesc = st.title.replace(/^\\[[^\\]+\\]:/, '').trim();
-              return `
+        const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+        const cleanWorker = workerName.replace(/\\s*\\(.*?\\)/g, '').trim().split(' ').pop();
+        const taskDesc = st.title.replace(/^\\[[^\\]+\\]:/, '').trim();
+        return `
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.78rem; background:rgba(0,0,0,0.18); border-radius:8px; padding:8px 10px; border:1px solid rgba(239,68,68,0.12);">
                   <div style="flex:1; min-width:0; color:var(--text-primary);">
                     <strong>${taskDesc}</strong>
@@ -2196,7 +2212,7 @@ export const UI = {
                   ` : ''}
                 </div>
               `;
-            }).join('')}
+      }).join('')}
           </div>
         </div>
       ` : '';
@@ -2226,69 +2242,69 @@ export const UI = {
               </div>
               <div style="display:flex; flex-direction:column; gap:4px;">
                 ${wholeRoomItem.subtasks.map(st => {
-                  const isStDone = st.status === 'completed';
-                  const stIcon = isStDone 
-                    ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.8rem;"></i>' 
-                    : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.8rem;"></i>';
-                  const assigneeName = getShortName(st.assignedTo);
-                  const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
-                    let wrTodayWork = '';
-                    let wrPendingNotes = '';
-                    let wrExpectedDate = '';
-                    let wrReporterName = '';
-                    let wrReportTime = '';
-                    let wrLogFound = false;
+            const isStDone = st.status === 'completed';
+            const stIcon = isStDone
+              ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.8rem;"></i>'
+              : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.8rem;"></i>';
+            const assigneeName = getShortName(st.assignedTo);
+            const taskDesc = st.title.replace(/^\[[^\\]+\]:/, '').trim();
+            let wrTodayWork = '';
+            let wrPendingNotes = '';
+            let wrExpectedDate = '';
+            let wrReporterName = '';
+            let wrReportTime = '';
+            let wrLogFound = false;
 
-                    // Prioritize the newest dailyLog (dailyLogs[0] is newest)
-                    if (p && p.dailyLogs && p.dailyLogs.length > 0) {
-                      for (let dlIdx = 0; dlIdx < p.dailyLogs.length; dlIdx++) {
-                        const dlog = p.dailyLogs[dlIdx];
-                        if (dlog.approved === false) continue;
-                        if (dlog.items && dlog.items.length > 0) {
-                          const matchedItem = dlog.items.find(it => it.taskId === st.id);
-                          if (matchedItem) {
-                            wrTodayWork = matchedItem.todayWork || (matchedItem.progress === 100 || isStDone ? 'Đã hoàn thành' : '');
-                            wrPendingNotes = matchedItem.pendingNotes || '';
-                            wrExpectedDate = matchedItem.expectedCompletionDate || '';
-                            wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
-                            wrReportTime = dlog.createdAt || dlog.timestamp || matchedItem.reportedAt || dlog.date || '';
-                            wrLogFound = true;
-                            break;
-                          }
-                        }
-                      }
-                    }
+            // Prioritize the newest dailyLog (dailyLogs[0] is newest)
+            if (p && p.dailyLogs && p.dailyLogs.length > 0) {
+              for (let dlIdx = 0; dlIdx < p.dailyLogs.length; dlIdx++) {
+                const dlog = p.dailyLogs[dlIdx];
+                if (dlog.approved === false) continue;
+                if (dlog.items && dlog.items.length > 0) {
+                  const matchedItem = dlog.items.find(it => it.taskId === st.id);
+                  if (matchedItem) {
+                    wrTodayWork = matchedItem.todayWork || (matchedItem.progress === 100 || isStDone ? 'Đã hoàn thành' : '');
+                    wrPendingNotes = matchedItem.pendingNotes || '';
+                    wrExpectedDate = matchedItem.expectedCompletionDate || '';
+                    wrReporterName = dlog.reporterName || matchedItem.reporterName || '';
+                    wrReportTime = dlog.createdAt || dlog.timestamp || matchedItem.reportedAt || dlog.date || '';
+                    wrLogFound = true;
+                    break;
+                  }
+                }
+              }
+            }
 
-                    if (!wrLogFound && st.items && st.items[0]) {
-                      wrTodayWork = st.items[0].todayWork || (isStDone ? 'Đã hoàn thành' : '');
-                      wrPendingNotes = st.items[0].pendingNotes || '';
-                      wrExpectedDate = st.items[0].expectedCompletionDate || '';
-                      wrReporterName = st.items[0].reporterName || '';
-                      wrReportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
-                    }
+            if (!wrLogFound && st.items && st.items[0]) {
+              wrTodayWork = st.items[0].todayWork || (isStDone ? 'Đã hoàn thành' : '');
+              wrPendingNotes = st.items[0].pendingNotes || '';
+              wrExpectedDate = st.items[0].expectedCompletionDate || '';
+              wrReporterName = st.items[0].reporterName || '';
+              wrReportTime = st.items[0].reportedAt || st.items[0].timestamp || '';
+            }
 
-                    let wrMetaTimeStr = '';
-                    if (wrReportTime) {
-                      const dt = new Date(wrReportTime);
-                      if (!isNaN(dt.getTime())) {
-                        const hh = dt.getHours().toString().padStart(2, '0');
-                        const mm = dt.getMinutes().toString().padStart(2, '0');
-                        const dd = dt.getDate().toString().padStart(2, '0');
-                        const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-                        if (wrReportTime.includes('T') || hh !== '00' || mm !== '00') {
-                          wrMetaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
-                        } else {
-                          wrMetaTimeStr = `${dd}/${mo}`;
-                        }
-                      } else {
-                        wrMetaTimeStr = wrReportTime;
-                      }
-                    }
-                    const cleanWrReporter = wrReporterName ? wrReporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
+            let wrMetaTimeStr = '';
+            if (wrReportTime) {
+              const dt = new Date(wrReportTime);
+              if (!isNaN(dt.getTime())) {
+                const hh = dt.getHours().toString().padStart(2, '0');
+                const mm = dt.getMinutes().toString().padStart(2, '0');
+                const dd = dt.getDate().toString().padStart(2, '0');
+                const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+                if (wrReportTime.includes('T') || hh !== '00' || mm !== '00') {
+                  wrMetaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
+                } else {
+                  wrMetaTimeStr = `${dd}/${mo}`;
+                }
+              } else {
+                wrMetaTimeStr = wrReportTime;
+              }
+            }
+            const cleanWrReporter = wrReporterName ? wrReporterName.replace(/\s*\(.*?\)/g, '').trim().split(' ').pop() : assigneeName;
 
-                    const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
+            const wrHasDetails = wrTodayWork || wrPendingNotes || wrExpectedDate;
 
-                    return `
+            return `
                       <div class="whole-room-banner-item" style="display:flex; flex-direction:column; gap:4px; background:var(--bg-secondary); border:1px solid var(--border-color); padding:8px 10px; border-radius:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
@@ -2327,7 +2343,7 @@ export const UI = {
                         ` : ''}
                       </div>
                     `;
-                }).join('')}
+          }).join('')}
               </div>
             </div>
           `;
@@ -2337,7 +2353,7 @@ export const UI = {
           let itemBadge = '';
           let borderStyle = 'border: 1px solid var(--border-color);';
           let bgStyle = 'background: rgba(255,255,255,0.015);';
-          
+
           if (item.status === 'done') {
             itemBadge = `<span style="font-size:0.65rem; font-weight:700; color:var(--status-approved); background:rgba(78,141,124,0.1); border:1px solid rgba(78,141,124,0.2); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> Xong</span>`;
           } else if (item.status === 'in_progress') {
@@ -2391,8 +2407,8 @@ export const UI = {
           } else {
             subtasksHtml = item.subtasks.map(st => {
               const isStDone = st.status === 'completed';
-              const stIcon = isStDone 
-                ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.75rem;"></i>' 
+              const stIcon = isStDone
+                ? '<i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.75rem;"></i>'
                 : '<i class="far fa-circle" style="color:var(--status-pending); font-size:0.75rem;"></i>';
               const assigneeName = getShortName(st.assignedTo);
               const textDecoration = isStDone ? 'line-through' : 'none';
@@ -2633,12 +2649,12 @@ export const UI = {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:14px; padding-bottom:80px;">
         ${activeProjects.length > 0
-          ? activeProjects.map(p => buildProjectCard(p)).join('')
-          : `<div style="text-align:center; padding:32px; color:var(--text-muted); background:var(--bg-secondary); border-radius:16px; border:1px solid var(--border-color);">
+        ? activeProjects.map(p => buildProjectCard(p)).join('')
+        : `<div style="text-align:center; padding:32px; color:var(--text-muted); background:var(--bg-secondary); border-radius:16px; border:1px solid var(--border-color);">
               <i class="fas fa-folder-open" style="font-size:2rem; margin-bottom:8px; display:block;"></i>
               <p>Không có công trình đang thi công.</p>
             </div>`
-        }
+      }
         ${completedProjects.length > 0 ? `
           <div style="border-top:1px solid var(--border-color); padding-top:14px;">
             <h5 style="font-family:var(--font-title); font-size:0.82rem; color:var(--text-muted); margin-bottom:8px;">
@@ -3512,15 +3528,15 @@ export const UI = {
             const subtaskRowsHtml = totalTasks === 0
               ? `<p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0 0; font-style:italic; padding-left:4px;">Chưa giao việc</p>`
               : matchedSubtasks.map(st => {
-                 const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
-                 const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
-                 const isDone = st.status === 'completed';
-                 const compTimeText = isDone && st.completedAt
-                   ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
-                   : '';
+                const assignedUser = dbUsers.find(u => u.id === st.assignedTo);
+                const taskDesc = st.title.replace(/^\[[^\]]+\]:/, '').trim();
+                const isDone = st.status === 'completed';
+                const compTimeText = isDone && st.completedAt
+                  ? ` · <i class="fas fa-check" style="font-size:0.55rem;"></i> ${new Date(st.completedAt).toLocaleDateString('vi-VN')}`
+                  : '';
 
-                 if (isDone) {
-                   return `
+                if (isDone) {
+                  return `
                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 6px; border-radius:6px; margin-top:2px; background:rgba(255,255,255,0.015);">
                          <div style="flex:1; min-width:0; padding-right:6px; display:flex; align-items:center; gap:8px;">
                            <i class="fas fa-check-circle" style="color:var(--status-approved); font-size:0.78rem; flex-shrink:0;"></i>
@@ -3540,8 +3556,8 @@ export const UI = {
                          </div>
                        </div>
                      `;
-                 } else {
-                   return `
+                } else {
+                  return `
                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:rgba(245,158,11,0.04); border:1px solid rgba(245,158,11,0.12); border-radius:8px; margin-top:4px;">
                          <div style="flex:1; min-width:0; padding-right:6px;">
                            <div style="font-size:0.76rem; font-weight:600; color:var(--text-primary); word-break:break-word; line-height:1.35; display:flex; align-items:center; gap:6px;">
@@ -3560,9 +3576,9 @@ export const UI = {
                          
                          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                            ${!proj.isCompleted && user.role !== 'manager'
-                     ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
-                     : ''
-                   }
+                      ? `<button class="btn-drawer-complete-task" data-task="${st.id}" style="background-color:rgba(78, 141, 124, 0.12); border:1px solid rgba(78,141,124,0.25); color:var(--status-approved); padding:3px 6px; border-radius:5px; font-size:0.65rem; font-weight:700; cursor:pointer; height:auto; line-height:1.2;">Xong</button>`
+                      : ''
+                    }
                            ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
                              <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                              <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
@@ -3570,8 +3586,8 @@ export const UI = {
                          </div>
                        </div>
                      `;
-                 }
-               }).join('');
+                }
+              }).join('');
 
             // Get absolute index of this scope item in proj.scope
             const scopeIndexInProj = proj.scope.findIndex(sc => sc.room === roomName && sc.item === item);
@@ -3664,9 +3680,9 @@ export const UI = {
               
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                 ${isDone
-                  ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Đã xong</span>'
-                  : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa xong</span>'
-                }
+              ? '<span style="color:var(--status-approved); font-weight:700; font-size:0.65rem; white-space:nowrap; display:flex; align-items:center; gap:2px;"><i class="fas fa-check-double"></i> Đã xong</span>'
+              : '<span style="color:var(--text-muted); font-size:0.65rem; font-weight:500;">Chưa xong</span>'
+            }
                 ${isManagementRole && user.role !== 'manager' && !proj.isCompleted ? `
                   <button class="btn-edit-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--primary); cursor:pointer; display:flex; align-items:center;" title="Sửa nhiệm vụ"><i class="fas fa-edit" style="font-size:0.7rem;"></i></button>
                   <button class="btn-delete-subtask" data-task="${st.id}" style="background:none; border:none; padding:2px; color:var(--status-rejected); cursor:pointer; display:flex; align-items:center;" title="Xóa nhiệm vụ"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button>
@@ -3859,18 +3875,18 @@ export const UI = {
           <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px;">Nhật Ký Hệ Thống</h5>
           <div style="background-color: var(--bg-primary); border-radius:12px; padding:12px; font-size:0.75rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px; max-height:150px; overflow-y:auto; border:1px solid var(--border-color);">
             ${[...(project.history || [])].reverse().map(h => {
-              const dt = new Date(h.timestamp);
-              let timeStr = '';
-              if (!isNaN(dt.getTime())) {
-                const hh = dt.getHours().toString().padStart(2, '0');
-                const mm = dt.getMinutes().toString().padStart(2, '0');
-                const dd = dt.getDate().toString().padStart(2, '0');
-                const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-                timeStr = `${hh}:${mm} - ${dd}/${mo}`;
-              } else {
-                timeStr = h.timestamp || '';
-              }
-              return `
+        const dt = new Date(h.timestamp);
+        let timeStr = '';
+        if (!isNaN(dt.getTime())) {
+          const hh = dt.getHours().toString().padStart(2, '0');
+          const mm = dt.getMinutes().toString().padStart(2, '0');
+          const dd = dt.getDate().toString().padStart(2, '0');
+          const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+          timeStr = `${hh}:${mm} - ${dd}/${mo}`;
+        } else {
+          timeStr = h.timestamp || '';
+        }
+        return `
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
                   <div style="flex:1; min-width:0;">
                     <span style="color:var(--text-muted); font-size:0.7rem;">${timeStr}</span> • 
@@ -3879,7 +3895,7 @@ export const UI = {
                   <span style="color:var(--primary); font-weight:600; font-size:0.7rem; flex-shrink:0;">(${h.user})</span>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
           </div>
         </div>
       </div>
@@ -3928,12 +3944,12 @@ export const UI = {
 
         itemSelect.disabled = false;
         const items = fallbackMap[roomVal] || ['Khác...'];
-        
+
         let selectHtml = '<option value="" disabled selected>-- Chọn nội thất --</option>';
         items.forEach(it => {
           selectHtml += `<option value="${it}" ${currentItem === it ? 'selected' : ''}>${it}</option>`;
         });
-        
+
         // If currentItem is a custom name not in list, select 'Khác...'
         const isCustomItem = currentItem && !items.includes(currentItem);
         if (isCustomItem) {
@@ -3944,7 +3960,7 @@ export const UI = {
           itemCustom.style.display = currentItem === 'Khác...' ? 'block' : 'none';
           itemCustom.value = '';
         }
-        
+
         itemSelect.innerHTML = selectHtml;
       };
 
@@ -3955,7 +3971,7 @@ export const UI = {
           roomCustom.value = '';
           roomCustom.required = true;
           roomCustom.focus();
-          
+
           itemSelect.disabled = false;
           itemSelect.innerHTML = '<option value="Khác..." selected>Khác...</option>';
           itemCustom.style.display = 'block';
@@ -3986,9 +4002,9 @@ export const UI = {
       const showForm = (title, roomVal = '', itemVal = '') => {
         const form = section.querySelector('#scope-inline-form');
         section.querySelector('#scope-form-title').textContent = title;
-        
+
         const isPredefinedRoom = ['Phòng ngủ', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm'].includes(roomVal);
-        
+
         if (roomVal) {
           if (isPredefinedRoom) {
             roomSelect.value = roomVal;
@@ -3999,7 +4015,7 @@ export const UI = {
             roomSelect.value = 'Khác...';
             roomCustom.style.display = 'block';
             roomCustom.value = roomVal;
-            
+
             itemSelect.disabled = false;
             itemSelect.innerHTML = '<option value="Khác..." selected>Khác...</option>';
             itemCustom.style.display = 'block';
@@ -4043,10 +4059,10 @@ export const UI = {
       section.querySelector('#scope-form-save')?.addEventListener('click', () => {
         const selRoom = roomSelect.value;
         const room = (selRoom === 'Khác...' ? roomCustom.value.trim() : selRoom);
-        
+
         const selItem = itemSelect.value;
         const item = (selItem === 'Khác...' ? itemCustom.value.trim() : selItem);
-        
+
         if (!room || !item) { Toast.error('Vui lòng điền đầy đủ Phòng và Nội thất.'); return; }
 
         if (editingIdx === null) {
@@ -4382,15 +4398,38 @@ export const UI = {
             <label class="form-label" style="font-size:0.75rem; margin-bottom:8px;">Hạng mục chi tiết báo cáo</label>
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${log.items.map(it => {
-                const isDone = it.progress === 100 || it.isCompleted === true || it.isCompleted === 'true';
-                const progressPercent = it.progress || (isDone ? 100 : 50);
-                const statusColor = isDone ? 'var(--status-approved)' : 'var(--status-pending)';
-                const statusIcon = isDone ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-spinner fa-spin"></i>';
-                return `
+      const isDone = it.progress === 100 || it.isCompleted === true || it.isCompleted === 'true';
+      const progressPercent = it.progress || (isDone ? 100 : 50);
+      const statusColor = isDone ? 'var(--status-approved)' : 'var(--status-pending)';
+      const statusIcon = isDone ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-spinner fa-spin"></i>';
+
+      let prevReportWork = '';
+      if (!isDone && project && project.dailyLogs) {
+        const prevLog = project.dailyLogs.find(l =>
+          l.id !== log.id &&
+          l.approved !== false &&
+          new Date(l.createdAt || l.date) < new Date(log.createdAt || log.date) &&
+          l.items && l.items.some(pIt =>
+            (it.taskId && pIt.taskId === it.taskId) ||
+            (pIt.room.trim() === it.room.trim() && pIt.item.trim() === it.item.trim())
+          )
+        );
+        if (prevLog) {
+          const pItem = prevLog.items.find(pIt =>
+            (it.taskId && pIt.taskId === it.taskId) ||
+            (pIt.room.trim() === it.room.trim() && pIt.item.trim() === it.item.trim())
+          );
+          if (pItem) {
+            prevReportWork = pItem.todayWork || pItem.pendingNotes || '';
+          }
+        }
+      }
+
+      return `
                   <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${statusColor}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
-                        ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>
+                        ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span> ${prevReportWork ? `<span style="font-size:0.75rem; color:var(--status-pending); font-weight:normal; font-style:italic; margin-left:4px;">(Lần trước: ${prevReportWork})</span>` : ''}
                       </span>
                       <span style="font-size:0.75rem; font-weight:700; color:${statusColor}; display:flex; align-items:center; gap:4px;">
                         ${statusIcon} ${isDone ? 'Đã hoàn thành' : 'Đang làm'}
@@ -4409,7 +4448,7 @@ export const UI = {
                     ` : ''}
                   </div>
                 `;
-              }).join('')}
+    }).join('')}
             </div>
           </div>
         ` : `
@@ -4597,14 +4636,14 @@ export const UI = {
       if (isWorker) {
         items = [];
         const rows = modal.element.querySelectorAll('.edit-log-item-row');
-        
+
         const loadedDb = DB.load();
         const loadedProj = loadedDb.projects.find(p => p.id === project.id);
 
         rows.forEach(row => {
           const idx = parseInt(row.getAttribute('data-idx'));
           const originalItem = log.items[idx];
-          
+
           const todayWork = row.querySelector('.edit-txt-today-work').value.trim();
           const progress = parseInt(row.querySelector('.edit-select-progress').value) || 50;
           const isCompleted = progress === 100;
@@ -4626,10 +4665,10 @@ export const UI = {
                 pendingNotes: isCompleted ? '' : pendingNotes,
                 expectedCompletionDate: isCompleted ? '' : expectedCompletionDate
               }];
-              
+
               // Sync with Supabase
-              DB.sbUpdateSubtask(taskId, { 
-                status: existingTask.status, 
+              DB.sbUpdateSubtask(taskId, {
+                status: existingTask.status,
                 completed_at: existingTask.completedAt,
                 items: existingTask.items
               });
@@ -4654,7 +4693,7 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-                 (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
         }).join('\n\n');
 
       } else {
@@ -4798,7 +4837,7 @@ export const UI = {
               </div>
               <div style="display:flex; flex-direction:column; gap:10px;">
                 ${Object.entries(roomMap).map(([roomName, roomScopes]) => {
-                  return `
+            return `
                     <div class="assign-room-card" style="background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border:1px solid var(--border-color); border-left:4px solid ${badgeColor}; border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                       <div style="font-weight:700; font-size:0.86rem; color:var(--text-primary); border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:6px; display:flex; align-items:center; gap:6px;">
                         <i class="fas fa-folder-open" style="color:var(--primary); font-size:0.85rem;"></i> ${roomName}
@@ -4806,8 +4845,8 @@ export const UI = {
 
                       <div style="display:flex; flex-direction:column; gap:6px;">
                         ${roomScopes.map(sc => {
-                          const isWholeRoom = sc.item === 'Cả phòng';
-                          return `
+              const isWholeRoom = sc.item === 'Cả phòng';
+              return `
                             <div class="scope-task-card" data-room="${sc.room}" data-item="${sc.item}" style="background:${isWholeRoom ? 'rgba(197,168,128,0.08)' : 'var(--bg-secondary)'}; border:1px solid ${isWholeRoom ? 'rgba(197,168,128,0.3)' : 'var(--border-color)'}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
                               <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-weight:700; font-size:0.8rem; color:${isWholeRoom ? 'var(--primary)' : 'var(--text-primary)'};">
@@ -4826,16 +4865,16 @@ export const UI = {
                               ${sc.tasks.length > 0 ? `
                                 <div style="display:flex; flex-direction:column; gap:4px; background:var(--bg-input); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
                                   ${sc.tasks.map(st => {
-                                    const notes = st.title.split(']:')[1]?.trim() || st.title;
-                                    const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
-                                    const isDone = st.status === 'completed';
-                                    return `
+                const notes = st.title.split(']:')[1]?.trim() || st.title;
+                const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
+                const isDone = st.status === 'completed';
+                return `
                                       <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:2px 0;">
                                         <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; padding-right:8px;">
                                           ${isDone
-                                            ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.75rem;"></i>'
-                                            : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.75rem;"></i>'
-                                          }
+                    ? '<i class="fas fa-check-circle" style="color:var(--status-approved); flex-shrink:0; font-size:0.75rem;"></i>'
+                    : '<i class="fas fa-circle-notch fa-spin" style="color:var(--status-pending); flex-shrink:0; font-size:0.75rem;"></i>'
+                  }
                                           <span style="color:var(--text-secondary); line-height:1.4; word-break:break-word;">
                                             <strong>${workerName}</strong>: ${notes}
                                           </span>
@@ -4845,7 +4884,7 @@ export const UI = {
                                         </button>
                                       </div>
                                     `;
-                                  }).join('')}
+              }).join('')}
                                 </div>
                               ` : ''}
 
@@ -4870,11 +4909,11 @@ export const UI = {
                               </div>
                             </div>
                           `;
-                        }).join('')}
+            }).join('')}
                       </div>
                     </div>
                   `;
-                }).join('')}
+          }).join('')}
               </div>
             </div>
           `;
