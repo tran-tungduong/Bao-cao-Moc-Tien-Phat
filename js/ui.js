@@ -1922,7 +1922,7 @@ export const UI = {
       <!-- Manager Tab Buttons -->
       <div class="manager-tabs fade-in" style="overflow-x:auto; white-space:nowrap; gap:4px; padding:4px;">
         <button class="tab-btn active" id="tab-progress-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-tasks"></i> Tiến Độ</button>
-        <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Kanban</button>
+        <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Theo Dõi</button>
         <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
       </div>
