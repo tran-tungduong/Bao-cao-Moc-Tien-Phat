@@ -33,6 +33,53 @@ const DEFAULT_PROJECTS = [];
 const DEFAULT_ATTENDANCE = [];
 
 export const DB = {
+  syncState: 'connecting',
+  syncTimer: null,
+  realtimeChannel: null,
+  realtimeRefreshTimer: null,
+
+  backupLocalCache() {
+    const cached = localStorage.getItem(DB_KEY);
+    if (cached) localStorage.setItem(`${DB_KEY}_backup_before_online`, cached);
+  },
+
+  async initialize() {
+    this.backupLocalCache();
+    const synced = await this.syncWithServer();
+    this.syncState = synced ? 'online' : 'offline';
+    return synced;
+  },
+
+  startLiveSync(onRemoteChange = null) {
+    if (!supabaseClient || this.syncTimer) return;
+    const refresh = async () => {
+      if (this.activeWriteRequests > 0) return;
+      const synced = await this.syncWithServer(onRemoteChange);
+      this.syncState = synced ? 'online' : 'offline';
+    };
+    const scheduleRefresh = () => {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = setTimeout(refresh, 250);
+    };
+
+    // Receives writes from every connected device as soon as Supabase publishes them.
+    this.realtimeChannel = supabaseClient.channel('moc-tien-phat-live-sync');
+    ['users', 'projects', 'subtasks', 'daily_logs', 'attendance', 'project_history'].forEach(table => {
+      this.realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
+    });
+    this.realtimeChannel.subscribe(status => {
+      this.syncState = status === 'SUBSCRIBED' ? 'online' : (status === 'CHANNEL_ERROR' ? 'offline' : this.syncState);
+    });
+
+    // Realtime must be enabled per table in Supabase. Polling is a safe fallback
+    // and also catches changes after a device wakes from sleep.
+    this.syncTimer = setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refresh();
+    });
+  },
+
   // Server Sync API Base URL (same host/origin for simplicity, fallback to localhost:8000 for local file testing)
   getApiUrl(endpoint) {
     const origin = window.location.origin;
@@ -269,9 +316,11 @@ export const DB = {
         const newDbStr = JSON.stringify(assembledDb);
         if (oldDbStr === newDbStr) {
           console.log('Database synced, no changes detected. Skipping UI refresh.');
-          return false;
+          this.lastSyncedAt = new Date().toISOString();
+          return true;
         }
         localStorage.setItem(DB_KEY, newDbStr);
+        this.lastSyncedAt = new Date().toISOString();
         console.log('Database synced from Supabase (relational tables).');
         if (onSyncComplete) onSyncComplete(assembledDb);
         return true;

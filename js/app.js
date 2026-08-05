@@ -7,24 +7,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('furni_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
 
-  // Initialize Database
-  DB.load();
-  
   // Register Service Worker for PWA (Installability)
   registerServiceWorker();
 
-  // Check Session
-  checkSessionAndRoute();
-
-  // Perform initial API server sync
-  DB.syncWithServer((syncedDb) => {
-    const user = DB.getCurrentUser();
-    if (user) {
-      UI.refreshActiveView(user);
+  // Supabase is the source of truth. Only render once the first remote read
+  // completes; localStorage is retained strictly as a recoverable cache.
+  DB.initialize().then(synced => {
+    if (!synced) {
+      document.getElementById('app').innerHTML = `
+        <div class="initial-loader" style="gap:14px; text-align:center; padding:24px;">
+          <i class="fas fa-cloud-exclamation" style="font-size:2rem; color:var(--status-rejected);"></i>
+          <div class="loader-text">Không thể kết nối máy chủ dữ liệu</div>
+          <p style="color:var(--text-muted); font-size:0.85rem; max-width:300px;">Dữ liệu cũ trên máy vẫn được giữ an toàn, nhưng ứng dụng chỉ hoạt động khi đã tải dữ liệu mới nhất từ Supabase.</p>
+          <button type="button" class="btn-primary" onclick="window.location.reload()">Thử kết nối lại</button>
+        </div>`;
+      return;
     }
+    checkSessionAndRoute();
+    DB.startLiveSync(() => {
+      const user = DB.getCurrentUser();
+      if (user) UI.refreshActiveView(user);
+    });
   });
-
-  // Background Sync Loop removed for manual sync button stability
 });
 
 function checkSessionAndRoute() {
