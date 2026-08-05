@@ -95,7 +95,7 @@ export const DB = {
               status: dl.status,
               note: dl.note,
               photos: dl.photos || [],
-              expected_completion_date: dl.expectedCompletionDate || null,
+              expected_completion_date: dl.expectedCompletionDate ? dl.expectedCompletionDate.split('T')[0] : null,
               items: dl.items || [],
               approved: dl.approved !== false,
               approver_id: dl.approverId || null
@@ -224,6 +224,9 @@ export const DB = {
               dailyLogs: (dailyLogs || []).filter(dl => dl.project_id === p.id).map(dl => ({
                 id: dl.id,
                 date: dl.date,
+                // Preserve Supabase's insertion timestamp for accurate report times.
+                createdAt: dl.created_at || dl.createdAt || null,
+                timestamp: dl.created_at || dl.timestamp || null,
                 reporterId: dl.reporter_id,
                 reporterName: dl.reporter_name,
                 reporterRole: dl.reporter_role,
@@ -399,7 +402,8 @@ export const DB = {
         status: dl.status,
         note: dl.note,
         photos: dl.photos || [],
-        expected_completion_date: dl.expectedCompletionDate || null,
+        // The column is a PostgreSQL DATE; the precise local date-time is kept in items JSON.
+        expected_completion_date: dl.expectedCompletionDate ? dl.expectedCompletionDate.split('T')[0] : null,
         items: dl.items || [],
         approved: dl.approved !== false,
         approver_id: dl.approverId || null
@@ -417,7 +421,12 @@ export const DB = {
     if (!supabaseClient) return;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
-      const { error } = await supabaseClient.from('daily_logs').update(fields).eq('id', logId);
+      const dbFields = { ...fields };
+      // Keep the DATE column valid while items JSON retains the selected hour/minute.
+      if (dbFields.expected_completion_date) {
+        dbFields.expected_completion_date = dbFields.expected_completion_date.split('T')[0];
+      }
+      const { error } = await supabaseClient.from('daily_logs').update(dbFields).eq('id', logId);
       if (error) {
         console.error('Supabase write error details:', error);
         throw new Error(error.message || JSON.stringify(error));

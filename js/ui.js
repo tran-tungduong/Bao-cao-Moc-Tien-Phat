@@ -230,6 +230,7 @@ export const UI = {
     const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true' || initialData.progress === 100) : false;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
     const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
+    const expectedDateValue = expectedDate && expectedDate.includes('T') ? expectedDate.slice(0, 16) : '';
     const selectedTaskId = initialData ? (initialData.taskId || '') : '';
 
     row.innerHTML = `
@@ -281,8 +282,8 @@ export const UI = {
             <textarea class="form-input txt-chk-pending-notes" placeholder="Nhập phần việc còn thiếu hoặc lý do chưa xong..." style="height: auto; min-height: 50px; font-size: 0.8rem; padding: 8px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${pendingNotes}</textarea>
           </div>
           <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Ngày dự kiến xong nhiệm vụ</label>
-            <input type="date" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDate}">
+            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Thời gian dự kiến xong nhiệm vụ</label>
+            <input type="datetime-local" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDateValue}">
           </div>
         </div>
       </div>
@@ -2082,6 +2083,16 @@ export const UI = {
     return `<span style="font-size:0.68rem; font-weight:700; color:${badgeColor}; background:${badgeBg}; border:1px solid ${badgeBorder}; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;"><i class="fas ${icon}"></i> Còn ${text}</span>`;
   },
 
+  formatExpectedDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+    if (isNaN(date.getTime())) return value;
+    const formattedDate = date.toLocaleDateString('vi-VN');
+    return value.includes('T')
+      ? `${formattedDate} ${date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+      : formattedDate;
+  },
+
   renderProgressBoard(user) {
     const container = document.getElementById('manager-tab-content');
     if (!container) return;
@@ -2291,7 +2302,7 @@ export const UI = {
                 const mm = dt.getMinutes().toString().padStart(2, '0');
                 const dd = dt.getDate().toString().padStart(2, '0');
                 const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-                if (wrReportTime.includes('T') || hh !== '00' || mm !== '00') {
+                if (wrReportTime.includes('T')) {
                   wrMetaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
                 } else {
                   wrMetaTimeStr = `${dd}/${mo}`;
@@ -2330,7 +2341,7 @@ export const UI = {
                             ${!isStDone && wrExpectedDate ? `
                               <div style="color:var(--text-muted); font-size:0.68rem; display:flex; align-items:center; gap:4px; margin-top:1px;">
                                 <i class="far fa-calendar-alt" style="font-size:0.65rem; flex-shrink:0;"></i>
-                                <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(wrExpectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(wrExpectedDate)}</span>
+                                <span>Dự kiến xong: <strong style="color:var(--primary);">${this.formatExpectedDateTime(wrExpectedDate)}</strong> ${this.getCountdownBadge(wrExpectedDate)}</span>
                               </div>
                             ` : ''}
                             ${(cleanWrReporter || wrMetaTimeStr) ? `
@@ -2385,7 +2396,7 @@ export const UI = {
                         const mm = dt.getMinutes().toString().padStart(2, '0');
                         const dd = dt.getDate().toString().padStart(2, '0');
                         const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-                        rTimeStr = (rTime.includes('T') || hh !== '00' || mm !== '00') ? `${hh}:${mm} - ${dd}/${mo}` : `${dd}/${mo}`;
+                        rTimeStr = rTime.includes('T') ? `${hh}:${mm} - ${dd}/${mo}` : `${dd}/${mo}`;
                       }
                     }
                     unassignedLogHtml = `
@@ -2459,7 +2470,7 @@ export const UI = {
                   const mm = dt.getMinutes().toString().padStart(2, '0');
                   const dd = dt.getDate().toString().padStart(2, '0');
                   const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-                  if (reportTime.includes('T') || hh !== '00' || mm !== '00') {
+                  if (reportTime.includes('T')) {
                     metaTimeStr = `${hh}:${mm} - ${dd}/${mo}`;
                   } else {
                     metaTimeStr = `${dd}/${mo}`;
@@ -2488,7 +2499,7 @@ export const UI = {
                   ${!isStDone && expectedDate ? `
                     <div style="color:var(--text-muted); font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-top:2px;">
                       <i class="far fa-calendar-alt" style="font-size:0.68rem; flex-shrink:0;"></i>
-                      <span>Dự kiến xong: <strong style="color:var(--primary);">${new Date(expectedDate).toLocaleDateString('vi-VN')}</strong> ${this.getCountdownBadge(expectedDate)}</span>
+                      <span>Dự kiến xong: <strong style="color:var(--primary);">${this.formatExpectedDateTime(expectedDate)}</strong> ${this.getCountdownBadge(expectedDate)}</span>
                     </div>
                   ` : ''}
                   ${(cleanReporter || metaTimeStr) ? `
@@ -4443,7 +4454,7 @@ export const UI = {
                     ${!isDone ? `
                       <div style="display:flex; flex-direction:column; gap:4px; font-size:0.75rem; background:rgba(210, 144, 98, 0.05); border:1px dashed rgba(210, 144, 98, 0.2); padding:6px 10px; border-radius:6px; margin-top:2px;">
                         <div><strong>Việc còn lại:</strong> ${it.pendingNotes || 'Chưa ghi chú'}</div>
-                        ${it.expectedCompletionDate ? `<div><strong>Dự kiến xong:</strong> <span style="color:var(--primary); font-weight:600;">${new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN')}</span></div>` : ''}
+                        ${it.expectedCompletionDate ? `<div><strong>Dự kiến xong:</strong> <span style="color:var(--primary); font-weight:600;">${this.formatExpectedDateTime(it.expectedCompletionDate)}</span></div>` : ''}
                       </div>
                     ` : ''}
                   </div>
@@ -4461,7 +4472,7 @@ export const UI = {
           <div>
             <label class="form-label" style="font-size:0.75rem;">Thời gian hoàn thành dự kiến</label>
             <div style="background-color: rgba(197, 168, 128, 0.12); border:1px solid rgba(197, 168, 128, 0.3); border-radius:10px; padding:10px 12px; font-size:0.85rem; font-weight:600; color:var(--primary); width:max-content; display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-calendar-alt"></i> ${new Date(log.expectedCompletionDate).toLocaleDateString('vi-VN')}
+              <i class="fas fa-calendar-alt"></i> ${this.formatExpectedDateTime(log.expectedCompletionDate)}
             </div>
           </div>
         ` : ''}
