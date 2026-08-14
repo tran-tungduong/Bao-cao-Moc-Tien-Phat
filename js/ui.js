@@ -1,4 +1,4 @@
-import { DB } from './db.js';
+﻿import { DB } from './db.js';
 import { Toast, Modal, MockImages } from './components.js';
 
 window.showPhotoLightbox = (url) => {
@@ -653,11 +653,12 @@ export const UI = {
         return;
       }
 
-      Toast.info('Đang nén và xử lý hình ảnh...');
+      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
       for (const file of files) {
         try {
           const base64Img = await this.compressImage(file);
-          selectedPhotos.push(base64Img);
+          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
+          selectedPhotos.push(photoUrl);
         } catch (err) {
           console.error(err);
           Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
@@ -1165,11 +1166,12 @@ export const UI = {
         return;
       }
 
-      Toast.info('Đang nén và xử lý hình ảnh...');
+      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
       for (const file of files) {
         try {
           const base64Img = await this.compressImage(file);
-          selectedPhotos.push(base64Img);
+          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
+          selectedPhotos.push(photoUrl);
         } catch (err) {
           console.error(err);
           Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
@@ -4611,11 +4613,12 @@ export const UI = {
 
     fileInput.addEventListener('change', async (e) => {
       const files = e.target.files;
-      Toast.info('Đang nén và xử lý hình ảnh...');
+      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
       for (const file of files) {
         try {
           const base64Img = await this.compressImage(file);
-          currentPhotos.push(base64Img);
+          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
+          currentPhotos.push(photoUrl);
         } catch (err) {
           console.error(err);
           Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
@@ -6159,11 +6162,12 @@ export const UI = {
         return;
       }
 
-      Toast.info('Đang nén và xử lý hình ảnh...');
+      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
       for (const file of files) {
         try {
           const base64Img = await this.compressImage(file);
-          selectedPhotos.push(base64Img);
+          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
+          selectedPhotos.push(photoUrl);
         } catch (err) {
           console.error(err);
           Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);

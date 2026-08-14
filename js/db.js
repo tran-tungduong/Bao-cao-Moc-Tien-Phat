@@ -43,8 +43,71 @@ export const DB = {
     if (cached) localStorage.setItem(`${DB_KEY}_backup_before_online`, cached);
   },
 
+  // Ensure the 'daily-photos' bucket exists in Supabase Storage.
+  // Called once on startup — safe to call multiple times (idempotent).
+  async ensureStorageBucket() {
+    if (!supabaseClient) return;
+    try {
+      const { error } = await supabaseClient.storage.getBucket('daily-photos');
+      if (error) {
+        // Bucket not found — attempt to create it as a public bucket
+        const { error: createErr } = await supabaseClient.storage.createBucket('daily-photos', {
+          public: true,
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+          fileSizeLimit: 5242880 // 5 MB per file
+        });
+        if (createErr) {
+          console.warn('Storage bucket setup: could not auto-create daily-photos bucket.', createErr.message);
+          console.warn('👉 Hãy tạo bucket "daily-photos" (Public) trong Supabase Dashboard > Storage.');
+        } else {
+          console.log('✅ Supabase Storage bucket "daily-photos" created successfully.');
+        }
+      } else {
+        console.log('✅ Supabase Storage bucket "daily-photos" is ready.');
+      }
+    } catch (e) {
+      console.warn('Could not verify Supabase Storage bucket:', e);
+    }
+  },
+
+  // Upload a compressed base64/dataURL image to Supabase Storage.
+  // Returns the public URL on success, or the original dataUrl as a fallback
+  // so the app keeps working even if Storage is unavailable.
+  async uploadPhotoToStorage(dataUrl) {
+    if (!supabaseClient || !dataUrl) return dataUrl;
+    // If already a remote URL (http/https), skip re-upload
+    if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) return dataUrl;
+    try {
+      // Convert base64 dataUrl → Blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+
+      const { error: uploadErr } = await supabaseClient.storage
+        .from('daily-photos')
+        .upload(filename, blob, { contentType: blob.type, upsert: false });
+
+      if (uploadErr) {
+        console.error('Storage upload error:', uploadErr);
+        return dataUrl; // fallback: keep base64, app still works
+      }
+
+      const { data: urlData } = supabaseClient.storage
+        .from('daily-photos')
+        .getPublicUrl(filename);
+
+      return urlData.publicUrl;
+    } catch (e) {
+      console.error('uploadPhotoToStorage failed, using base64 fallback:', e);
+      return dataUrl; // graceful fallback
+    }
+  },
+
   async initialize() {
     this.backupLocalCache();
+    // Ensure photo storage bucket is ready before first sync
+    await this.ensureStorageBucket();
     const synced = await this.syncWithServer();
     this.syncState = synced ? 'online' : 'offline';
     return synced;
@@ -62,7 +125,8 @@ export const DB = {
       this.realtimeRefreshTimer = setTimeout(refresh, 250);
     };
 
-    // Receives writes from every connected device as soon as Supabase publishes them.
+    // Realtime WebSocket — receives writes from every device instantly (<1s).
+    // This is the PRIMARY sync mechanism; polling below is a safety fallback only.
     this.realtimeChannel = supabaseClient.channel('moc-tien-phat-live-sync');
     ['users', 'projects', 'subtasks', 'daily_logs', 'attendance', 'project_history'].forEach(table => {
       this.realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
@@ -71,12 +135,26 @@ export const DB = {
       this.syncState = status === 'SUBSCRIBED' ? 'online' : (status === 'CHANNEL_ERROR' ? 'offline' : this.syncState);
     });
 
-    // Realtime must be enabled per table in Supabase. Polling is a safe fallback
-    // and also catches changes after a device wakes from sleep.
-    this.syncTimer = setInterval(refresh, 30000);
+    // Polling at 120s — a safety fallback for when Realtime is unavailable
+    // (e.g. after device sleep). Realtime handles all real-time updates;
+    // this only catches edge cases. 120s is safe and reduces egress ~4x vs 30s.
+    this.syncTimer = setInterval(refresh, 120000);
+
+    // Sync on window focus (user switches back to browser tab from another app)
     window.addEventListener('focus', refresh);
+
+    // Sync on visibility change (mobile: screen unlock, app switcher, etc.)
+    // Debounced to 30s to prevent egress spikes from rapid app-switching.
+    // Realtime already handles instant updates, so this is just a catchup guard.
+    let _lastVisibilitySync = 0;
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) refresh();
+      if (!document.hidden) {
+        const now = Date.now();
+        if (now - _lastVisibilitySync > 30000) {
+          _lastVisibilitySync = now;
+          refresh();
+        }
+      }
     });
   },
 
