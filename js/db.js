@@ -45,29 +45,12 @@ export const DB = {
 
   // Ensure the 'daily-photos' bucket exists in Supabase Storage.
   // Called once on startup — safe to call multiple times (idempotent).
+  // Storage bucket 'daily-photos' must be created manually in Supabase Dashboard > Storage.
+  // (Bucket management APIs require service_role key, not the anon/publishable key.)
+  // This is a no-op kept for reference; the bucket is created once by the admin.
   async ensureStorageBucket() {
-    if (!supabaseClient) return;
-    try {
-      const { error } = await supabaseClient.storage.getBucket('daily-photos');
-      if (error) {
-        // Bucket not found — attempt to create it as a public bucket
-        const { error: createErr } = await supabaseClient.storage.createBucket('daily-photos', {
-          public: true,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-          fileSizeLimit: 5242880 // 5 MB per file
-        });
-        if (createErr) {
-          console.warn('Storage bucket setup: could not auto-create daily-photos bucket.', createErr.message);
-          console.warn('👉 Hãy tạo bucket "daily-photos" (Public) trong Supabase Dashboard > Storage.');
-        } else {
-          console.log('✅ Supabase Storage bucket "daily-photos" created successfully.');
-        }
-      } else {
-        console.log('✅ Supabase Storage bucket "daily-photos" is ready.');
-      }
-    } catch (e) {
-      console.warn('Could not verify Supabase Storage bucket:', e);
-    }
+    // No-op: bucket is managed via Supabase Dashboard, not the client SDK.
+    // See: Storage > daily-photos (Public) — Policies must allow INSERT for anon role.
   },
 
   // Upload a compressed base64/dataURL image to Supabase Storage.
@@ -106,8 +89,6 @@ export const DB = {
 
   async initialize() {
     this.backupLocalCache();
-    // Ensure photo storage bucket is ready before first sync
-    await this.ensureStorageBucket();
     const synced = await this.syncWithServer();
     this.syncState = synced ? 'online' : 'offline';
     return synced;
