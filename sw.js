@@ -13,8 +13,8 @@ self.addEventListener('push', event => {
   const title = payload.title || 'Mộc Tiên Phát';
   const options = {
     body: payload.body || 'Bạn có một cập nhật mới.',
-    icon: './logo.jpg',
-    badge: './logo.jpg',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
     tag: payload.tag || 'mtp-update',
     renotify: true,
     data: { url: payload.url || './index.html' }
