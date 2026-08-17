@@ -114,7 +114,7 @@ export const DB = {
     ]);
   },
 
-  startLiveSync(onRemoteChange = null) {
+  startLiveSync(onRemoteChange = null, onConnectionReady = null) {
     if (!supabaseClient || this.syncTimer) return;
     const refresh = async () => {
       if (this.activeWriteRequests > 0) return;
@@ -134,6 +134,7 @@ export const DB = {
     });
     this.realtimeChannel.subscribe(status => {
       this.syncState = status === 'SUBSCRIBED' ? 'online' : (status === 'CHANNEL_ERROR' ? 'offline' : this.syncState);
+      if (status === 'SUBSCRIBED' && onConnectionReady) onConnectionReady();
     });
 
     // Polling at 120s — a safety fallback for when Realtime is unavailable

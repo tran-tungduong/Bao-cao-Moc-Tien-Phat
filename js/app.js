@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
       DB.startLiveSync(() => {
         const u = DB.getCurrentUser();
         if (u) UI.refreshActiveView(u);
+      }, () => {
+        // WebSocket is online; the heavier full refresh can continue silently.
+        removeConnectionBanner();
       });
 
       // Retry sequentially so slower iPhones never stack multiple full reads.
@@ -117,6 +120,11 @@ function showConnectionBanner() {
     ? '⚠️ Thiết bị đang mất mạng — Đang dùng dữ liệu đã lưu trên máy...'
     : '⏳ Đang tải dữ liệu mới nhất từ máy chủ...';
   document.body.prepend(banner);
+  // Never cover the application indefinitely when REST works but iOS blocks
+  // or delays the Realtime WebSocket handshake. Background retries continue.
+  if (navigator.onLine !== false) {
+    setTimeout(() => removeConnectionBanner(), 12000);
+  }
 }
 
 function updateConnectionBanner(message) {
