@@ -104,6 +104,10 @@ export const PushNotifications = {
           applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY)
         });
       } catch (error) {
+        console.error('Push subscription failed:', error);
+        if (/Brave/i.test(navigator.userAgent || '') || navigator.brave) {
+          throw new Error('Brave chưa bật dịch vụ Push Messaging. Hãy mở brave://settings/privacy → bật “Use Google services for push messaging”, đóng và mở lại Brave, rồi nhấn chuông lần nữa.');
+        }
         throw new Error('Không tạo được đăng ký thông báo mới. Hãy đặt quyền Thông báo của trang thành “Cho phép”, tải lại trang rồi nhấn chuông lần nữa.');
       }
     }
