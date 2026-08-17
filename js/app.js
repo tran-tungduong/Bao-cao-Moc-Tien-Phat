@@ -142,23 +142,11 @@ function removeConnectionBanner() {
 }
 
 function registerServiceWorker() {
-  // Clear any existing Service Workers and Cache Storage to prevent stale cached code
+  // This worker only handles push events and does not cache/intercept app files.
+  // Registering it is therefore safe on iOS while keeping deployments fresh.
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      for (let registration of registrations) {
-        registration.unregister().then(success => {
-          if (success) console.log('Service Worker unregistered successfully.');
-        });
-      }
-    });
-  }
-  if ('caches' in window) {
-    caches.keys().then(keys => {
-      keys.forEach(key => {
-        caches.delete(key).then(() => {
-          console.log(`Cache Storage '${key}' deleted successfully.`);
-        });
-      });
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(error => {
+      console.warn('Service Worker registration failed:', error);
     });
   }
 }

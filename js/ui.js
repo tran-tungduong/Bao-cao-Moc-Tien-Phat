@@ -1,5 +1,6 @@
 ﻿import { DB } from './db.js';
 import { Toast, Modal, MockImages } from './components.js';
+import { PushNotifications } from './notifications.js';
 
 window.showPhotoLightbox = (url) => {
   const lightbox = document.createElement('div');
@@ -145,6 +146,9 @@ export const UI = {
             <span class="user-role-tag" style="font-size: 0.8rem; font-weight:600; color:var(--primary); padding: 4px 8px; border-radius:8px; background-color:rgba(197,168,128,0.1)">
               ${user.role === 'manager' ? 'Sếp' : 'Nhân sự'}
             </span>
+            <button class="header-btn" id="push-notification-btn" title="Bật thông báo trên điện thoại" aria-label="Thông báo">
+              <i class="far fa-bell"></i>
+            </button>
             <button class="header-btn" id="sync-data-btn" title="Đồng bộ dữ liệu" style="transition: transform 0.3s ease;">
               <i class="fas fa-sync-alt"></i>
             </button>
@@ -161,6 +165,41 @@ export const UI = {
         </main>
       </div>
     `;
+
+    const pushBtn = document.getElementById('push-notification-btn');
+    if (pushBtn) {
+      const refreshPushButton = async () => {
+        let enabled = false;
+        try { enabled = !!(await PushNotifications.getSubscription()); } catch (_) { /* unsupported */ }
+        pushBtn.innerHTML = enabled
+          ? '<i class="fas fa-bell" style="color:var(--status-approved)"></i>'
+          : '<i class="far fa-bell"></i>';
+        pushBtn.title = enabled ? 'Thông báo đang bật — nhấn để tắt' : 'Bật thông báo trên điện thoại';
+      };
+
+      pushBtn.addEventListener('click', async () => {
+        pushBtn.disabled = true;
+        try {
+          const current = await PushNotifications.getSubscription();
+          if (current) {
+            if (confirm('Tắt thông báo trên thiết bị này?')) {
+              await PushNotifications.unsubscribe(user);
+              Toast.info('Đã tắt thông báo trên thiết bị này.');
+            }
+          } else {
+            await PushNotifications.subscribe(user);
+            Toast.success('Đã bật thông báo trên thiết bị này.');
+          }
+        } catch (error) {
+          Toast.error(error.message);
+        } finally {
+          pushBtn.disabled = false;
+          refreshPushButton();
+        }
+      });
+
+      PushNotifications.syncExistingSubscription(user).catch(() => {}).finally(refreshPushButton);
+    }
 
     // Bind Theme toggle click in shell
     const themeBtn = document.getElementById('theme-toggle-btn');
@@ -867,7 +906,14 @@ export const UI = {
         // If a lead was pre-selected (incl. 'independent'), use that; else use the approver form field
         const selectedLeadId = DB.getSelectedLeadWorkerForAssistant ? DB.getSelectedLeadWorkerForAssistant(user.id) : '';
         const approverId = selectedLeadId || (approverEl ? approverEl.value : '');
-        DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items, approverId);
+        const submittedLog = DB.submitDailyLog(prjId, status, note, selectedPhotos, user.id, expectedDate, items, approverId);
+        if (submittedLog) {
+          PushNotifications.emitEvent('report_created', {
+            log_id: submittedLog.id,
+            project_id: prjId,
+            actor_id: user.id
+          });
+        }
         if (user.role === 'assistant_worker' && selectedLeadId && selectedLeadId !== 'independent') {
           Toast.success('Đã gửi báo cáo — đang chờ thợ chính phê duyệt.');
         } else if (user.role === 'assistant_worker') {
@@ -1769,7 +1815,14 @@ export const UI = {
 
       const finalTitle = `[${roomVal} - SỬA LỖI]: ${desc}`;
 
-      await DB.triggerRework(projectId, finalTitle, workerId, user.id);
+      const reworkTask = await DB.triggerRework(projectId, finalTitle, workerId, user.id);
+      if (reworkTask && workerId) {
+        PushNotifications.emitEvent('task_assigned', {
+          task_id: reworkTask.id,
+          project_id: projectId,
+          actor_id: user.id
+        });
+      }
       Toast.success('Đã gửi yêu cầu sửa hàng thành công.');
       modal.close();
       if (onUpdate) onUpdate(); else this.renderWorkerView(user);
@@ -5050,6 +5103,11 @@ export const UI = {
               DB.save(loadedDb);
               DB.sbInsertSubtask(newTask, projectId);
               DB.sbInsertHistory(hist, projectId);
+              PushNotifications.emitEvent('task_assigned', {
+                task_id: newTask.id,
+                project_id: projectId,
+                actor_id: user.id
+              });
 
               Toast.success('Giao việc thành công!');
               renderScopeGroups();
@@ -5158,6 +5216,11 @@ export const UI = {
         DB.save(loadedDb);
         DB.sbUpdateSubtask(loadedTask.id, { assigned_to: workerId });
         DB.sbInsertHistory(hist, loadedProj.id);
+        PushNotifications.emitEvent('task_assigned', {
+          task_id: loadedTask.id,
+          project_id: loadedProj.id,
+          actor_id: DB.getCurrentUser().id
+        });
         Toast.success('Đã giao nhiệm vụ thành công!');
         modal.close();
         onAssigned();
@@ -5226,6 +5289,13 @@ export const UI = {
         DB.save(loadedDb);
         DB.sbUpdateSubtask(loadedTask.id, { title: title, assigned_to: workerId });
         DB.sbInsertHistory(hist, loadedProj.id);
+        if (workerId && workerId !== oldAssigned) {
+          PushNotifications.emitEvent('task_assigned', {
+            task_id: loadedTask.id,
+            project_id: loadedProj.id,
+            actor_id: user.id
+          });
+        }
         Toast.success('Cập nhật nhiệm vụ thành công!');
         modal.close();
         onComplete();
@@ -5393,6 +5463,10 @@ export const UI = {
       try {
         await DB.sbInsertProject(newPrj);
         await DB.sbInsertHistory(newPrj.history[0], newPrj.id);
+        PushNotifications.emitEvent('project_created', {
+          project_id: newPrj.id,
+          actor_id: user.id
+        });
       } catch (err) {
         console.error('Supabase write error details:', err);
       }
@@ -6247,6 +6321,11 @@ export const UI = {
           DB.save(db);
           DB.sbInsertDailyLog(newLog, proj.id);
           DB.sbInsertHistory(hist, proj.id);
+          PushNotifications.emitEvent('report_created', {
+            log_id: newLog.id,
+            project_id: proj.id,
+            actor_id: user.id
+          });
           Toast.success('Thêm báo cáo thành công!');
           modal.close();
           onComplete();
