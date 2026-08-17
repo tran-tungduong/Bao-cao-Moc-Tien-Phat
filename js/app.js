@@ -30,28 +30,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!synced && hasCachedData) {
       // Has local cache — load the app immediately in offline mode
-      showOfflineBanner();
+      showConnectionBanner();
       checkSessionAndRoute();
 
-      // Background retry every 15 seconds until Supabase is reachable
+      // Connect Realtime immediately. Outbound writes and new events can still
+      // work while the heavier initial six-table refresh is being retried.
+      DB.startLiveSync(() => {
+        const u = DB.getCurrentUser();
+        if (u) UI.refreshActiveView(u);
+      });
+
+      // Retry sequentially so slower iPhones never stack multiple full reads.
       let retryCount = 0;
-      const retryInterval = setInterval(() => {
+      const retrySync = () => {
         retryCount++;
         DB.syncWithServer().then(resynced => {
           if (resynced) {
-            clearInterval(retryInterval);
-            removeOfflineBanner();
+            removeConnectionBanner();
             const user = DB.getCurrentUser();
             if (user) UI.refreshActiveView(user);
-            DB.startLiveSync(() => {
-              const u = DB.getCurrentUser();
-              if (u) UI.refreshActiveView(u);
-            });
           } else if (retryCount >= 20) {
-            clearInterval(retryInterval); // give up after ~5 min
+            updateConnectionBanner('⚠️ Chưa tải được dữ liệu mới nhất — Nhấn nút đồng bộ để thử lại.');
+          } else {
+            setTimeout(retrySync, 15000);
           }
+        }).catch(() => {
+          if (retryCount < 20) setTimeout(retrySync, 15000);
         });
-      }, 15000);
+      };
+      setTimeout(retrySync, 3000);
       return;
     }
 
@@ -101,16 +108,23 @@ function checkSessionAndRoute() {
 }
 
 // Offline mode banner — shown at top of screen when Supabase is unreachable
-function showOfflineBanner() {
+function showConnectionBanner() {
   if (document.getElementById('offline-mode-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'offline-mode-banner';
   banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#D97706;color:#fff;text-align:center;padding:7px 16px;font-size:0.78rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
-  banner.innerHTML = '⚠️ Đang dùng dữ liệu offline — Đang tự động thử kết nối lại...';
+  banner.innerHTML = navigator.onLine === false
+    ? '⚠️ Thiết bị đang mất mạng — Đang dùng dữ liệu đã lưu trên máy...'
+    : '⏳ Đang tải dữ liệu mới nhất từ máy chủ...';
   document.body.prepend(banner);
 }
 
-function removeOfflineBanner() {
+function updateConnectionBanner(message) {
+  const banner = document.getElementById('offline-mode-banner');
+  if (banner) banner.innerHTML = message;
+}
+
+function removeConnectionBanner() {
   const banner = document.getElementById('offline-mode-banner');
   if (banner) {
     banner.style.transition = 'opacity 0.4s ease';

@@ -35,6 +35,7 @@ const DEFAULT_ATTENDANCE = [];
 export const DB = {
   syncState: 'connecting',
   syncTimer: null,
+  syncPromise: null,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
 
@@ -268,6 +269,18 @@ export const DB = {
 
   // Triggered in app.js on startup and periodically (polling)
   async syncWithServer(onSyncComplete = null) {
+    // Reuse the same in-flight read. iOS may fire focus, visibility and retry
+    // events close together; overlapping six-table reads can falsely time out.
+    if (this.syncPromise) return this.syncPromise;
+    this.syncPromise = this.performServerSync(onSyncComplete);
+    try {
+      return await this.syncPromise;
+    } finally {
+      this.syncPromise = null;
+    }
+  },
+
+  async performServerSync(onSyncComplete = null) {
     if (this.activeWriteRequests && this.activeWriteRequests > 0) {
       console.log('Sync skipped: active write requests in progress.');
       return false;
@@ -295,8 +308,8 @@ export const DB = {
             supabaseClient.from('attendance').select('*'),
             supabaseClient.from('project_history').select('*')
           ]),
-          12000,
-          'Không thể tải dữ liệu Supabase trong 12 giây.'
+          30000,
+          'Không thể tải dữ liệu Supabase trong 30 giây.'
         );
 
         if (errUsers || errProjects || errSubtasks || errDailyLogs || errAttendance || errHistory) {
