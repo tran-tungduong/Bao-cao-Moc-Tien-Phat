@@ -731,31 +731,10 @@ export const DB = {
       });
     }
 
-    // Auto-update: Migrate project.step from 9-step system to 4-phase system
-    let stepsMigrated = false;
-    if (db.projects) {
-      db.projects.forEach(p => {
-        if (!p._migratedToPhases) {
-          const oldStep = p.step || 1;
-          let newStep = 1;
-          if (oldStep <= 2) {
-            newStep = 1; // Thiết Kế
-          } else if (oldStep <= 5) {
-            newStep = 2; // Gia Công Tại Xưởng
-          } else if (oldStep <= 8) {
-            newStep = 3; // Lắp Ráp Tại Công Trình
-          } else {
-            newStep = 4; // Đã Bàn Giao
-          }
-          p.step = newStep;
-          p.isFrozen = false; // Unfreeze all projects during migration
-          p._migratedToPhases = true;
-          stepsMigrated = true;
-        }
-      });
-    }
-
-    if (dbChanged || assigneesChanged || stepsMigrated) {
+    // Supabase already stores the current 4-phase value. Do not rerun the
+    // retired 9-step migration here because remote records do not contain its
+    // old local-only marker and valid phases 3/4 would be mapped backwards.
+    if (dbChanged || assigneesChanged) {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
     }
     
@@ -932,6 +911,45 @@ export const DB = {
       return project;
     }
     return null;
+  },
+
+  // Restore a completed project without changing its current workflow phase.
+  async restoreCompletedProject(projectId, userId) {
+    const db = this.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const user = db.users.find(u => u.id === userId);
+    if (!project || !project.isCompleted) return null;
+
+    const preservedStep = project.step;
+    const previousCompletedAt = project.completedAt;
+    project.isCompleted = false;
+    delete project.completedAt;
+    const hist = {
+      timestamp: new Date().toISOString(),
+      action: `Đưa công trình ra khỏi kho lưu trữ, tiếp tục tại Giai đoạn ${preservedStep}`,
+      user: user ? user.name : 'Sếp'
+    };
+    project.history.push(hist);
+    this.save(db);
+
+    try {
+      await this.sbUpdateProject(projectId, {
+        is_completed: false,
+        step: preservedStep
+      });
+      await this.sbInsertHistory(hist, projectId);
+    } catch (err) {
+      const dbRollback = this.load();
+      const projectRollback = dbRollback.projects.find(p => p.id === projectId);
+      if (projectRollback) {
+        projectRollback.isCompleted = true;
+        if (previousCompletedAt) projectRollback.completedAt = previousCompletedAt;
+        projectRollback.history = projectRollback.history.filter(h => h.timestamp !== hist.timestamp);
+        this.save(dbRollback);
+      }
+      throw err;
+    }
+    return project;
   },
 
   // Rework (Sửa hàng lỗi)

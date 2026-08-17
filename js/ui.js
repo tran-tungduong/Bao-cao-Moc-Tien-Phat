@@ -3390,6 +3390,11 @@ export const UI = {
                 <button class="btn-download-json" data-project="${p.id}" style="background-color:rgba(59, 130, 246, 0.12); border:1px solid rgba(59, 130, 246, 0.3); color:#3B82F6; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Tải file cứng sao lưu JSON">
                   <i class="fas fa-file-download"></i> File Backup (JSON)
                 </button>
+                ${(user.role === 'sales' || user.role === 'manager') ? `
+                  <button class="btn-restore-completed-project" data-id="${p.id}" style="background-color:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.35); color:#F59E0B; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; height:auto; line-height:1.2;" title="Đưa công trình trở lại bảng tiến độ">
+                    <i class="fas fa-undo-alt"></i> Đưa lại tiến độ
+                  </button>
+                ` : ''}
                 ${user.role === 'sales' ? `
                   <button class="btn-completed-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
                   <button class="btn-completed-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình giải phóng bộ nhớ"><i class="fas fa-trash-alt"></i></button>
@@ -3429,6 +3434,28 @@ export const UI = {
         e.stopPropagation(); // Prevent drawer trigger
         const prjId = btn.getAttribute('data-project');
         this.exportProjectToJson(prjId);
+      });
+    });
+
+    // Restore from archive while preserving the exact workflow phase.
+    container.querySelectorAll('.btn-restore-completed-project').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const projectId = btn.getAttribute('data-id');
+        const project = DB.getProject(projectId);
+        if (!project) return;
+
+        if (confirm(`Đưa công trình "${project.name}" trở lại bảng tiến độ tại Giai đoạn ${project.step}?`)) {
+          btn.disabled = true;
+          try {
+            await DB.restoreCompletedProject(projectId, user.id);
+            Toast.success(`Đã đưa công trình trở lại Giai đoạn ${project.step}.`);
+            this.renderManagerCompleted(user);
+          } catch (error) {
+            btn.disabled = false;
+            Toast.error('Không thể khôi phục công trình: ' + error.message);
+          }
+        }
       });
     });
 
