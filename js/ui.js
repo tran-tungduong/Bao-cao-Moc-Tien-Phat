@@ -329,7 +329,8 @@ export const UI = {
           <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
           ${filteredTasks.map(st => {
           const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
-          const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+          const assignedWorker = db.users.find(u => u.id === st.assignedTo);
+          const workerName = assignedWorker ? assignedWorker.name : 'Chưa giao';
           const shortWorker = workerName.replace(/\s*\([^)]*\)/g, '').split(' ').pop();
 
           let prevWorkText = '';
@@ -600,7 +601,8 @@ export const UI = {
       leadSelector.addEventListener('change', (e) => {
         const val = e.target.value;
         DB.setSelectedLeadWorkerForAssistant(user.id, val);
-        const lwName = leadWorkers.find(x => x.id === val)?.name || 'Thợ chính';
+        const selectedLead = leadWorkers.find(x => x.id === val);
+        const lwName = selectedLead ? selectedLead.name : 'Thợ chính';
         Toast.success('Đã kết nối với thợ chính: ' + lwName);
         this.renderWorkerView(user);
       });
@@ -2122,7 +2124,7 @@ export const UI = {
         const m = st.title ? st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/) : null;
         return m ? m[1].trim() : '';
       }).filter(Boolean);
-      const dailyLogRooms = (p.dailyLogs || []).flatMap(l => (l.items || []).map(it => it.room ? it.room.trim() : '')).filter(Boolean);
+      const dailyLogRooms = (p.dailyLogs || []).reduce((rooms, l) => rooms.concat((l.items || []).map(it => it.room ? it.room.trim() : '')), []).filter(Boolean);
 
       const uniqueRooms = [...new Set([...scopeRooms, ...subtaskRooms, ...dailyLogRooms])];
       const virtualScope = [];
@@ -2207,7 +2209,8 @@ export const UI = {
           </div>
           <div style="display:flex; flex-direction:column; gap:6px;">
             ${pendingReworks.map(st => {
-        const workerName = db.users.find(u => u.id === st.assignedTo)?.name || 'Chưa giao';
+        const assignedWorker = db.users.find(u => u.id === st.assignedTo);
+        const workerName = assignedWorker ? assignedWorker.name : 'Chưa giao';
         const cleanWorker = workerName.replace(/\\s*\\(.*?\\)/g, '').trim().split(' ').pop();
         const taskDesc = st.title.replace(/^\\[[^\\]+\\]:/, '').trim();
         return `
@@ -2242,8 +2245,9 @@ export const UI = {
         const wholeRoomItem = items.find(item => item.item === 'Cả phòng');
         const regularItems = items.filter(item => item.item !== 'Cả phòng');
 
-        const totalRoomSubtasks = items.flatMap(i => i.subtasks).length;
-        const completedRoomSubtasks = items.flatMap(i => i.subtasks).filter(st => st.status === 'completed').length;
+        const roomSubtasks = items.reduce((tasks, i) => tasks.concat(i.subtasks || []), []);
+        const totalRoomSubtasks = roomSubtasks.length;
+        const completedRoomSubtasks = roomSubtasks.filter(st => st.status === 'completed').length;
         const isRoomComplete = totalRoomSubtasks > 0 && completedRoomSubtasks === totalRoomSubtasks;
 
         let wholeRoomBannerHtml = '';
@@ -3977,7 +3981,7 @@ export const UI = {
         itemSelect.innerHTML = selectHtml;
       };
 
-      roomSelect?.addEventListener('change', (e) => {
+      if (roomSelect) roomSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val === 'Khác...') {
           roomCustom.style.display = 'block';
@@ -3998,7 +4002,7 @@ export const UI = {
         }
       });
 
-      itemSelect?.addEventListener('change', (e) => {
+      if (itemSelect) itemSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val === 'Khác...') {
           itemCustom.style.display = 'block';
@@ -4067,9 +4071,11 @@ export const UI = {
         });
       }
 
-      section.querySelector('#scope-form-cancel')?.addEventListener('click', hideForm);
+      const cancelScopeButton = section.querySelector('#scope-form-cancel');
+      if (cancelScopeButton) cancelScopeButton.addEventListener('click', hideForm);
 
-      section.querySelector('#scope-form-save')?.addEventListener('click', () => {
+      const saveScopeButton = section.querySelector('#scope-form-save');
+      if (saveScopeButton) saveScopeButton.addEventListener('click', () => {
         const selRoom = roomSelect.value;
         const room = (selRoom === 'Khác...' ? roomCustom.value.trim() : selRoom);
 
@@ -4879,8 +4885,10 @@ export const UI = {
                               ${sc.tasks.length > 0 ? `
                                 <div style="display:flex; flex-direction:column; gap:4px; background:var(--bg-input); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
                                   ${sc.tasks.map(st => {
-                const notes = st.title.split(']:')[1]?.trim() || st.title;
-                const workerName = currentDb.users.find(u => u.id === st.assignedTo)?.name || 'Chưa rõ';
+                const splitNotes = st.title.split(']:')[1];
+                const notes = splitNotes ? splitNotes.trim() : st.title;
+                const assignedWorker = currentDb.users.find(u => u.id === st.assignedTo);
+                const workerName = assignedWorker ? assignedWorker.name : 'Chưa rõ';
                 const isDone = st.status === 'completed';
                 return `
                                       <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; padding:2px 0;">
@@ -5007,7 +5015,7 @@ export const UI = {
 
               const hist = {
                 timestamp: new Date().toISOString(),
-                action: `${roleTitle} giao việc: "${title}" (Giao cho: ${loadedDb.users.find(u => u.id === workerId)?.name || 'Thợ'})`,
+                action: `${roleTitle} giao việc: "${title}" (Giao cho: ${(loadedDb.users.find(u => u.id === workerId) || { name: 'Thợ' }).name})`,
                 user: user.name
               };
               loadedProj.history.push(hist);
@@ -5176,8 +5184,10 @@ export const UI = {
         loadedTask.title = title;
         loadedTask.assignedTo = workerId;
 
-        const oldWorkerName = oldAssigned ? (loadedDb.users.find(u => u.id === oldAssigned)?.name || 'Chưa rõ') : 'Chưa giao';
-        const newWorkerName = workerId ? (loadedDb.users.find(u => u.id === workerId)?.name || 'Chưa rõ') : 'Chưa giao';
+        const oldWorker = oldAssigned ? loadedDb.users.find(u => u.id === oldAssigned) : null;
+        const newWorker = workerId ? loadedDb.users.find(u => u.id === workerId) : null;
+        const oldWorkerName = oldAssigned ? (oldWorker ? oldWorker.name : 'Chưa rõ') : 'Chưa giao';
+        const newWorkerName = workerId ? (newWorker ? newWorker.name : 'Chưa rõ') : 'Chưa giao';
 
         const hist = {
           timestamp: new Date().toISOString(),

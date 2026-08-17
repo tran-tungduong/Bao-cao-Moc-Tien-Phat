@@ -61,6 +61,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const user = DB.getCurrentUser();
       if (user) UI.refreshActiveView(user);
     });
+  }).catch(error => {
+    // Last-resort guard for older WebKit/private browsing storage failures.
+    console.error('Application initialization failed:', error);
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = `
+        <div class="initial-loader" style="gap:14px; text-align:center; padding:24px;">
+          <div style="font-size:2rem;">⚠️</div>
+          <div class="loader-text">Không thể khởi động ứng dụng</div>
+          <p style="color:var(--text-muted); font-size:0.85rem; max-width:320px;">Trình duyệt đã chặn bộ nhớ hoặc kết nối dữ liệu. Hãy tắt chế độ duyệt riêng tư, kiểm tra mạng rồi thử lại.</p>
+          <button type="button" class="btn-primary" onclick="window.location.reload()">Thử lại</button>
+        </div>`;
+    }
   });
 });
 

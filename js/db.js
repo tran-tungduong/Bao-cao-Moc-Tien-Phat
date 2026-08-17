@@ -39,8 +39,18 @@ export const DB = {
   realtimeRefreshTimer: null,
 
   backupLocalCache() {
-    const cached = localStorage.getItem(DB_KEY);
-    if (cached) localStorage.setItem(`${DB_KEY}_backup_before_online`, cached);
+    try {
+      const backupKey = `${DB_KEY}_backup_before_online`;
+      const cached = localStorage.getItem(DB_KEY);
+      // Keep only the first pre-online backup. Re-copying a photo-heavy cache on
+      // every launch can exceed iOS Safari's small localStorage quota.
+      if (cached && !localStorage.getItem(backupKey)) {
+        localStorage.setItem(backupKey, cached);
+      }
+    } catch (error) {
+      // A full/private localStorage must never prevent the online app from starting.
+      console.warn('Local cache backup skipped:', error);
+    }
   },
 
   // Ensure the 'daily-photos' bucket exists in Supabase Storage.
@@ -92,6 +102,15 @@ export const DB = {
     const synced = await this.syncWithServer();
     this.syncState = synced ? 'online' : 'offline';
     return synced;
+  },
+
+  withTimeout(promise, timeoutMs, message) {
+    return Promise.race([
+      promise,
+      new Promise((resolve, reject) => {
+        setTimeout(() => reject(new Error(message || 'Yêu cầu máy chủ quá thời gian.')), timeoutMs);
+      })
+    ]);
   },
 
   startLiveSync(onRemoteChange = null) {
@@ -267,14 +286,18 @@ export const DB = {
           { data: dailyLogs, error: errDailyLogs },
           { data: attendance, error: errAttendance },
           { data: history, error: errHistory }
-        ] = await Promise.all([
-          supabaseClient.from('users').select('*'),
-          supabaseClient.from('projects').select('*'),
-          supabaseClient.from('subtasks').select('*'),
-          supabaseClient.from('daily_logs').select('*'),
-          supabaseClient.from('attendance').select('*'),
-          supabaseClient.from('project_history').select('*')
-        ]);
+        ] = await this.withTimeout(
+          Promise.all([
+            supabaseClient.from('users').select('*'),
+            supabaseClient.from('projects').select('*'),
+            supabaseClient.from('subtasks').select('*'),
+            supabaseClient.from('daily_logs').select('*'),
+            supabaseClient.from('attendance').select('*'),
+            supabaseClient.from('project_history').select('*')
+          ]),
+          12000,
+          'Không thể tải dữ liệu Supabase trong 12 giây.'
+        );
 
         if (errUsers || errProjects || errSubtasks || errDailyLogs || errAttendance || errHistory) {
           console.warn('Error fetching relational tables from Supabase. Relational tables might not exist yet.');
@@ -1546,7 +1569,10 @@ export const DB = {
       }
 
       const user = db.users.find(u => u.id === userId);
-      const assigneesText = assignees ? ` | Giao phụ trách: [${assignees.map(id => db.users.find(u => u.id === id)?.name || id).join(', ')}]` : '';
+      const assigneesText = assignees ? ` | Giao phụ trách: [${assignees.map(id => {
+        const assignedUser = db.users.find(u => u.id === id);
+        return assignedUser ? assignedUser.name : id;
+      }).join(', ')}]` : '';
 
       const hist = {
         timestamp: new Date().toISOString(),
