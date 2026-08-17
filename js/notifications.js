@@ -66,6 +66,11 @@ export const PushNotifications = {
     return registration ? registration.pushManager.getSubscription() : null;
   },
 
+  async isEnabled() {
+    if (!this.isSupported() || Notification.permission !== 'granted') return false;
+    return !!(await this.getSubscription());
+  },
+
   async subscribe(user) {
     if (!this.isSupported()) {
       throw new Error('Thiết bị hoặc trình duyệt này chưa hỗ trợ thông báo đẩy.');
@@ -74,18 +79,33 @@ export const PushNotifications = {
       throw new Error('Trên iPhone, hãy chọn Chia sẻ → Thêm vào Màn hình chính, sau đó mở ứng dụng từ biểu tượng mới.');
     }
 
+    const permissionBeforeRequest = Notification.permission;
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      throw new Error('Bạn chưa cho phép ứng dụng gửi thông báo.');
+      if (permission === 'denied') {
+        throw new Error('Trình duyệt đang chặn thông báo. Hãy bấm biểu tượng ổ khóa bên trái địa chỉ web → Thông báo → Cho phép, rồi tải lại trang.');
+      }
+      throw new Error('Quyền thông báo chỉ được cấp tạm thời hoặc chưa được xác nhận. Hãy chọn “Luôn cho phép” khi trình duyệt hỏi lại.');
     }
 
     const registration = await this.registerServiceWorker();
     let subscription = await registration.pushManager.getSubscription();
+    // Chrome/Edge can retain an expired PushSubscription after the user chose
+    // "allow until browser closes". Recreate it when permission is granted
+    // again so the push service returns a fresh, usable endpoint.
+    if (subscription && permissionBeforeRequest !== 'granted') {
+      try { await subscription.unsubscribe(); } catch (_) { /* stale already */ }
+      subscription = null;
+    }
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY)
-      });
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      } catch (error) {
+        throw new Error('Không tạo được đăng ký thông báo mới. Hãy đặt quyền Thông báo của trang thành “Cho phép”, tải lại trang rồi nhấn chuông lần nữa.');
+      }
     }
 
     await callPushFunction({
@@ -95,20 +115,30 @@ export const PushNotifications = {
       platform: detectPlatform()
     });
     localStorage.setItem('mtp_push_enabled_user', user.id);
+    localStorage.setItem('mtp_push_permission_granted', '1');
     return subscription;
   },
 
   async unsubscribe(user) {
     const subscription = await this.getSubscription();
     if (subscription) {
-      await callPushFunction({ action: 'unsubscribe', user_id: user.id, endpoint: subscription.endpoint });
-      await subscription.unsubscribe();
+      try {
+        await callPushFunction({ action: 'unsubscribe', user_id: user.id, endpoint: subscription.endpoint });
+      } finally {
+        // A temporary server/network failure must not prevent the user from
+        // resetting a broken local subscription.
+        await subscription.unsubscribe();
+      }
     }
     localStorage.removeItem('mtp_push_enabled_user');
+    localStorage.removeItem('mtp_push_permission_granted');
   },
 
   async syncExistingSubscription(user) {
-    if (!this.isSupported() || Notification.permission !== 'granted') return false;
+    if (!this.isSupported() || Notification.permission !== 'granted') {
+      localStorage.removeItem('mtp_push_permission_granted');
+      return false;
+    }
     const subscription = await this.getSubscription();
     if (!subscription) return false;
     await callPushFunction({
@@ -118,6 +148,7 @@ export const PushNotifications = {
       platform: detectPlatform()
     });
     localStorage.setItem('mtp_push_enabled_user', user.id);
+    localStorage.setItem('mtp_push_permission_granted', '1');
     return true;
   },
 
@@ -132,4 +163,3 @@ export const PushNotifications = {
     }
   }
 };
-

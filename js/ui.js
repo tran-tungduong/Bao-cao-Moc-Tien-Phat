@@ -170,7 +170,7 @@ export const UI = {
     if (pushBtn) {
       const refreshPushButton = async () => {
         let enabled = false;
-        try { enabled = !!(await PushNotifications.getSubscription()); } catch (_) { /* unsupported */ }
+        try { enabled = await PushNotifications.isEnabled(); } catch (_) { /* unsupported */ }
         pushBtn.innerHTML = enabled
           ? '<i class="fas fa-bell" style="color:var(--status-approved)"></i>'
           : '<i class="far fa-bell"></i>';
@@ -180,8 +180,8 @@ export const UI = {
       pushBtn.addEventListener('click', async () => {
         pushBtn.disabled = true;
         try {
-          const current = await PushNotifications.getSubscription();
-          if (current) {
+          const enabled = await PushNotifications.isEnabled();
+          if (enabled) {
             if (confirm('Tắt thông báo trên thiết bị này?')) {
               await PushNotifications.unsubscribe(user);
               Toast.info('Đã tắt thông báo trên thiết bị này.');
