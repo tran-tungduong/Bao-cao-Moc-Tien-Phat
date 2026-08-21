@@ -2550,14 +2550,23 @@ export const UI = {
     const openStatDetails = (key) => {
       const detail = statDetails[key];
       if (!detail) return;
-      const rowsHtml = detail.rows.map(row => `
-        <button type="button" class="general-stat-detail-row" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:34px minmax(0,1fr) 18px; align-items:center; gap:10px; padding:11px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-secondary); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
-          <span style="width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color);"><i class="fas ${row.icon}"></i></span>
-          <span style="min-width:0;"><strong style="display:block; font-size:.78rem; line-height:1.35; overflow-wrap:anywhere;">${escapeHtml(row.title)}</strong><small style="display:block; color:var(--text-muted); font-size:.66rem; line-height:1.45; margin-top:3px;">${escapeHtml(row.meta)}</small></span>
-          ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.65rem;"></i>' : '<span></span>'}
-        </button>`).join('');
+      const rowsHtml = detail.rows.map(row => {
+        const metaChips = String(row.meta || '').split(' • ').filter(Boolean).map(part =>
+          `<span style="display:inline-flex; align-items:center; min-height:26px; padding:4px 8px; border-radius:8px; background:var(--bg-primary); border:1px solid var(--border-color); color:var(--text-secondary); font-size:.73rem; font-weight:600; line-height:1.35; overflow-wrap:anywhere;">${escapeHtml(part)}</span>`
+        ).join('');
+        return `
+          <button type="button" class="general-stat-detail-row" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:44px minmax(0,1fr) 20px; align-items:center; gap:12px; padding:14px 15px; border:1px solid var(--border-color); border-left:4px solid ${row.color}; border-radius:14px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
+            <span style="width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color); font-size:.9rem;"><i class="fas ${row.icon}"></i></span>
+            <span style="min-width:0;">
+              <strong style="display:block; font-size:.9rem; font-weight:800; line-height:1.4; overflow-wrap:anywhere;">${escapeHtml(row.title)}</strong>
+              <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${metaChips}</span>
+            </span>
+            ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.8rem;"></i>' : '<span></span>'}
+          </button>`;
+      }).join('');
       const modal = Modal.create(detail.title, `
-        <div style="display:flex; flex-direction:column; gap:8px; max-height:min(65vh,560px); overflow-y:auto; padding-right:3px;">
+        ${detail.rows.length ? `<div style="font-size:.75rem; color:var(--text-muted); margin-bottom:10px;"><strong style="color:var(--text-primary); font-size:.82rem;">${detail.rows.length} nội dung</strong> — Bấm vào từng dòng để xem công trình liên quan</div>` : ''}
+        <div style="display:flex; flex-direction:column; gap:11px; max-height:min(68vh,600px); overflow-y:auto; padding:2px 5px 2px 1px;">
           ${rowsHtml || `<div style="text-align:center; color:var(--text-muted); padding:30px 16px; border:1px dashed var(--border-color); border-radius:12px;"><i class="fas fa-check-circle" style="display:block; color:var(--status-approved); font-size:1.4rem; margin-bottom:8px;"></i>${escapeHtml(detail.empty)}</div>`}
         </div>`);
       modal.element.querySelectorAll('.general-stat-detail-row[data-projectid]').forEach(row => {

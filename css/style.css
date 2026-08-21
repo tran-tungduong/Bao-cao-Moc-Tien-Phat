@@ -1412,8 +1412,16 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   outline: none;
 }
 
-.general-stat-detail-row:hover {
+.general-stat-detail-row {
+  transition: transform .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.general-stat-detail-row:hover,
+.general-stat-detail-row:focus-visible {
+  transform: translateY(-1px);
   border-color: var(--primary) !important;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, var(--primary)) !important;
+  outline: none;
 }
 
 @media (max-width: 760px) {

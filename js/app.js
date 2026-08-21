@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-project-card-details';
-import { UI } from './ui.js?v=20260821-project-card-details';
+import { DB } from './db.js?v=20260821-readable-stat-details';
+import { UI } from './ui.js?v=20260821-readable-stat-details';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
