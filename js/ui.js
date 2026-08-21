@@ -2451,11 +2451,6 @@ export const UI = {
     }).join('');
 
     const workerCardsHtml = workerStates.map(item => {
-      const currentWork = item.status === 'absent'
-        ? `Lý do vắng: ${item.record.note || 'Chưa cập nhật lý do'}`
-        : item.record && item.record.dailyWorkload
-        ? item.record.dailyWorkload
-        : item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ';
       const projectName = item.status === 'absent'
         ? 'Vắng mặt hôm nay'
         : item.record && item.record.workingProjectName
@@ -2478,7 +2473,7 @@ export const UI = {
               <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
             </div>
             <div style="font-size:.68rem; color:var(--primary); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(projectName)}</div>
-            <div style="font-size:.69rem; color:${item.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-secondary)'}; margin-top:3px; line-height:1.4; font-weight:${item.status === 'absent' ? '700' : '400'};">${escapeHtml(currentWork)}</div>
+            ${item.status === 'absent' ? `<div style="font-size:.69rem; color:var(--status-rejected); margin-top:4px; line-height:1.4; font-weight:700;">${escapeHtml(`Lý do vắng: ${item.record.note || 'Chưa cập nhật lý do'}`)}</div>` : ''}
             <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
             ${managerActions}
           </div>
@@ -2547,7 +2542,7 @@ export const UI = {
           title: shortName(item.worker.name),
           meta: item.status === 'absent'
             ? `${item.label} • Lý do: ${item.record?.note || 'Chưa cập nhật lý do'}`
-            : `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'} • ${item.record?.dailyWorkload || (item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ')}`
+            : `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'}${item.record?.status === 'present' ? ` • ${['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày'}` : ''}`
         }))
       },
       approvals: {
