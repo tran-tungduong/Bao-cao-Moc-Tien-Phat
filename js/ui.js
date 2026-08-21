@@ -1,4 +1,4 @@
-﻿import { DB } from './db.js?v=20260821-assistant-filter';
+﻿import { DB } from './db.js?v=20260821-task-default';
 import { Toast, Modal, MockImages } from './components.js';
 import { PushNotifications } from './notifications.js';
 
@@ -264,13 +264,29 @@ export const UI = {
     const hasScope = project && project.scope && project.scope.length > 0;
     const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ 1', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
 
-    const roomVal = initialData ? initialData.room : (rooms[0] || '');
+    const visibleTasksForRow = project && Array.isArray(project.subtasks)
+      ? (currentUser && currentUser.role === 'assistant_worker'
+        ? DB.getVisibleSubtasksForUser(project, currentUser)
+        : project.subtasks)
+      : [];
+    const assignedTasksForRow = visibleTasksForRow.filter(st => {
+      const matchesUser = !currentUser || currentUser.role === 'assistant_worker' || !st.assignedTo || st.assignedTo === currentUser.id;
+      return matchesUser && st.status !== 'completed';
+    });
+    const defaultTask = initialData && initialData.taskId
+      ? assignedTasksForRow.find(st => st.id === initialData.taskId)
+      : assignedTasksForRow[0];
+    const defaultTaskRoom = defaultTask
+      ? rooms.find(room => (defaultTask.title || '').toLowerCase().includes(room.toLowerCase()))
+      : '';
+
+    const roomVal = initialData ? initialData.room : (defaultTaskRoom || rooms[0] || '');
     const todayWork = initialData ? (initialData.todayWork || '') : '';
     const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true' || initialData.progress === 100) : false;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
     const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
     const expectedDateValue = expectedDate && expectedDate.includes('T') ? expectedDate.slice(0, 16) : '';
-    const selectedTaskId = initialData ? (initialData.taskId || '') : '';
+    const selectedTaskId = initialData ? (initialData.taskId || '') : (defaultTask ? defaultTask.id : '');
 
     row.innerHTML = `
       <button type="button" class="btn-remove-chk-item" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--status-rejected); font-size: 1.1rem; cursor: pointer; padding: 4px;" title="Xóa phần báo cáo này">
@@ -352,11 +368,7 @@ export const UI = {
         return;
       }
 
-      const visibleTasks = currentUser && currentUser.role === 'assistant_worker'
-        ? DB.getVisibleSubtasksForUser(project, currentUser)
-        : project.subtasks;
-
-      const filteredTasks = visibleTasks.filter(st => {
+      const filteredTasks = visibleTasksForRow.filter(st => {
         const stTitle = (st.title || '').toLowerCase();
         const matchesRoom = stTitle.includes(rVal.toLowerCase());
         const matchesUser = !currentUser || currentUser.role === 'assistant_worker' || !st.assignedTo || st.assignedTo === currentUser.id;
@@ -365,9 +377,11 @@ export const UI = {
 
       if (filteredTasks.length === 0) {
         selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>`;
+        row.removeAttribute('data-task-id');
       } else {
+        const currentTaskId = selectTask.value || selectedTaskId;
+        const activeTask = filteredTasks.find(st => st.id === currentTaskId) || filteredTasks[0];
         selectTask.innerHTML = `
-          <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
           ${filteredTasks.map(st => {
           const taskDesc = st.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
           const assignedWorker = db.users.find(u => u.id === st.assignedTo);
@@ -389,9 +403,16 @@ export const UI = {
             }
           }
 
-          return `<option value="${st.id}" ${selectedTaskId === st.id ? 'selected' : ''}>${taskDesc} (${shortWorker})${prevWorkText}</option>`;
+          return `<option value="${st.id}" ${activeTask.id === st.id ? 'selected' : ''}>${taskDesc} (${shortWorker})${prevWorkText}</option>`;
         }).join('')}
+          <option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>
         `;
+        selectTask.value = activeTask.id;
+        row.setAttribute('data-task-id', activeTask.id);
+
+        if (!initialData || !todayWork.trim()) {
+          txtTodayWork.value = activeTask.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
+        }
       }
     };
 
@@ -411,9 +432,12 @@ export const UI = {
       if (taskId && project && project.subtasks) {
         const task = project.subtasks.find(st => st.id === taskId);
         if (task) {
+          row.setAttribute('data-task-id', task.id);
           const taskDesc = task.title.replace(/^\s*\[.*?\]:\s*/, '').trim();
           txtTodayWork.value = taskDesc;
         }
+      } else {
+        row.removeAttribute('data-task-id');
       }
     });
 
