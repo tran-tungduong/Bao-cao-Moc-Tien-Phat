@@ -2146,6 +2146,7 @@ export const UI = {
       3: 'Lắp ráp công trình',
       4: 'Bàn giao'
     };
+    const canManageAttendance = user.role === 'manager' || user.role === 'kts' || user.id === 'usr_hai' || user.username === 'hai.ta';
 
     const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -2368,8 +2369,8 @@ export const UI = {
       });
     });
     workerStates.forEach(item => {
-      if (!item.record || !item.record.time) return;
-      const timeParts = item.record.time.match(/(\d{1,2}):(\d{2})/);
+      if (!item.record || item.record.status === 'no_record') return;
+      const timeParts = String(item.record.time || '').match(/(\d{1,2}):(\d{2})/);
       const timestamp = timeParts
         ? `${today}T${timeParts[1].padStart(2, '0')}:${timeParts[2]}:00`
         : `${today}T00:00:00`;
@@ -2380,7 +2381,7 @@ export const UI = {
         user: item.worker.name,
         action: item.record.status === 'absent'
           ? `Nghỉ${item.record.note ? `: ${item.record.note}` : ''}`
-          : `Chấm công${item.record.dailyWorkload ? ` — ${item.record.dailyWorkload}` : ''}`
+          : `Chấm công — ${['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày'}`
       });
     });
     events.sort((a, b) => (parseDate(b.timestamp)?.getTime() || 0) - (parseDate(a.timestamp)?.getTime() || 0));
@@ -2460,7 +2461,7 @@ export const UI = {
         : item.record && item.record.workingProjectName
         ? item.record.workingProjectName
         : item.taskProject ? item.taskProject.name : 'Chưa phân công công trình';
-      const managerActions = user.role === 'manager' ? `
+      const managerActions = canManageAttendance ? `
         <div style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:9px; padding-top:9px; border-top:1px dashed var(--border-color);">
           <select class="general-worker-status-select form-select" data-workerid="${item.worker.id}" data-current-status="${item.status === 'no_record' ? 'no_record' : item.record.status}" aria-label="Đổi trạng thái chấm công của ${escapeHtml(shortName(item.worker.name))}" style="height:34px; min-width:0; padding:4px 28px 4px 9px; font-size:.68rem; font-weight:700;">
             <option value="no_record" ${item.status === 'no_record' ? 'selected' : ''}>Chưa chấm công</option>
@@ -2478,7 +2479,7 @@ export const UI = {
             </div>
             <div style="font-size:.68rem; color:var(--primary); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(projectName)}</div>
             <div style="font-size:.69rem; color:${item.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-secondary)'}; margin-top:3px; line-height:1.4; font-weight:${item.status === 'absent' ? '700' : '400'};">${escapeHtml(currentWork)}</div>
-            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record && item.record.time ? `Chấm công ${escapeHtml(item.record.time)}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
+            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
             ${managerActions}
           </div>
         </div>`;
@@ -2630,22 +2631,18 @@ export const UI = {
             <div style="padding:10px; border-radius:10px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3);"><span style="display:block; font-size:.65rem; color:var(--text-muted);">Vắng</span><strong style="font-size:1rem; color:var(--status-rejected);">${absent} ngày</strong></div>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border-color); border-radius:12px; max-height:min(52vh,430px); overflow-y:auto;">
-            <table style="width:100%; min-width:650px; border-collapse:collapse; font-size:.72rem;">
+            <table style="width:100%; min-width:480px; border-collapse:collapse; font-size:.75rem;">
               <thead style="position:sticky; top:0; background:var(--bg-secondary); z-index:1;"><tr>
                 <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Ngày</th>
                 <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Trạng thái</th>
-                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Giờ vào</th>
-                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Công trình</th>
-                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Công việc / Lý do vắng</th>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Thời lượng / Lý do vắng</th>
               </tr></thead>
               <tbody>${records.map(record => `
                 <tr>
                   <td style="padding:10px; border-bottom:1px solid var(--border-color); white-space:nowrap; font-weight:700;">${escapeHtml(new Date(`${record.date}T00:00:00`).toLocaleDateString('vi-VN'))}</td>
                   <td style="padding:10px; border-bottom:1px solid var(--border-color); color:${record.status === 'present' ? 'var(--status-approved)' : record.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-muted)'}; font-weight:800; white-space:nowrap;">${escapeHtml(statusLabel(record.status))}</td>
-                  <td style="padding:10px; border-bottom:1px solid var(--border-color); white-space:nowrap;">${escapeHtml(record.time || '—')}</td>
-                  <td style="padding:10px; border-bottom:1px solid var(--border-color);">${escapeHtml(record.workingProjectName || '—')}</td>
-                  <td style="padding:10px; border-bottom:1px solid var(--border-color); line-height:1.4;">${escapeHtml(record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : (record.dailyWorkload || record.note || '—'))}</td>
-                </tr>`).join('') || '<tr><td colspan="5" style="padding:28px; text-align:center; color:var(--text-muted);">Tháng này chưa có dữ liệu chấm công.</td></tr>'}</tbody>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); line-height:1.4; font-weight:600;">${escapeHtml(record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : record.status === 'present' ? (['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày') : '—')}</td>
+                </tr>`).join('') || '<tr><td colspan="3" style="padding:28px; text-align:center; color:var(--text-muted);">Tháng này chưa có dữ liệu chấm công.</td></tr>'}</tbody>
             </table>
           </div>`;
       };
@@ -2659,13 +2656,15 @@ export const UI = {
         }
         const csvCell = (value) => `"${String(value == null ? '' : value).replace(/"/g, '""')}"`;
         const rows = [
-          ['Ngày', 'Trạng thái', 'Giờ vào', 'Công trình', 'Công việc / Lý do vắng'],
+          ['Ngày', 'Trạng thái', 'Thời lượng / Lý do vắng'],
           ...records.map(record => [
             record.date,
             statusLabel(record.status),
-            record.time || '',
-            record.workingProjectName || '',
-            record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : (record.dailyWorkload || record.note || '')
+            record.status === 'absent'
+              ? (record.note || 'Chưa cập nhật lý do')
+              : record.status === 'present'
+                ? (['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày')
+                : ''
           ])
         ];
         const blob = new Blob([`\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}`], { type: 'text/csv;charset=utf-8;' });
@@ -3799,7 +3798,8 @@ export const UI = {
         const roleDisplay = r.userRole === 'lead_worker' ? 'Thợ chính' : r.userRole === 'assistant_worker' ? 'Thợ phụ' : r.userRole === 'kts' ? 'Thiết kế' : r.userRole === 'sales' ? 'Sale' : 'Marketing';
         let badgeHtml = '';
         if (r.status === 'present') {
-          badgeHtml = `<span class="status-badge approved" style="font-weight:700; font-size:0.7rem;"><i class="fas fa-check"></i> Đang làm việc (${r.time})</span>`;
+          const workPeriod = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(r.note) ? r.note : 'Cả ngày';
+          badgeHtml = `<span class="status-badge approved" style="font-weight:700; font-size:0.7rem;"><i class="fas fa-check"></i> Đi làm • ${workPeriod}</span>`;
         } else if (r.status === 'absent') {
           badgeHtml = `<span class="status-badge rejected" style="font-weight:700; font-size:0.7rem;"><i class="fas fa-ban"></i> Vắng mặt</span>`;
         } else {
@@ -3807,12 +3807,11 @@ export const UI = {
         }
 
         let assignInfoHtml = '';
-        if (r.status === 'present' && r.workingProjectName) {
-          const workshopBadge = r.isWorkingAtWorkshop ? ` <span style="background-color: var(--primary); color: var(--bg-primary); padding: 1px 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 700; margin-left: 6px;"><i class="fas fa-warehouse"></i> Độc lập tại xưởng</span>` : '';
+        if (r.status === 'present') {
+          const workPeriod = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(r.note) ? r.note : 'Cả ngày';
           assignInfoHtml = `
             <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px; display:flex; flex-direction:column; gap:2px; background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:8px; border:1px dashed var(--border-color); text-align: left;">
-              <span>Dự án hôm nay: <strong style="color:var(--primary);">${r.workingProjectName}</strong>${workshopBadge}</span>
-              ${r.dailyWorkload ? `<span>Nhiệm vụ: <span style="color:var(--text-primary); font-weight:500;">${r.dailyWorkload}</span></span>` : ''}
+              <span>Thời lượng: <strong style="color:var(--primary);">${workPeriod}</strong></span>
             </div>
           `;
         } else if (r.note) {
@@ -3867,7 +3866,7 @@ export const UI = {
 
   // 7.3 OPEN ATTENDANCE EDIT MODAL DIALOG (FOR MANAGER)
   openEditAttendanceModal(record, onSaved) {
-    const activeProjects = DB.getProjects().filter(p => !p.isCompleted);
+    const currentWorkPeriod = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày';
 
     const html = `
       <form id="edit-attendance-form" style="display:flex; flex-direction:column; gap:16px;">
@@ -3885,37 +3884,19 @@ export const UI = {
           </select>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr; gap:12px;" id="edit-att-time-box">
-          <div>
-            <label class="form-label">Giờ vào làm</label>
-            <input type="text" id="edit-att-time" class="form-input" value="${record.time || '08:00'}" placeholder="Ví dụ: 08:00" style="padding-left:14px; height:40px;">
-          </div>
-
-          <div>
-            <label class="form-label">Phân công công trình hôm nay</label>
-            <select id="edit-att-project-id" class="form-select">
-              <option value="">-- Chưa phân công --</option>
-              ${activeProjects.map(p => `<option value="${p.id}" ${record.workingProjectId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Khối lượng công việc giao thợ trong ngày</label>
-            <textarea id="edit-att-workload" class="form-textarea" placeholder="Ví dụ: Đo đạc và ráp tủ áo master, bắn silicone hoàn thiện..." style="height: 60px; padding-left:14px;">${record.dailyWorkload || ''}</textarea>
-          </div>
-
-          <div style="margin-top: 4px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; color:var(--text-secondary); cursor:pointer;">
-              <input type="checkbox" id="edit-att-is-workshop" ${record.isWorkingAtWorkshop ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
-              <span>Làm việc độc lập tại xưởng (Tự động duyệt báo cáo hôm nay)</span>
-            </label>
-          </div>
+        <div id="edit-att-time-box">
+          <label class="form-label">Thời lượng làm việc</label>
+          <select id="edit-att-work-period" class="form-select" style="height:auto;">
+            <option value="Cả ngày" ${currentWorkPeriod === 'Cả ngày' ? 'selected' : ''}>Cả ngày</option>
+            <option value="Buổi sáng" ${currentWorkPeriod === 'Buổi sáng' ? 'selected' : ''}>Buổi sáng</option>
+            <option value="Buổi chiều" ${currentWorkPeriod === 'Buổi chiều' ? 'selected' : ''}>Buổi chiều</option>
+          </select>
         </div>
 
-        <div>
-          <label class="form-label">Ghi chú công việc / Lý do vắng</label>
-          <textarea id="edit-att-note" class="form-textarea" placeholder="Ví dụ: Lắp đặt tủ bếp Vinhomes hoặc Xin phép nghỉ...">${record.note || ''}</textarea>
-          <div id="edit-att-note-help" style="font-size:.68rem; color:var(--text-muted); margin-top:5px;">Bắt buộc nhập lý do khi chọn Vắng mặt.</div>
+        <div id="edit-att-note-box">
+          <label class="form-label">Lý do vắng</label>
+          <textarea id="edit-att-note" class="form-textarea" placeholder="Nhập lý do vắng mặt...">${record.status === 'absent' ? (record.note || '') : ''}</textarea>
+          <div id="edit-att-note-help" style="font-size:.68rem; color:var(--status-rejected); margin-top:5px;">Bắt buộc nhập lý do khi chọn Vắng mặt.</div>
         </div>
 
         <button type="submit" class="btn-primary" style="margin-top:12px;">Lưu Thay Đổi</button>
@@ -3924,43 +3905,17 @@ export const UI = {
 
     const modal = Modal.create('Điều Chỉnh Chấm Công', html);
 
-    // Toggle Time box based on status
+    // Show only the field needed for the selected attendance status.
     const statusSelect = document.getElementById('edit-att-status');
     const timeBox = document.getElementById('edit-att-time-box');
+    const noteBox = document.getElementById('edit-att-note-box');
     const noteInput = document.getElementById('edit-att-note');
-    const noteHelp = document.getElementById('edit-att-note-help');
     const updateAttendanceFields = () => {
-      if (statusSelect.value === 'present') {
-        timeBox.style.display = 'block';
-      } else {
-        timeBox.style.display = 'none';
-      }
+      timeBox.style.display = statusSelect.value === 'present' ? 'block' : 'none';
+      noteBox.style.display = statusSelect.value === 'absent' ? 'block' : 'none';
       noteInput.required = statusSelect.value === 'absent';
-      noteInput.placeholder = statusSelect.value === 'absent'
-        ? 'Nhập lý do vắng mặt...'
-        : 'Ghi chú thêm nếu cần...';
-      noteHelp.style.color = statusSelect.value === 'absent' ? 'var(--status-rejected)' : 'var(--text-muted)';
     };
     statusSelect.addEventListener('change', updateAttendanceFields);
-
-    // Toggle is_workshop on project selection change
-    const selectProject = document.getElementById('edit-att-project-id');
-    const cbWorkshop = document.getElementById('edit-att-is-workshop');
-    if (selectProject && cbWorkshop) {
-      selectProject.addEventListener('change', () => {
-        const prjId = selectProject.value;
-        if (prjId) {
-          const matched = activeProjects.find(p => p.id === prjId);
-          if (matched && matched.step < 8) {
-            cbWorkshop.checked = true;
-          } else {
-            cbWorkshop.checked = false;
-          }
-        } else {
-          cbWorkshop.checked = false;
-        }
-      });
-    }
 
     // Initial check
     updateAttendanceFields();
@@ -3968,23 +3923,11 @@ export const UI = {
     document.getElementById('edit-attendance-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const status = statusSelect.value;
-      const time = status === 'present' ? document.getElementById('edit-att-time').value : '';
-      const note = document.getElementById('edit-att-note').value;
+      const note = status === 'present'
+        ? document.getElementById('edit-att-work-period').value
+        : status === 'absent' ? noteInput.value.trim() : '';
 
-      let workingProjectId = '';
-      let workingProjectName = '';
-      let dailyWorkload = '';
-      let isWorkingAtWorkshop = false;
-
-      if (status === 'present') {
-        workingProjectId = document.getElementById('edit-att-project-id').value;
-        dailyWorkload = document.getElementById('edit-att-workload').value;
-        isWorkingAtWorkshop = cbWorkshop ? cbWorkshop.checked : false;
-        const matched = activeProjects.find(p => p.id === workingProjectId);
-        workingProjectName = matched ? matched.name : '';
-      }
-
-      DB.updateAttendance(record.userId, record.date, status, time, note, workingProjectId, workingProjectName, dailyWorkload, isWorkingAtWorkshop);
+      DB.updateAttendance(record.userId, record.date, status, '', note, '', '', '', false);
       Toast.success('Đã lưu thay đổi chấm công!');
       modal.close();
       onSaved();

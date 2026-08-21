@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-attendance-tools';
-import { UI } from './ui.js?v=20260821-attendance-tools';
+import { DB } from './db.js?v=20260821-attendance-periods';
+import { UI } from './ui.js?v=20260821-attendance-periods';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
