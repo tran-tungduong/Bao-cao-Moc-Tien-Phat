@@ -1,5 +1,5 @@
-import { DB } from './db.js';
-import { UI } from './ui.js';
+import { DB } from './db.js?v=20260821-assistant-filter';
+import { UI } from './ui.js?v=20260821-assistant-filter';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

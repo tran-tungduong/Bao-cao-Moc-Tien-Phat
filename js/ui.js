@@ -1,4 +1,4 @@
-﻿import { DB } from './db.js';
+﻿import { DB } from './db.js?v=20260821-assistant-filter';
 import { Toast, Modal, MockImages } from './components.js';
 import { PushNotifications } from './notifications.js';
 
