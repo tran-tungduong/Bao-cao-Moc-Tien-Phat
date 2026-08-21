@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-readable-stat-details';
-import { UI } from './ui.js?v=20260821-readable-stat-details';
+import { DB } from './db.js?v=20260821-attendance-tools';
+import { UI } from './ui.js?v=20260821-attendance-tools';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

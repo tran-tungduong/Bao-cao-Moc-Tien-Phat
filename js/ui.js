@@ -2139,7 +2139,7 @@ export const UI = {
     const today = now.toISOString().split('T')[0];
     const projects = DB.getProjectsForUser(user).filter(p => !p.isCompleted);
     const workers = db.users.filter(u => ['lead_worker', 'assistant_worker'].includes(u.role));
-    const attendance = db.attendance || [];
+    const attendance = DB.getAttendance(today);
     const stageNames = {
       1: 'Thiết kế',
       2: 'Gia công tại xưởng',
@@ -2450,12 +2450,25 @@ export const UI = {
     }).join('');
 
     const workerCardsHtml = workerStates.map(item => {
-      const currentWork = item.record && item.record.dailyWorkload
+      const currentWork = item.status === 'absent'
+        ? `Lý do vắng: ${item.record.note || 'Chưa cập nhật lý do'}`
+        : item.record && item.record.dailyWorkload
         ? item.record.dailyWorkload
         : item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ';
-      const projectName = item.record && item.record.workingProjectName
+      const projectName = item.status === 'absent'
+        ? 'Vắng mặt hôm nay'
+        : item.record && item.record.workingProjectName
         ? item.record.workingProjectName
         : item.taskProject ? item.taskProject.name : 'Chưa phân công công trình';
+      const managerActions = user.role === 'manager' ? `
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:9px; padding-top:9px; border-top:1px dashed var(--border-color);">
+          <select class="general-worker-status-select form-select" data-workerid="${item.worker.id}" data-current-status="${item.status === 'no_record' ? 'no_record' : item.record.status}" aria-label="Đổi trạng thái chấm công của ${escapeHtml(shortName(item.worker.name))}" style="height:34px; min-width:0; padding:4px 28px 4px 9px; font-size:.68rem; font-weight:700;">
+            <option value="no_record" ${item.status === 'no_record' ? 'selected' : ''}>Chưa chấm công</option>
+            <option value="present" ${item.record.status === 'present' ? 'selected' : ''}>Đi làm</option>
+            <option value="absent" ${item.record.status === 'absent' ? 'selected' : ''}>Vắng mặt</option>
+          </select>
+          <button type="button" class="general-worker-sheet-btn" data-workerid="${item.worker.id}" style="height:34px; padding:0 10px; border:1px solid rgba(16,185,129,.35); border-radius:9px; background:rgba(16,185,129,.1); color:var(--status-approved); font-size:.66rem; font-weight:800; white-space:nowrap; cursor:pointer;"><i class="fas fa-table"></i> Bảng chấm công</button>
+        </div>` : '';
       return `
         <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:13px; padding:11px; display:flex; align-items:flex-start;">
           <div style="min-width:0; flex:1;">
@@ -2464,8 +2477,9 @@ export const UI = {
               <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
             </div>
             <div style="font-size:.68rem; color:var(--primary); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(projectName)}</div>
-            <div style="font-size:.69rem; color:var(--text-secondary); margin-top:3px; line-height:1.35;">${escapeHtml(currentWork)}</div>
-            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record && item.record.time ? `Chấm công ${escapeHtml(item.record.time)}` : 'Chưa có cập nhật hôm nay'}</div>
+            <div style="font-size:.69rem; color:${item.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-secondary)'}; margin-top:3px; line-height:1.4; font-weight:${item.status === 'absent' ? '700' : '400'};">${escapeHtml(currentWork)}</div>
+            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record && item.record.time ? `Chấm công ${escapeHtml(item.record.time)}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
+            ${managerActions}
           </div>
         </div>`;
     }).join('');
@@ -2530,7 +2544,9 @@ export const UI = {
           projectId: item.record?.workingProjectId || item.taskProject?.id || '',
           icon: item.icon, color: item.color,
           title: shortName(item.worker.name),
-          meta: `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'} • ${item.record?.dailyWorkload || (item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ')}`
+          meta: item.status === 'absent'
+            ? `${item.label} • Lý do: ${item.record?.note || 'Chưa cập nhật lý do'}`
+            : `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'} • ${item.record?.dailyWorkload || (item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ')}`
         }))
       },
       approvals: {
@@ -2577,6 +2593,94 @@ export const UI = {
           this.openProjectDetailsDrawer(projectId, user, () => this.renderGeneralManagement(user));
         });
       });
+    };
+
+    const openWorkerAttendanceSheet = (worker) => {
+      const defaultMonth = today.slice(0, 7);
+      const modal = Modal.create(`Bảng chấm công — ${shortName(worker.name)}`, `
+        <div class="general-worker-sheet" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div>
+              <label class="form-label" style="font-size:.72rem; margin-bottom:5px;">Tháng chấm công</label>
+              <input type="month" class="form-input general-worker-sheet-month" value="${defaultMonth}" style="height:38px; width:165px; padding:5px 10px; font-size:.78rem;">
+            </div>
+            <button type="button" class="general-worker-sheet-export" style="height:38px; padding:0 13px; border:1px solid rgba(16,185,129,.4); border-radius:9px; background:rgba(16,185,129,.12); color:var(--status-approved); font-size:.72rem; font-weight:800; cursor:pointer;"><i class="fas fa-file-excel"></i> Xuất CSV</button>
+          </div>
+          <div class="general-worker-sheet-content"></div>
+        </div>`);
+      const monthInput = modal.element.querySelector('.general-worker-sheet-month');
+      const content = modal.element.querySelector('.general-worker-sheet-content');
+      const exportButton = modal.element.querySelector('.general-worker-sheet-export');
+
+      const getMonthRecords = () => {
+        const selectedMonth = monthInput.value || defaultMonth;
+        return (DB.load().attendance || [])
+          .filter(record => record.userId === worker.id && String(record.date || '').startsWith(selectedMonth))
+          .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      };
+      const statusLabel = (status) => status === 'present' ? 'Đi làm' : status === 'absent' ? 'Vắng mặt' : 'Chưa chấm công';
+      const renderWorkerSheet = () => {
+        const records = getMonthRecords();
+        const present = records.filter(record => record.status === 'present').length;
+        const absent = records.filter(record => record.status === 'absent').length;
+        content.innerHTML = `
+          <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:11px;">
+            <div style="padding:10px; border-radius:10px; background:var(--bg-primary); border:1px solid var(--border-color);"><span style="display:block; font-size:.65rem; color:var(--text-muted);">Có dữ liệu</span><strong style="font-size:1rem; color:var(--primary);">${records.length} ngày</strong></div>
+            <div style="padding:10px; border-radius:10px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3);"><span style="display:block; font-size:.65rem; color:var(--text-muted);">Đi làm</span><strong style="font-size:1rem; color:var(--status-approved);">${present} ngày</strong></div>
+            <div style="padding:10px; border-radius:10px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3);"><span style="display:block; font-size:.65rem; color:var(--text-muted);">Vắng</span><strong style="font-size:1rem; color:var(--status-rejected);">${absent} ngày</strong></div>
+          </div>
+          <div style="overflow-x:auto; border:1px solid var(--border-color); border-radius:12px; max-height:min(52vh,430px); overflow-y:auto;">
+            <table style="width:100%; min-width:650px; border-collapse:collapse; font-size:.72rem;">
+              <thead style="position:sticky; top:0; background:var(--bg-secondary); z-index:1;"><tr>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Ngày</th>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Trạng thái</th>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Giờ vào</th>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Công trình</th>
+                <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border-color);">Công việc / Lý do vắng</th>
+              </tr></thead>
+              <tbody>${records.map(record => `
+                <tr>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); white-space:nowrap; font-weight:700;">${escapeHtml(new Date(`${record.date}T00:00:00`).toLocaleDateString('vi-VN'))}</td>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); color:${record.status === 'present' ? 'var(--status-approved)' : record.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-muted)'}; font-weight:800; white-space:nowrap;">${escapeHtml(statusLabel(record.status))}</td>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); white-space:nowrap;">${escapeHtml(record.time || '—')}</td>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color);">${escapeHtml(record.workingProjectName || '—')}</td>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); line-height:1.4;">${escapeHtml(record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : (record.dailyWorkload || record.note || '—'))}</td>
+                </tr>`).join('') || '<tr><td colspan="5" style="padding:28px; text-align:center; color:var(--text-muted);">Tháng này chưa có dữ liệu chấm công.</td></tr>'}</tbody>
+            </table>
+          </div>`;
+      };
+
+      monthInput.addEventListener('change', renderWorkerSheet);
+      exportButton.addEventListener('click', () => {
+        const records = getMonthRecords();
+        if (!records.length) {
+          Toast.error('Tháng này chưa có dữ liệu để xuất.');
+          return;
+        }
+        const csvCell = (value) => `"${String(value == null ? '' : value).replace(/"/g, '""')}"`;
+        const rows = [
+          ['Ngày', 'Trạng thái', 'Giờ vào', 'Công trình', 'Công việc / Lý do vắng'],
+          ...records.map(record => [
+            record.date,
+            statusLabel(record.status),
+            record.time || '',
+            record.workingProjectName || '',
+            record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : (record.dailyWorkload || record.note || '')
+          ])
+        ];
+        const blob = new Blob([`\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeName = shortName(worker.name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+        link.href = url;
+        link.download = `bang-cham-cong-${safeName}-${monthInput.value || defaultMonth}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        Toast.success('Đã xuất bảng chấm công CSV.');
+      });
+      renderWorkerSheet();
     };
 
     container.innerHTML = `
@@ -2648,6 +2752,26 @@ export const UI = {
           <div id="general-activity-list" style="max-height:430px; overflow-y:auto;">${eventsHtml || '<div style="font-size:.72rem; color:var(--text-muted); text-align:center; padding:24px;">Chưa có hoạt động nào.</div>'}</div>
         </div>
       </section>`;
+
+    container.querySelectorAll('.general-worker-status-select').forEach(select => {
+      select.addEventListener('change', () => {
+        const workerId = select.getAttribute('data-workerid');
+        const nextStatus = select.value;
+        const currentStatus = select.getAttribute('data-current-status') || 'no_record';
+        const state = workerStates.find(item => item.worker.id === workerId);
+        select.value = currentStatus;
+        if (!state) return;
+        this.openEditAttendanceModal({ ...state.record, status: nextStatus }, () => this.renderGeneralManagement(user));
+      });
+    });
+
+    container.querySelectorAll('.general-worker-sheet-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const workerId = button.getAttribute('data-workerid');
+        const worker = workers.find(item => item.id === workerId);
+        if (worker) openWorkerAttendanceSheet(worker);
+      });
+    });
 
     container.querySelectorAll('.general-project-card').forEach(card => {
       card.addEventListener('click', () => {
@@ -3790,7 +3914,8 @@ export const UI = {
 
         <div>
           <label class="form-label">Ghi chú công việc / Lý do vắng</label>
-          <textarea id="edit-att-note" class="form-textarea" placeholder="Ví dụ: Lắp đặt tủ bếp Vinhomes hoặc Xin phép nghỉ..." required>${record.note}</textarea>
+          <textarea id="edit-att-note" class="form-textarea" placeholder="Ví dụ: Lắp đặt tủ bếp Vinhomes hoặc Xin phép nghỉ...">${record.note || ''}</textarea>
+          <div id="edit-att-note-help" style="font-size:.68rem; color:var(--text-muted); margin-top:5px;">Bắt buộc nhập lý do khi chọn Vắng mặt.</div>
         </div>
 
         <button type="submit" class="btn-primary" style="margin-top:12px;">Lưu Thay Đổi</button>
@@ -3802,13 +3927,21 @@ export const UI = {
     // Toggle Time box based on status
     const statusSelect = document.getElementById('edit-att-status');
     const timeBox = document.getElementById('edit-att-time-box');
-    statusSelect.addEventListener('change', () => {
+    const noteInput = document.getElementById('edit-att-note');
+    const noteHelp = document.getElementById('edit-att-note-help');
+    const updateAttendanceFields = () => {
       if (statusSelect.value === 'present') {
         timeBox.style.display = 'block';
       } else {
         timeBox.style.display = 'none';
       }
-    });
+      noteInput.required = statusSelect.value === 'absent';
+      noteInput.placeholder = statusSelect.value === 'absent'
+        ? 'Nhập lý do vắng mặt...'
+        : 'Ghi chú thêm nếu cần...';
+      noteHelp.style.color = statusSelect.value === 'absent' ? 'var(--status-rejected)' : 'var(--text-muted)';
+    };
+    statusSelect.addEventListener('change', updateAttendanceFields);
 
     // Toggle is_workshop on project selection change
     const selectProject = document.getElementById('edit-att-project-id');
@@ -3830,9 +3963,7 @@ export const UI = {
     }
 
     // Initial check
-    if (record.status !== 'present') {
-      timeBox.style.display = 'none';
-    }
+    updateAttendanceFields();
 
     document.getElementById('edit-attendance-form').addEventListener('submit', (e) => {
       e.preventDefault();
