@@ -352,12 +352,14 @@ export const UI = {
         return;
       }
 
-      const isAssistant = currentUser && currentUser.role === 'assistant_worker';
+      const visibleTasks = currentUser && currentUser.role === 'assistant_worker'
+        ? DB.getVisibleSubtasksForUser(project, currentUser)
+        : project.subtasks;
 
-      const filteredTasks = project.subtasks.filter(st => {
+      const filteredTasks = visibleTasks.filter(st => {
         const stTitle = (st.title || '').toLowerCase();
         const matchesRoom = stTitle.includes(rVal.toLowerCase());
-        const matchesUser = !currentUser || isAssistant || !st.assignedTo || st.assignedTo === currentUser.id;
+        const matchesUser = !currentUser || currentUser.role === 'assistant_worker' || !st.assignedTo || st.assignedTo === currentUser.id;
         return matchesRoom && matchesUser && st.status !== 'completed';
       });
 
@@ -441,9 +443,20 @@ export const UI = {
     const db = DB.load();
     const leadWorkers = db.users.filter(u => u.role === 'lead_worker');
 
+    // Filter first so every assistant-only UI block follows the selected work mode.
+    const relevantProjects = DB.getProjectsForUser(user);
+    const selectedAssistantMode = user.role === 'assistant_worker'
+      ? DB.getSelectedLeadWorkerForAssistant(user.id)
+      : '';
+
     const todayRecord = DB.getUserAttendanceToday(user.id);
     let assignmentBannerHtml = '';
-    if (todayRecord) {
+    const canShowTodayAssignment = user.role !== 'assistant_worker' || (
+      selectedAssistantMode &&
+      todayRecord &&
+      relevantProjects.some(p => p.id === todayRecord.workingProjectId)
+    );
+    if (todayRecord && canShowTodayAssignment) {
       if (todayRecord.status === 'present') {
         const prjName = todayRecord.workingProjectName || 'Chưa phân công';
         const workload = todayRecord.dailyWorkload || 'Chưa phân công khối lượng cụ thể';
@@ -476,9 +489,6 @@ export const UI = {
       assignmentBannerHtml = '';
     }
 
-    // Filter projects relevant to worker role
-    let relevantProjects = DB.getProjectsForUser(user);
-
     body.innerHTML = `
       <div class="welcome-section fade-in">
         <div class="welcome-user">Chào ${user.name} 🛠️</div>
@@ -489,7 +499,7 @@ export const UI = {
         <div class="material-stats-card fade-in" style="margin-bottom: 16px; background-color: var(--bg-secondary); padding: 14px 16px; border-radius:16px; border:1px solid var(--border-color);">
           <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc cùng Thợ chính:</label>
           <select id="worker-lead-selector" class="form-select">
-            <option value="" disabled ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chọn Thợ chính đồng hành --</option>
+            <option value="" ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chưa chọn / Chọn Thợ chính đồng hành --</option>
             ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
             <option value="independent" ${DB.getSelectedLeadWorkerForAssistant(user.id) === 'independent' ? 'selected' : ''}>🔧 Làm độc lập (tự báo cáo)</option>
           </select>
@@ -501,7 +511,7 @@ export const UI = {
       <div class="stats-grid fade-in" style="display:grid; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
         <div class="stat-mini-card" id="stat-projects-btn" style="cursor:pointer; border-color:var(--primary); transition:all var(--transition-fast);">
           <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>${user.role === 'assistant_worker' ? 'Công trình làm cùng' : 'Công trình phụ trách'}</span>
+            <span>${user.role === 'assistant_worker' ? (selectedAssistantMode === 'independent' ? 'Công trình của tôi' : 'Công trình làm cùng') : 'Công trình phụ trách'}</span>
             <i class="fas fa-external-link-alt" style="font-size:0.7rem; color:var(--primary);"></i>
           </span>
           <span class="stat-mini-val">${relevantProjects.length}</span>
@@ -511,7 +521,10 @@ export const UI = {
             <span>Việc cần xử lý</span>
             <i class="fas fa-external-link-alt" style="font-size:0.7rem; color:var(--primary);"></i>
           </span>
-          <span class="stat-mini-val">${relevantProjects.reduce((acc, p) => acc + p.subtasks.filter(st => st.assignedTo === user.id && st.status === 'pending').length, 0)}</span>
+          <span class="stat-mini-val">${relevantProjects.reduce((acc, p) => {
+            const visibleTasks = user.role === 'assistant_worker' ? DB.getVisibleSubtasksForUser(p, user) : p.subtasks;
+            return acc + visibleTasks.filter(st => st.status === 'pending' && (user.role === 'assistant_worker' || st.assignedTo === user.id)).length;
+          }, 0)}</span>
         </div>
         ${['kts', 'sales', 'marketing'].includes(user.role) ? `
           <div class="stat-mini-card" id="stat-completed-projects-btn" style="cursor:pointer; border-color:var(--status-approved); transition:all var(--transition-fast);">
@@ -611,7 +624,7 @@ export const UI = {
               </div>
 
               <button type="submit" class="btn-primary" style="margin-top:8px;">
-                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
+                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' && selectedAssistantMode !== 'independent' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
               </button>
             </div>
           </form>
@@ -641,8 +654,14 @@ export const UI = {
         const val = e.target.value;
         DB.setSelectedLeadWorkerForAssistant(user.id, val);
         const selectedLead = leadWorkers.find(x => x.id === val);
-        const lwName = selectedLead ? selectedLead.name : 'Thợ chính';
-        Toast.success('Đã kết nối với thợ chính: ' + lwName);
+        if (!val) {
+          Toast.info('Đã bỏ lựa chọn người làm việc cùng.');
+        } else if (val === 'independent') {
+          Toast.success('Đã chuyển sang chế độ làm độc lập.');
+        } else {
+          const lwName = selectedLead ? selectedLead.name : 'Thợ chính';
+          Toast.success('Đã kết nối với thợ chính: ' + lwName);
+        }
         this.renderWorkerView(user);
       });
     }
@@ -1548,16 +1567,18 @@ export const UI = {
 
   // 3.1 OPEN PENDING SUBTASKS LIST MODAL FOR WORKER
   openPendingTasksModal(user, onComplete) {
-    const projects = DB.getProjects();
+    const projects = user.role === 'assistant_worker' ? DB.getProjectsForUser(user) : DB.getProjects();
 
     // Aggregate all pending subtasks assigned to this user OR unassigned for KTS/Sales
     let myPendingTasks = [];
     projects.forEach(p => {
-      p.subtasks.forEach(st => {
+      const visibleTasks = user.role === 'assistant_worker' ? DB.getVisibleSubtasksForUser(p, user) : p.subtasks;
+      visibleTasks.forEach(st => {
         if (st.status === 'pending') {
           const isAssignedToMe = st.assignedTo === user.id;
+          const isVisibleAssistantTask = user.role === 'assistant_worker';
           const isUnassignedTask = (!st.assignedTo || st.assignedTo === '') && (st.type === 'rework' || st.type === 'small_scope');
-          if (isAssignedToMe || (['manager', 'kts', 'sales'].includes(user.role) && isUnassignedTask)) {
+          if (isAssignedToMe || isVisibleAssistantTask || (['manager', 'kts', 'sales'].includes(user.role) && isUnassignedTask)) {
             myPendingTasks.push({
               ...st,
               projectId: p.id,

@@ -797,23 +797,21 @@ export const DB = {
       return activeProjects.filter(p => p.step <= 4 || (p.assignees && p.assignees.includes(user.id)));
     } else if (user.role === 'assistant_worker') {
       const selectedLeadId = this.getSelectedLeadWorkerForAssistant(user.id);
-      const leadUser = (selectedLeadId && selectedLeadId !== 'independent')
-        ? db.users.find(u => u.id === selectedLeadId)
-        : null;
 
-      const leadProjects = leadUser ? this.getProjectsForUser(leadUser) : [];
+      // The assistant must explicitly choose how they work today. Do not mix the
+      // lead worker's projects with the assistant's individual assignments.
+      if (!selectedLeadId) return [];
 
-      const today = new Date().toISOString().split('T')[0];
-      const todayRecord = db.attendance ? db.attendance.find(a => a.userId === user.id && a.date === today) : null;
-      const todayProjectId = todayRecord && todayRecord.status === 'present' ? todayRecord.workingProjectId : '';
+      if (selectedLeadId === 'independent') {
+        return activeProjects.filter(p => {
+          const isProjectAssignee = p.assignees && p.assignees.includes(user.id);
+          const hasAssignedSubtask = p.subtasks && p.subtasks.some(st => st.assignedTo === user.id);
+          return isProjectAssignee || hasAssignedSubtask;
+        });
+      }
 
-      return activeProjects.filter(p => {
-        const isLeadProject = leadProjects.some(lp => lp.id === p.id);
-        const isProjectAssignee = p.assignees && p.assignees.includes(user.id);
-        const hasAssignedSubtask = p.subtasks && p.subtasks.some(st => st.assignedTo === user.id);
-        const isTodayWorkingProject = p.id === todayProjectId;
-        return isLeadProject || isProjectAssignee || hasAssignedSubtask || isTodayWorkingProject;
-      });
+      const leadUser = db.users.find(u => u.id === selectedLeadId && u.role === 'lead_worker');
+      return leadUser ? this.getProjectsForUser(leadUser) : [];
     } else if (user.role === 'lead_worker') {
       // Get today's working project assignment via attendance
       const today = new Date().toISOString().split('T')[0];
@@ -911,6 +909,23 @@ export const DB = {
       return project;
     }
     return null;
+  },
+
+  // Tasks an assistant is allowed to see in the current working mode.
+  // When assisting a lead, project visibility already guarantees the task belongs
+  // to that lead's project. When independent, only the assistant's own tasks show.
+  getVisibleSubtasksForUser(project, user) {
+    if (!project || !Array.isArray(project.subtasks)) return [];
+    if (!user || user.role !== 'assistant_worker') return project.subtasks;
+
+    const selectedLeadId = this.getSelectedLeadWorkerForAssistant(user.id);
+    if (!selectedLeadId) return [];
+    if (selectedLeadId === 'independent') {
+      return project.subtasks.filter(st => st.assignedTo === user.id);
+    }
+
+    const isVisibleLeadProject = this.getProjectsForUser(user).some(p => p.id === project.id);
+    return isVisibleLeadProject ? project.subtasks : [];
   },
 
   // Restore a completed project without changing its current workflow phase.
