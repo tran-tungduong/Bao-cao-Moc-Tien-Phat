@@ -1,4 +1,4 @@
-﻿import { DB } from './db.js?v=20260821-task-default';
+﻿import { DB } from './db.js?v=20260821-general-overview';
 import { Toast, Modal, MockImages } from './components.js';
 import { PushNotifications } from './notifications.js';
 
@@ -2006,13 +2006,6 @@ export const UI = {
 
   // 7. RENDER MANAGER PORTAL
   renderManagerView(user) {
-    // Marketing uses the simple progress board. Admin gets the complete Sales
-    // workspace while retaining all existing manager-only controls.
-    if (user.role === 'marketing') {
-      this._renderProgressBoardView(user);
-      return;
-    }
-
     const body = document.getElementById('app-body-content');
     const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
     const roleIcon = user.role === 'manager' ? '💼' : user.role === 'kts' ? '📐' : user.role === 'sales' ? '🤝' : '📢';
@@ -2025,10 +2018,13 @@ export const UI = {
 
       <!-- Manager Tab Buttons -->
       <div class="manager-tabs fade-in" style="overflow-x:auto; white-space:nowrap; gap:4px; padding:4px;">
-        <button class="tab-btn active" id="tab-progress-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-tasks"></i> Tiến Độ</button>
-        <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Theo Dõi</button>
-        <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
-        <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
+        <button class="tab-btn active" id="tab-general-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Quản Lý Chung</button>
+        <button class="tab-btn" id="tab-progress-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-tasks"></i> Tiến Độ</button>
+        ${user.role !== 'marketing' ? `
+          <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Theo Dõi</button>
+          <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
+          <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
+        ` : ''}
       </div>
 
       <!-- Content sections -->
@@ -2053,7 +2049,9 @@ export const UI = {
 
       fabBtn.addEventListener('click', () => {
         this.openCreateProjectModal(user, () => {
-          if (btnProgress && btnProgress.classList.contains('active')) {
+          if (btnGeneral && btnGeneral.classList.contains('active')) {
+            loadGeneral();
+          } else if (btnProgress && btnProgress.classList.contains('active')) {
             loadProgressBoard();
           } else if (btnKanban && btnKanban.classList.contains('active')) {
             loadKanban();
@@ -2067,6 +2065,7 @@ export const UI = {
     }
 
     // Tab clicks
+    const btnGeneral = document.getElementById('tab-general-btn');
     const btnProgress = document.getElementById('tab-progress-btn');
     const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
@@ -2075,10 +2074,15 @@ export const UI = {
     const btnDashboard = document.getElementById('tab-dashboard-btn');
 
     const setActiveTab = (activeBtn) => {
-      [btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].filter(Boolean).forEach(btn => {
+      [btnGeneral, btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].filter(Boolean).forEach(btn => {
         btn.classList.remove('active');
       });
       if (activeBtn) activeBtn.classList.add('active');
+    };
+
+    const loadGeneral = () => {
+      setActiveTab(btnGeneral);
+      this.renderGeneralManagement(user);
     };
 
     const loadProgressBoard = () => {
@@ -2113,6 +2117,7 @@ export const UI = {
       }
     };
 
+    if (btnGeneral) btnGeneral.addEventListener('click', loadGeneral);
     if (btnProgress) btnProgress.addEventListener('click', loadProgressBoard);
     if (btnKanban) btnKanban.addEventListener('click', loadKanban);
     if (btnCompleted) btnCompleted.addEventListener('click', loadCompleted);
@@ -2120,8 +2125,476 @@ export const UI = {
     if (btnAttendance) btnAttendance.addEventListener('click', loadAttendance);
     if (btnDashboard) btnDashboard.addEventListener('click', loadDashboard);
 
-    // Initial load: Progress board is the default view
-    loadProgressBoard();
+    // Initial load: General Management is the default view for all office roles.
+    loadGeneral();
+  },
+
+  // GENERAL MANAGEMENT — live overview for ADMIN, KTS, SALE and MARKETING
+  renderGeneralManagement(user) {
+    const container = document.getElementById('manager-tab-content');
+    if (!container || !['manager', 'kts', 'sales', 'marketing'].includes(user.role)) return;
+
+    const db = DB.load();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const projects = DB.getProjectsForUser(user).filter(p => !p.isCompleted);
+    const workers = db.users.filter(u => ['lead_worker', 'assistant_worker'].includes(u.role));
+    const attendance = db.attendance || [];
+    const stageNames = {
+      1: 'Thiết kế',
+      2: 'Gia công tại xưởng',
+      3: 'Lắp ráp công trình',
+      4: 'Bàn giao'
+    };
+
+    const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[char]);
+
+    const shortName = (name) => {
+      const clean = String(name || 'Chưa rõ').replace(/\s*\([^)]*\)/g, '').trim();
+      const parts = clean.split(/\s+/).filter(Boolean);
+      return parts.length > 1 ? parts.slice(-2).join(' ') : clean;
+    };
+
+    const taskTitle = (title) => String(title || 'Nhiệm vụ chưa đặt tên').replace(/^\s*\[.*?\]:\s*/, '').trim();
+
+    const parseDate = (value) => {
+      if (!value) return null;
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    };
+
+    const formatEventTime = (value) => {
+      const date = parseDate(value);
+      if (!date) return '--:--';
+      const isToday = date.toISOString().split('T')[0] === today;
+      const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      return isToday ? time : `${date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} ${time}`;
+    };
+
+    const relativeTime = (value) => {
+      const date = parseDate(value);
+      if (!date) return 'Chưa có cập nhật';
+      const minutes = Math.max(0, Math.floor((now - date) / 60000));
+      if (minutes < 1) return 'Vừa xong';
+      if (minutes < 60) return `${minutes} phút trước`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} giờ trước`;
+      return `${Math.floor(hours / 24)} ngày trước`;
+    };
+
+    const projectSummaries = projects.map(project => {
+      const subtasks = project.subtasks || [];
+      const completedTasks = subtasks.filter(st => st.status === 'completed').length;
+      const pendingTasks = subtasks.filter(st => st.status !== 'completed');
+      const progress = subtasks.length ? Math.round(completedTasks / subtasks.length * 100) : 0;
+      const deadline = project.deadline ? new Date(`${project.deadline}T23:59:59`) : null;
+      const diffDays = deadline && !isNaN(deadline.getTime()) ? Math.ceil((deadline - now) / 86400000) : null;
+      const hasRework = pendingTasks.some(st => st.type === 'rework') || project.isRework;
+
+      let health = 'on_track';
+      let healthLabel = 'Đúng tiến độ';
+      let healthColor = 'var(--status-approved)';
+      let healthBg = 'rgba(16,185,129,0.12)';
+      let rank = 3;
+
+      if (project.isFrozen) {
+        health = 'frozen';
+        healthLabel = 'Đang tạm dừng';
+        healthColor = '#94A3B8';
+        healthBg = 'rgba(148,163,184,0.12)';
+        rank = 1;
+      } else if ((diffDays !== null && diffDays < 0 && pendingTasks.length > 0) || hasRework) {
+        health = 'danger';
+        healthLabel = diffDays !== null && diffDays < 0 ? 'Đã quá hạn' : 'Có việc sửa lỗi';
+        healthColor = 'var(--status-rejected)';
+        healthBg = 'rgba(239,68,68,0.12)';
+        rank = 0;
+      } else if (diffDays !== null && diffDays <= 3 && progress < 70) {
+        health = 'warning';
+        healthLabel = 'Cần chú ý';
+        healthColor = 'var(--status-pending)';
+        healthBg = 'rgba(245,158,11,0.12)';
+        rank = 2;
+      }
+
+      const assignedIds = [...new Set([
+        ...(project.assignees || []),
+        ...subtasks.map(st => st.assignedTo).filter(Boolean)
+      ])];
+      const assignedWorkers = assignedIds.map(id => db.users.find(u => u.id === id)).filter(Boolean);
+      const timestamps = [
+        ...(project.history || []).map(item => item.timestamp),
+        ...(project.dailyLogs || []).map(log => log.createdAt || log.timestamp || log.date)
+      ].map(parseDate).filter(Boolean).sort((a, b) => b - a);
+
+      return {
+        project,
+        subtasks,
+        completedTasks,
+        pendingTasks,
+        progress,
+        diffDays,
+        health,
+        healthLabel,
+        healthColor,
+        healthBg,
+        rank,
+        assignedWorkers,
+        latestUpdate: timestamps[0] || null
+      };
+    }).sort((a, b) => a.rank - b.rank || (a.diffDays ?? 9999) - (b.diffDays ?? 9999));
+
+    const workerStates = workers.map(worker => {
+      const record = attendance.find(item => item.userId === worker.id && item.date === today);
+      const attendanceProject = record && record.workingProjectId
+        ? projects.find(p => p.id === record.workingProjectId)
+        : null;
+      let currentTask = attendanceProject
+        ? (attendanceProject.subtasks || []).find(st => st.assignedTo === worker.id && st.status !== 'completed')
+        : null;
+      let taskProject = attendanceProject;
+
+      if (!currentTask) {
+        for (const project of projects) {
+          const task = (project.subtasks || []).find(st => st.assignedTo === worker.id && st.status !== 'completed');
+          if (task) {
+            currentTask = task;
+            taskProject = project;
+            break;
+          }
+        }
+      }
+
+      let status = 'no_record';
+      let label = 'Chưa chấm công';
+      let color = '#94A3B8';
+      let icon = 'fa-clock';
+      if (record && record.status === 'absent') {
+        status = 'absent';
+        label = 'Nghỉ';
+        color = 'var(--status-rejected)';
+        icon = 'fa-bed';
+      } else if (record && record.status === 'present' && (currentTask || record.dailyWorkload)) {
+        status = 'working';
+        label = 'Đang làm';
+        color = 'var(--status-approved)';
+        icon = 'fa-hammer';
+      } else if (record && record.status === 'present') {
+        status = 'idle';
+        label = 'Chờ việc';
+        color = 'var(--status-pending)';
+        icon = 'fa-hourglass-half';
+      }
+
+      return { worker, record, currentTask, taskProject, status, label, color, icon };
+    });
+
+    const pendingTasksCount = projectSummaries.reduce((sum, item) => sum + item.pendingTasks.length, 0);
+    const attentionCount = projectSummaries.filter(item => item.health !== 'on_track').length;
+    const presentCount = workerStates.filter(item => item.record && item.record.status === 'present').length;
+    const pendingApprovals = projects.reduce((sum, project) => sum + (project.dailyLogs || []).filter(log => log.approved === false).length, 0);
+
+    const alerts = [];
+    projectSummaries.forEach(item => {
+      const p = item.project;
+      if (item.health === 'danger') {
+        alerts.push({
+          projectId: p.id,
+          color: 'var(--status-rejected)',
+          icon: 'fa-exclamation-triangle',
+          text: item.healthLabel === 'Đã quá hạn'
+            ? `${p.name} đã quá hạn nhưng còn ${item.pendingTasks.length} nhiệm vụ chưa xong.`
+            : `${p.name} đang có nhiệm vụ sửa lỗi cần xử lý.`
+        });
+      } else if (item.health === 'warning') {
+        alerts.push({
+          projectId: p.id,
+          color: 'var(--status-pending)',
+          icon: 'fa-hourglass-half',
+          text: `${p.name} còn ${Math.max(0, item.diffDays)} ngày, tiến độ hiện tại ${item.progress}%.`
+        });
+      } else if (item.health === 'frozen') {
+        alerts.push({
+          projectId: p.id,
+          color: '#94A3B8',
+          icon: 'fa-pause-circle',
+          text: `${p.name} đang tạm dừng${p.freezeReason ? `: ${p.freezeReason}` : '.'}`
+        });
+      }
+
+      const waitingLogs = (p.dailyLogs || []).filter(log => log.approved === false).length;
+      if (waitingLogs) {
+        alerts.push({
+          projectId: p.id,
+          color: 'var(--status-pending)',
+          icon: 'fa-file-signature',
+          text: `${p.name} có ${waitingLogs} báo cáo thợ phụ đang chờ duyệt.`
+        });
+      }
+
+      const hasWorkerToday = workerStates.some(state => state.record && state.record.status === 'present' && state.record.workingProjectId === p.id);
+      const hasTodayLog = (p.dailyLogs || []).some(log => log.date === today);
+      if (hasWorkerToday && !hasTodayLog) {
+        alerts.push({
+          projectId: p.id,
+          color: '#60A5FA',
+          icon: 'fa-clipboard-list',
+          text: `${p.name} có thợ đang làm nhưng chưa có báo cáo hôm nay.`
+        });
+      }
+    });
+
+    workerStates.filter(item => item.status === 'idle').forEach(item => {
+      alerts.push({
+        projectId: '',
+        color: 'var(--status-pending)',
+        icon: 'fa-user-clock',
+        text: `${shortName(item.worker.name)} đã chấm công nhưng chưa có nhiệm vụ hôm nay.`
+      });
+    });
+
+    const events = [];
+    projects.forEach(project => {
+      (project.history || []).forEach(history => {
+        events.push({
+          projectId: project.id,
+          projectName: project.name,
+          timestamp: history.timestamp,
+          user: history.user || 'Hệ thống',
+          action: history.action || 'Cập nhật công trình'
+        });
+      });
+    });
+    workerStates.forEach(item => {
+      if (!item.record || !item.record.time) return;
+      const timeParts = item.record.time.match(/(\d{1,2}):(\d{2})/);
+      const timestamp = timeParts
+        ? `${today}T${timeParts[1].padStart(2, '0')}:${timeParts[2]}:00`
+        : `${today}T00:00:00`;
+      events.push({
+        projectId: item.record.workingProjectId || '',
+        projectName: item.record.workingProjectName || 'Chấm công',
+        timestamp,
+        user: item.worker.name,
+        action: item.record.status === 'absent'
+          ? `Nghỉ${item.record.note ? `: ${item.record.note}` : ''}`
+          : `Chấm công${item.record.dailyWorkload ? ` — ${item.record.dailyWorkload}` : ''}`
+      });
+    });
+    events.sort((a, b) => (parseDate(b.timestamp)?.getTime() || 0) - (parseDate(a.timestamp)?.getTime() || 0));
+
+    const eventIcon = (action) => {
+      const text = String(action || '').toLowerCase();
+      if (text.includes('hoàn thành')) return { icon: 'fa-check', color: 'var(--status-approved)' };
+      if (text.includes('đóng băng') || text.includes('tạm dừng')) return { icon: 'fa-pause', color: '#94A3B8' };
+      if (text.includes('báo lỗi') || text.includes('bị chậm') || text.includes('sửa hàng')) return { icon: 'fa-exclamation', color: 'var(--status-rejected)' };
+      if (text.includes('báo cáo')) return { icon: 'fa-file-alt', color: '#60A5FA' };
+      if (text.includes('giao') || text.includes('phân công')) return { icon: 'fa-user-check', color: 'var(--primary)' };
+      if (text.includes('chấm công')) return { icon: 'fa-user-clock', color: 'var(--status-approved)' };
+      return { icon: 'fa-history', color: 'var(--text-muted)' };
+    };
+
+    const projectCardsHtml = projectSummaries.map(item => {
+      const p = item.project;
+      const people = item.assignedWorkers.length
+        ? item.assignedWorkers.map(worker => shortName(worker.name)).join(', ')
+        : 'Chưa phân công';
+      const deadlineText = item.diffDays === null
+        ? 'Chưa đặt deadline'
+        : item.diffDays < 0
+          ? `Quá hạn ${Math.abs(item.diffDays)} ngày`
+          : item.diffDays === 0 ? 'Hết hạn hôm nay' : `Còn ${item.diffDays} ngày`;
+      return `
+        <article class="general-project-card" data-projectid="${p.id}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-left:4px solid ${item.healthColor}; border-radius:16px; padding:15px; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .15s ease,border-color .15s ease; display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <div style="min-width:0;">
+              <h4 style="font-size:.92rem; color:var(--text-primary); line-height:1.35; margin:0; overflow-wrap:anywhere;">${escapeHtml(p.name)}</h4>
+              <div style="font-size:.7rem; color:var(--text-muted); margin-top:3px;">${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)} • ${escapeHtml(deadlineText)}</div>
+            </div>
+            <span style="flex:none; font-size:.66rem; font-weight:800; color:${item.healthColor}; background:${item.healthBg}; border:1px solid ${item.healthColor}; border-radius:999px; padding:4px 8px;">${escapeHtml(item.healthLabel)}</span>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:.7rem; margin-bottom:5px;">
+              <span style="color:var(--text-secondary);">Tiến độ nhiệm vụ</span>
+              <strong style="color:${item.healthColor};">${item.progress}%</strong>
+            </div>
+            <div style="height:7px; background:var(--bg-primary); border-radius:999px; overflow:hidden; border:1px solid var(--border-color);">
+              <div style="height:100%; width:${item.progress}%; background:${item.healthColor}; border-radius:999px;"></div>
+            </div>
+            <div style="font-size:.67rem; color:var(--text-muted); margin-top:5px;">${item.completedTasks}/${item.subtasks.length} nhiệm vụ hoàn thành</div>
+          </div>
+          <div style="font-size:.75rem; color:var(--text-secondary); display:flex; align-items:flex-start; gap:6px;">
+            <i class="fas fa-users" style="color:var(--primary); margin-top:2px;"></i>
+            <span><strong style="color:var(--text-primary);">Nhân sự:</strong> ${escapeHtml(people)}</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:5px; border-top:1px dashed var(--border-color); padding-top:9px;">
+            ${item.pendingTasks.slice(0, 2).map(task => {
+              const worker = db.users.find(u => u.id === task.assignedTo);
+              return `<div style="display:flex; justify-content:space-between; gap:8px; font-size:.72rem; color:var(--text-secondary);"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><i class="fas fa-hammer" style="color:var(--primary); margin-right:5px;"></i>${escapeHtml(taskTitle(task.title))}</span><strong style="color:var(--text-primary); white-space:nowrap;">${escapeHtml(worker ? shortName(worker.name) : 'Chưa giao')}</strong></div>`;
+            }).join('') || '<div style="font-size:.72rem; color:var(--text-muted);"><i class="fas fa-inbox" style="margin-right:5px;"></i>Chưa có nhiệm vụ đang làm</div>'}
+          </div>
+          <div style="font-size:.66rem; color:var(--text-muted); display:flex; justify-content:space-between; gap:8px;">
+            <span><i class="fas fa-sync-alt"></i> ${escapeHtml(relativeTime(item.latestUpdate))}</span>
+            <span style="color:var(--primary); font-weight:700;">Xem chi tiết <i class="fas fa-chevron-right"></i></span>
+          </div>
+        </article>`;
+    }).join('');
+
+    const workerCardsHtml = workerStates.map(item => {
+      const currentWork = item.record && item.record.dailyWorkload
+        ? item.record.dailyWorkload
+        : item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ';
+      const projectName = item.record && item.record.workingProjectName
+        ? item.record.workingProjectName
+        : item.taskProject ? item.taskProject.name : 'Chưa phân công công trình';
+      return `
+        <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:13px; padding:11px; display:flex; gap:10px; align-items:flex-start;">
+          <img src="${escapeHtml(item.worker.avatar || '')}" alt="" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:2px solid ${item.color}; flex:none;" onerror="this.style.display='none'">
+          <div style="min-width:0; flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <strong style="font-size:.78rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(shortName(item.worker.name))}</strong>
+              <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
+            </div>
+            <div style="font-size:.68rem; color:var(--primary); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(projectName)}</div>
+            <div style="font-size:.69rem; color:var(--text-secondary); margin-top:3px; line-height:1.35;">${escapeHtml(currentWork)}</div>
+            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record && item.record.time ? `Chấm công ${escapeHtml(item.record.time)}` : 'Chưa có cập nhật hôm nay'}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const alertsHtml = alerts.slice(0, 8).map(alert => `
+      <button type="button" class="general-alert-item" data-projectid="${alert.projectId}" style="width:100%; text-align:left; background:var(--bg-primary); border:1px solid var(--border-color); border-left:3px solid ${alert.color}; border-radius:10px; padding:9px 11px; color:var(--text-secondary); font-size:.72rem; line-height:1.4; cursor:${alert.projectId ? 'pointer' : 'default'}; display:flex; align-items:flex-start; gap:8px;">
+        <i class="fas ${alert.icon}" style="color:${alert.color}; margin-top:2px;"></i>
+        <span>${escapeHtml(alert.text)}</span>
+      </button>`).join('');
+
+    const eventsHtml = events.slice(0, 30).map(event => {
+      const visual = eventIcon(event.action);
+      return `
+        <div class="general-activity-item" data-projectid="${event.projectId}" style="display:grid; grid-template-columns:42px 26px minmax(0,1fr); gap:8px; align-items:start; padding:9px 0; border-bottom:1px solid var(--border-color);">
+          <time style="font-size:.64rem; color:var(--text-muted); padding-top:3px;">${escapeHtml(formatEventTime(event.timestamp))}</time>
+          <span style="width:24px; height:24px; border-radius:50%; background:${visual.color}20; color:${visual.color}; display:flex; align-items:center; justify-content:center; font-size:.65rem;"><i class="fas ${visual.icon}"></i></span>
+          <div style="min-width:0;">
+            <div style="font-size:.72rem; color:var(--text-secondary); line-height:1.4;"><strong style="color:var(--text-primary);">${escapeHtml(shortName(event.user))}</strong> — ${escapeHtml(event.action)}</div>
+            <button type="button" class="general-activity-project" data-projectid="${event.projectId}" style="margin-top:4px; padding:2px 7px; border-radius:999px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--primary); font-size:.61rem; cursor:${event.projectId ? 'pointer' : 'default'}; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(event.projectName)}</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <section class="fade-in" style="display:flex; flex-direction:column; gap:14px; padding-bottom:28px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h3 style="font-family:var(--font-title); font-size:1.05rem; color:var(--text-primary); margin:0;"><i class="fas fa-chart-pie" style="color:var(--primary);"></i> Quản lý chung</h3>
+            <p style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">Tình trạng công trình và nhân sự tại thời điểm ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="general-project-filter" class="form-select" style="height:36px; padding:4px 30px 4px 10px; font-size:.72rem; min-width:170px;">
+              <option value="all">Tất cả công trình</option>
+              ${projectSummaries.map(item => `<option value="${item.project.id}">${escapeHtml(item.project.name)}</option>`).join('')}
+            </select>
+            <button type="button" id="general-refresh-btn" class="btn-primary" style="height:36px; width:36px; padding:0; border-radius:10px; flex:none;" title="Làm mới dữ liệu"><i class="fas fa-sync-alt"></i></button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:9px;">
+          ${[
+            { label: 'Công trình đang chạy', value: projects.length, icon: 'fa-building', color: 'var(--primary)' },
+            { label: 'Cần chú ý', value: attentionCount, icon: 'fa-exclamation-triangle', color: attentionCount ? 'var(--status-rejected)' : 'var(--status-approved)' },
+            { label: 'Task chưa xong', value: pendingTasksCount, icon: 'fa-tasks', color: '#60A5FA' },
+            { label: 'Nhân sự đi làm', value: `${presentCount}/${workers.length}`, icon: 'fa-users', color: 'var(--status-approved)' },
+            { label: 'Báo cáo chờ duyệt', value: pendingApprovals, icon: 'fa-file-signature', color: pendingApprovals ? 'var(--status-pending)' : 'var(--text-muted)' }
+          ].map(stat => `
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:14px; padding:11px 12px; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;"><span style="font-size:.64rem; color:var(--text-muted); line-height:1.25;">${stat.label}</span><i class="fas ${stat.icon}" style="color:${stat.color}; font-size:.72rem;"></i></div>
+              <strong style="display:block; font-size:1.3rem; color:${stat.color}; margin-top:5px;">${stat.value}</strong>
+            </div>`).join('')}
+        </div>
+
+        <div style="display:grid; grid-template-columns:minmax(0,1.7fr) minmax(260px,.85fr); gap:13px; align-items:start;" class="general-overview-grid">
+          <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h4 style="font-size:.83rem; color:var(--text-primary); margin:0;"><i class="fas fa-building" style="color:var(--primary);"></i> Tình trạng công trình</h4>
+              <span style="font-size:.65rem; color:var(--text-muted);">Ưu tiên rủi ro trước</span>
+            </div>
+            <div id="general-project-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:11px;">
+              ${projectCardsHtml || '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:28px; border:1px dashed var(--border-color); border-radius:14px;">Không có công trình đang chạy.</div>'}
+            </div>
+          </div>
+
+          <aside style="display:flex; flex-direction:column; gap:12px; min-width:0;">
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="font-size:.8rem; color:var(--text-primary); margin:0;"><i class="fas fa-user-hard-hat" style="color:var(--primary);"></i> Trạng thái nhân sự</h4>
+                <span style="font-size:.62rem; color:var(--text-muted);">Hôm nay</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px;">${workerCardsHtml || '<div style="font-size:.72rem; color:var(--text-muted);">Chưa có nhân sự thi công.</div>'}</div>
+            </div>
+
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:9px;">
+                <h4 style="font-size:.8rem; color:var(--text-primary); margin:0;"><i class="fas fa-bell" style="color:var(--status-pending);"></i> Cần chú ý</h4>
+                <span style="font-size:.62rem; color:var(--text-muted);">${alerts.length} mục</span>
+              </div>
+              <div id="general-alert-list" style="display:flex; flex-direction:column; gap:7px; max-height:330px; overflow-y:auto;">${alertsHtml || '<div style="font-size:.72rem; color:var(--status-approved); padding:10px; text-align:center;"><i class="fas fa-check-circle"></i> Hiện không có cảnh báo.</div>'}</div>
+            </div>
+          </aside>
+        </div>
+
+        <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+            <h4 style="font-size:.82rem; color:var(--text-primary); margin:0;"><i class="fas fa-stream" style="color:#60A5FA;"></i> Hoạt động mới nhất</h4>
+            <span style="font-size:.62rem; color:var(--text-muted);">Theo thứ tự thời gian</span>
+          </div>
+          <div id="general-activity-list" style="max-height:430px; overflow-y:auto;">${eventsHtml || '<div style="font-size:.72rem; color:var(--text-muted); text-align:center; padding:24px;">Chưa có hoạt động nào.</div>'}</div>
+        </div>
+      </section>`;
+
+    container.querySelectorAll('.general-project-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const projectId = card.getAttribute('data-projectid');
+        if (projectId) this.openProjectDetailsDrawer(projectId, user, () => this.renderGeneralManagement(user));
+      });
+    });
+
+    container.querySelectorAll('.general-alert-item, .general-activity-project').forEach(item => {
+      item.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const projectId = item.getAttribute('data-projectid');
+        if (projectId) this.openProjectDetailsDrawer(projectId, user, () => this.renderGeneralManagement(user));
+      });
+    });
+
+    const filter = document.getElementById('general-project-filter');
+    if (filter) {
+      filter.addEventListener('change', () => {
+        const selected = filter.value;
+        container.querySelectorAll('.general-project-card, .general-activity-item, .general-alert-item').forEach(item => {
+          const projectId = item.getAttribute('data-projectid') || '';
+          item.style.display = selected === 'all' || projectId === selected ? '' : 'none';
+        });
+      });
+    }
+
+    const refreshButton = document.getElementById('general-refresh-btn');
+    if (refreshButton) {
+      refreshButton.addEventListener('click', async () => {
+        const icon = refreshButton.querySelector('i');
+        icon.classList.add('fa-spin');
+        refreshButton.disabled = true;
+        const success = await DB.syncWithServer(() => {});
+        icon.classList.remove('fa-spin');
+        refreshButton.disabled = false;
+        if (success) {
+          this.renderGeneralManagement(user);
+          Toast.success('Đã cập nhật trang Quản lý chung.');
+        } else {
+          Toast.error('Không thể cập nhật dữ liệu mới nhất.');
+        }
+      });
+    }
   },
 
   // SIMPLE PROGRESS BOARD VIEW (ADMIN & Marketing — no tabs)
@@ -5857,14 +6330,17 @@ export const UI = {
     if (!userRoleTag) return; // Not logged in yet
 
     // 9.1 If manager is logged in, refresh the active tab's specific render function
+    const btnGeneral = document.getElementById('tab-general-btn');
     const btnProgress = document.getElementById('tab-progress-btn');
     const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
     const btnLogs = document.getElementById('tab-logs-btn');
     const btnDashboard = document.getElementById('tab-dashboard-btn');
 
-    if (btnProgress || btnKanban || btnCompleted || btnLogs || btnDashboard) {
-      if (btnProgress && btnProgress.classList.contains('active')) {
+    if (btnGeneral || btnProgress || btnKanban || btnCompleted || btnLogs || btnDashboard) {
+      if (btnGeneral && btnGeneral.classList.contains('active')) {
+        this.renderGeneralManagement(user);
+      } else if (btnProgress && btnProgress.classList.contains('active')) {
         this.renderProgressBoard(user);
       } else if (btnKanban && btnKanban.classList.contains('active')) {
         this.renderManagerKanban(user);

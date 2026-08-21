@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-task-default';
-import { UI } from './ui.js?v=20260821-task-default';
+import { DB } from './db.js?v=20260821-general-overview';
+import { UI } from './ui.js?v=20260821-general-overview';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
