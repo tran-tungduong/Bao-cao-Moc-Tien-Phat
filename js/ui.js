@@ -2411,9 +2411,12 @@ export const UI = {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
             <div style="min-width:0;">
               <h4 style="font-size:.92rem; color:var(--text-primary); line-height:1.35; margin:0; overflow-wrap:anywhere;">${escapeHtml(p.name)}</h4>
-              <div style="font-size:.7rem; color:var(--text-muted); margin-top:3px;">${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)} • ${escapeHtml(deadlineText)}</div>
             </div>
             <span style="flex:none; font-size:.66rem; font-weight:800; color:${item.healthColor}; background:${item.healthBg}; border:1px solid ${item.healthColor}; border-radius:999px; padding:4px 8px;">${escapeHtml(item.healthLabel)}</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:7px;">
+            <span style="display:inline-flex; align-items:center; gap:5px; padding:6px 9px; border-radius:9px; background:rgba(96,165,250,.13); border:1px solid rgba(96,165,250,.45); color:#60A5FA; font-size:.7rem; font-weight:800;"><i class="fas fa-layer-group"></i>${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)}</span>
+            <span style="display:inline-flex; align-items:center; gap:5px; padding:6px 9px; border-radius:9px; background:${item.healthBg}; border:1px solid ${item.healthColor}; color:${item.healthColor}; font-size:.7rem; font-weight:800;"><i class="fas fa-clock"></i>${escapeHtml(deadlineText)}</span>
           </div>
           <div>
             <div style="display:flex; justify-content:space-between; font-size:.7rem; margin-bottom:5px;">
@@ -2429,11 +2432,15 @@ export const UI = {
             <i class="fas fa-users" style="color:var(--primary); margin-top:2px;"></i>
             <span><strong style="color:var(--text-primary);">Nhân sự:</strong> ${escapeHtml(people)}</span>
           </div>
-          <div style="display:flex; flex-direction:column; gap:5px; border-top:1px dashed var(--border-color); padding-top:9px;">
-            ${item.pendingTasks.slice(0, 2).map(task => {
+          <div style="display:flex; flex-direction:column; gap:7px; border-top:1px dashed var(--border-color); padding-top:10px;">
+            <div style="font-size:.68rem; color:var(--primary); font-weight:800; text-transform:uppercase; letter-spacing:.035em;"><i class="fas fa-list-check" style="margin-right:5px;"></i>Nhiệm vụ còn lại (${item.pendingTasks.length})</div>
+            ${item.pendingTasks.map(task => {
               const worker = db.users.find(u => u.id === task.assignedTo);
-              return `<div style="display:flex; justify-content:space-between; gap:8px; font-size:.72rem; color:var(--text-secondary);"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><i class="fas fa-hammer" style="color:var(--primary); margin-right:5px;"></i>${escapeHtml(taskTitle(task.title))}</span><strong style="color:var(--text-primary); white-space:nowrap;">${escapeHtml(worker ? shortName(worker.name) : 'Chưa giao')}</strong></div>`;
-            }).join('') || '<div style="font-size:.72rem; color:var(--text-muted);"><i class="fas fa-inbox" style="margin-right:5px;"></i>Chưa có nhiệm vụ đang làm</div>'}
+              return `<div style="background:var(--bg-primary); border:1px solid var(--border-color); border-left:3px solid var(--primary); border-radius:10px; padding:9px 10px;">
+                <div style="display:flex; align-items:flex-start; gap:7px; color:var(--text-primary); font-size:.73rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere;"><i class="fas fa-hammer" style="color:var(--primary); margin-top:3px; flex:none;"></i><span>${escapeHtml(task.title || 'Nhiệm vụ chưa đặt tên')}</span></div>
+                <div style="font-size:.65rem; color:var(--text-muted); margin-top:5px; padding-left:19px;"><i class="fas fa-user" style="margin-right:5px;"></i>${escapeHtml(worker ? shortName(worker.name) : 'Chưa giao người làm')}</div>
+              </div>`;
+            }).join('') || '<div style="font-size:.72rem; color:var(--status-approved); background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3); border-radius:10px; padding:9px 10px;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Không còn nhiệm vụ chưa hoàn thành</div>'}
           </div>
           <div style="font-size:.66rem; color:var(--text-muted); display:flex; justify-content:space-between; gap:8px;">
             <span><i class="fas fa-sync-alt"></i> ${escapeHtml(relativeTime(item.latestUpdate))}</span>
@@ -2600,7 +2607,7 @@ export const UI = {
               <h4 style="font-size:.83rem; color:var(--text-primary); margin:0;"><i class="fas fa-building" style="color:var(--primary);"></i> Tình trạng công trình</h4>
               <span style="font-size:.65rem; color:var(--text-muted);">Ưu tiên rủi ro trước</span>
             </div>
-            <div id="general-project-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:11px;">
+            <div id="general-project-list" class="general-project-list" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px;">
               ${projectCardsHtml || '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:28px; border:1px dashed var(--border-color); border-radius:14px;">Không có công trình đang chạy.</div>'}
             </div>
           </div>

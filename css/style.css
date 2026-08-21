@@ -1420,4 +1420,8 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   .general-overview-grid {
     grid-template-columns: 1fr !important;
   }
+
+  .general-project-list {
+    grid-template-columns: 1fr !important;
+  }
 }
