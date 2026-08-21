@@ -2450,8 +2450,7 @@ export const UI = {
         ? item.record.workingProjectName
         : item.taskProject ? item.taskProject.name : 'Chưa phân công công trình';
       return `
-        <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:13px; padding:11px; display:flex; gap:10px; align-items:flex-start;">
-          <img src="${escapeHtml(item.worker.avatar || '')}" alt="" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:2px solid ${item.color}; flex:none;" onerror="this.style.display='none'">
+        <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:13px; padding:11px; display:flex; align-items:flex-start;">
           <div style="min-width:0; flex:1;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
               <strong style="font-size:.78rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(shortName(item.worker.name))}</strong>
@@ -2483,6 +2482,87 @@ export const UI = {
         </div>`;
     }).join('');
 
+    const statDetails = {
+      projects: {
+        title: 'Công trình đang chạy',
+        empty: 'Không có công trình đang chạy.',
+        rows: projectSummaries.map(item => ({
+          projectId: item.project.id,
+          icon: 'fa-building', color: item.healthColor,
+          title: item.project.name,
+          meta: `${stageNames[item.project.step] || `Giai đoạn ${item.project.step || '?'}`} • ${item.progress}% hoàn thành • ${item.healthLabel}`
+        }))
+      },
+      attention: {
+        title: 'Công trình cần chú ý',
+        empty: 'Hiện không có công trình cần chú ý.',
+        rows: projectSummaries.filter(item => item.health !== 'on_track').map(item => ({
+          projectId: item.project.id,
+          icon: item.health === 'frozen' ? 'fa-pause-circle' : 'fa-exclamation-triangle', color: item.healthColor,
+          title: item.project.name,
+          meta: `${item.healthLabel} • ${item.pendingTasks.length} nhiệm vụ chưa xong • Tiến độ ${item.progress}%`
+        }))
+      },
+      tasks: {
+        title: 'Nhiệm vụ chưa hoàn thành',
+        empty: 'Không có nhiệm vụ chưa hoàn thành.',
+        rows: projectSummaries.flatMap(item => item.pendingTasks.map(task => {
+          const worker = db.users.find(person => person.id === task.assignedTo);
+          return {
+            projectId: item.project.id,
+            icon: 'fa-hammer', color: '#60A5FA',
+            title: taskTitle(task.title),
+            meta: `${item.project.name} • ${worker ? shortName(worker.name) : 'Chưa giao người làm'}`
+          };
+        }))
+      },
+      attendance: {
+        title: 'Trạng thái nhân sự hôm nay',
+        empty: 'Chưa có nhân sự thi công.',
+        rows: workerStates.map(item => ({
+          projectId: item.record?.workingProjectId || item.taskProject?.id || '',
+          icon: item.icon, color: item.color,
+          title: shortName(item.worker.name),
+          meta: `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'} • ${item.record?.dailyWorkload || (item.currentTask ? taskTitle(item.currentTask.title) : 'Chưa có nhiệm vụ')}`
+        }))
+      },
+      approvals: {
+        title: 'Báo cáo chờ duyệt',
+        empty: 'Không có báo cáo đang chờ duyệt.',
+        rows: projectSummaries.flatMap(item => (item.project.dailyLogs || [])
+          .filter(log => log.approved === false)
+          .map(log => ({
+            projectId: item.project.id,
+            icon: 'fa-file-signature', color: 'var(--status-pending)',
+            title: `${log.reporterName || 'Thợ thi công'} — ${item.project.name}`,
+            meta: `${log.date || 'Chưa rõ ngày'} • ${log.status === 'delayed' ? 'Bị chậm' : 'Đúng tiến độ'}${log.note ? ` • ${log.note}` : ''}`
+          })))
+      }
+    };
+
+    const openStatDetails = (key) => {
+      const detail = statDetails[key];
+      if (!detail) return;
+      const rowsHtml = detail.rows.map(row => `
+        <button type="button" class="general-stat-detail-row" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:34px minmax(0,1fr) 18px; align-items:center; gap:10px; padding:11px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-secondary); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
+          <span style="width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color);"><i class="fas ${row.icon}"></i></span>
+          <span style="min-width:0;"><strong style="display:block; font-size:.78rem; line-height:1.35; overflow-wrap:anywhere;">${escapeHtml(row.title)}</strong><small style="display:block; color:var(--text-muted); font-size:.66rem; line-height:1.45; margin-top:3px;">${escapeHtml(row.meta)}</small></span>
+          ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.65rem;"></i>' : '<span></span>'}
+        </button>`).join('');
+      const modal = Modal.create(detail.title, `
+        <div style="display:flex; flex-direction:column; gap:8px; max-height:min(65vh,560px); overflow-y:auto; padding-right:3px;">
+          ${rowsHtml || `<div style="text-align:center; color:var(--text-muted); padding:30px 16px; border:1px dashed var(--border-color); border-radius:12px;"><i class="fas fa-check-circle" style="display:block; color:var(--status-approved); font-size:1.4rem; margin-bottom:8px;"></i>${escapeHtml(detail.empty)}</div>`}
+        </div>`);
+      modal.element.querySelectorAll('.general-stat-detail-row[data-projectid]').forEach(row => {
+        row.addEventListener('click', () => {
+          const projectId = row.getAttribute('data-projectid');
+          if (!projectId) return;
+          modal.close();
+          this.openProjectDetailsDrawer(projectId, user, () => this.renderGeneralManagement(user));
+        });
+      });
+    };
+
     container.innerHTML = `
       <section class="fade-in" style="display:flex; flex-direction:column; gap:14px; padding-bottom:28px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
@@ -2501,16 +2581,17 @@ export const UI = {
 
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:9px;">
           ${[
-            { label: 'Công trình đang chạy', value: projects.length, icon: 'fa-building', color: 'var(--primary)' },
-            { label: 'Cần chú ý', value: attentionCount, icon: 'fa-exclamation-triangle', color: attentionCount ? 'var(--status-rejected)' : 'var(--status-approved)' },
-            { label: 'Task chưa xong', value: pendingTasksCount, icon: 'fa-tasks', color: '#60A5FA' },
-            { label: 'Nhân sự đi làm', value: `${presentCount}/${workers.length}`, icon: 'fa-users', color: 'var(--status-approved)' },
-            { label: 'Báo cáo chờ duyệt', value: pendingApprovals, icon: 'fa-file-signature', color: pendingApprovals ? 'var(--status-pending)' : 'var(--text-muted)' }
+            { key: 'projects', label: 'Công trình đang chạy', value: projects.length, icon: 'fa-building', color: 'var(--primary)' },
+            { key: 'attention', label: 'Cần chú ý', value: attentionCount, icon: 'fa-exclamation-triangle', color: attentionCount ? 'var(--status-rejected)' : 'var(--status-approved)' },
+            { key: 'tasks', label: 'Task chưa xong', value: pendingTasksCount, icon: 'fa-tasks', color: '#60A5FA' },
+            { key: 'attendance', label: 'Nhân sự đi làm', value: `${presentCount}/${workers.length}`, icon: 'fa-users', color: 'var(--status-approved)' },
+            { key: 'approvals', label: 'Báo cáo chờ duyệt', value: pendingApprovals, icon: 'fa-file-signature', color: pendingApprovals ? 'var(--status-pending)' : 'var(--text-muted)' }
           ].map(stat => `
-            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:14px; padding:11px 12px; min-width:0;">
+            <button type="button" class="general-stat-card" data-stat="${stat.key}" aria-label="Xem chi tiết ${stat.label}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:14px; padding:11px 12px; min-width:0; text-align:left; cursor:pointer; color:inherit;">
               <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;"><span style="font-size:.64rem; color:var(--text-muted); line-height:1.25;">${stat.label}</span><i class="fas ${stat.icon}" style="color:${stat.color}; font-size:.72rem;"></i></div>
               <strong style="display:block; font-size:1.3rem; color:${stat.color}; margin-top:5px;">${stat.value}</strong>
-            </div>`).join('')}
+              <span style="display:block; font-size:.6rem; color:var(--primary); font-weight:700; margin-top:5px;">Xem chi tiết <i class="fas fa-chevron-right" style="font-size:.52rem;"></i></span>
+            </button>`).join('')}
         </div>
 
         <div style="display:grid; grid-template-columns:minmax(0,1.7fr) minmax(260px,.85fr); gap:13px; align-items:start;" class="general-overview-grid">
@@ -2557,6 +2638,10 @@ export const UI = {
         const projectId = card.getAttribute('data-projectid');
         if (projectId) this.openProjectDetailsDrawer(projectId, user, () => this.renderGeneralManagement(user));
       });
+    });
+
+    container.querySelectorAll('.general-stat-card').forEach(card => {
+      card.addEventListener('click', () => openStatDetails(card.getAttribute('data-stat')));
     });
 
     container.querySelectorAll('.general-alert-item, .general-activity-project').forEach(item => {

@@ -1400,6 +1400,22 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   border-color: var(--primary) !important;
 }
 
+.general-stat-card {
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.general-stat-card:hover,
+.general-stat-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--primary) !important;
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.general-stat-detail-row:hover {
+  border-color: var(--primary) !important;
+}
+
 @media (max-width: 760px) {
   .general-overview-grid {
     grid-template-columns: 1fr !important;
