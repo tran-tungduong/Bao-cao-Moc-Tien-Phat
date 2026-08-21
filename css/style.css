@@ -1416,8 +1416,8 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   transition: transform .15s ease, border-color .15s ease, background .15s ease;
 }
 
-.general-stat-detail-row:hover,
-.general-stat-detail-row:focus-visible {
+.general-stat-detail-row.is-clickable:hover,
+.general-stat-detail-row.is-clickable:focus-visible {
   transform: translateY(-1px);
   border-color: var(--primary) !important;
   background: color-mix(in srgb, var(--bg-secondary) 92%, var(--primary)) !important;

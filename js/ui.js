@@ -2451,11 +2451,6 @@ export const UI = {
     }).join('');
 
     const workerCardsHtml = workerStates.map(item => {
-      const projectName = item.status === 'absent'
-        ? 'Vắng mặt hôm nay'
-        : item.record && item.record.workingProjectName
-        ? item.record.workingProjectName
-        : item.taskProject ? item.taskProject.name : 'Chưa phân công công trình';
       const managerActions = canManageAttendance ? `
         <div style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:9px; padding-top:9px; border-top:1px dashed var(--border-color);">
           <select class="general-worker-status-select form-select" data-workerid="${item.worker.id}" data-current-status="${item.status === 'no_record' ? 'no_record' : item.record.status}" aria-label="Đổi trạng thái chấm công của ${escapeHtml(shortName(item.worker.name))}" style="height:34px; min-width:0; padding:4px 28px 4px 9px; font-size:.68rem; font-weight:700;">
@@ -2472,7 +2467,6 @@ export const UI = {
               <strong style="font-size:.78rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(shortName(item.worker.name))}</strong>
               <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
             </div>
-            <div style="font-size:.68rem; color:var(--primary); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(projectName)}</div>
             ${item.status === 'absent' ? `<div style="font-size:.69rem; color:var(--status-rejected); margin-top:4px; line-height:1.4; font-weight:700;">${escapeHtml(`Lý do vắng: ${item.record.note || 'Chưa cập nhật lý do'}`)}</div>` : ''}
             <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
             ${managerActions}
@@ -2537,12 +2531,12 @@ export const UI = {
         title: 'Trạng thái nhân sự hôm nay',
         empty: 'Chưa có nhân sự thi công.',
         rows: workerStates.map(item => ({
-          projectId: item.record?.workingProjectId || item.taskProject?.id || '',
+          projectId: '',
           icon: item.icon, color: item.color,
           title: shortName(item.worker.name),
           meta: item.status === 'absent'
             ? `${item.label} • Lý do: ${item.record?.note || 'Chưa cập nhật lý do'}`
-            : `${item.label} • ${item.record?.workingProjectName || item.taskProject?.name || 'Chưa phân công công trình'}${item.record?.status === 'present' ? ` • ${['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày'}` : ''}`
+            : `${item.label}${item.record?.status === 'present' ? ` • ${['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày'}` : ''}`
         }))
       },
       approvals: {
@@ -2566,18 +2560,20 @@ export const UI = {
         const metaChips = String(row.meta || '').split(' • ').filter(Boolean).map(part =>
           `<span style="display:inline-flex; align-items:center; min-height:26px; padding:4px 8px; border-radius:8px; background:var(--bg-primary); border:1px solid var(--border-color); color:var(--text-secondary); font-size:.73rem; font-weight:600; line-height:1.35; overflow-wrap:anywhere;">${escapeHtml(part)}</span>`
         ).join('');
+        const rowTag = row.projectId ? 'button' : 'div';
         return `
-          <button type="button" class="general-stat-detail-row" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:44px minmax(0,1fr) 20px; align-items:center; gap:12px; padding:14px 15px; border:1px solid var(--border-color); border-left:4px solid ${row.color}; border-radius:14px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
+          <${rowTag}${row.projectId ? ' type="button"' : ''} class="general-stat-detail-row${row.projectId ? ' is-clickable' : ''}" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:${row.projectId ? '44px minmax(0,1fr) 20px' : '44px minmax(0,1fr)'}; align-items:center; gap:12px; padding:14px 15px; border:1px solid var(--border-color); border-left:4px solid ${row.color}; border-radius:14px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
             <span style="width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color); font-size:.9rem;"><i class="fas ${row.icon}"></i></span>
             <span style="min-width:0;">
               <strong style="display:block; font-size:.9rem; font-weight:800; line-height:1.4; overflow-wrap:anywhere;">${escapeHtml(row.title)}</strong>
               <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${metaChips}</span>
             </span>
-            ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.8rem;"></i>' : '<span></span>'}
-          </button>`;
+            ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.8rem;"></i>' : ''}
+          </${rowTag}>`;
       }).join('');
+      const hasProjectLinks = detail.rows.some(row => Boolean(row.projectId));
       const modal = Modal.create(detail.title, `
-        ${detail.rows.length ? `<div style="font-size:.75rem; color:var(--text-muted); margin-bottom:10px;"><strong style="color:var(--text-primary); font-size:.82rem;">${detail.rows.length} nội dung</strong> — Bấm vào từng dòng để xem công trình liên quan</div>` : ''}
+        ${detail.rows.length ? `<div style="font-size:.75rem; color:var(--text-muted); margin-bottom:10px;"><strong style="color:var(--text-primary); font-size:.82rem;">${detail.rows.length} nội dung</strong>${hasProjectLinks ? ' — Bấm vào từng dòng để xem công trình liên quan' : ''}</div>` : ''}
         <div style="display:flex; flex-direction:column; gap:11px; max-height:min(68vh,600px); overflow-y:auto; padding:2px 5px 2px 1px;">
           ${rowsHtml || `<div style="text-align:center; color:var(--text-muted); padding:30px 16px; border:1px dashed var(--border-color); border-radius:12px;"><i class="fas fa-check-circle" style="display:block; color:var(--status-approved); font-size:1.4rem; margin-bottom:8px;"></i>${escapeHtml(detail.empty)}</div>`}
         </div>`);

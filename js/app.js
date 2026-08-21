@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-hide-worker-tasks';
-import { UI } from './ui.js?v=20260821-hide-worker-tasks';
+import { DB } from './db.js?v=20260821-static-worker-status';
+import { UI } from './ui.js?v=20260821-static-worker-status';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
