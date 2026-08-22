@@ -2069,6 +2069,406 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   }
 }
 
+/* General management stat dialogs: centered, readable and responsive */
+.general-stat-modal {
+  position: fixed !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: clamp(16px, 3vw, 36px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.general-stat-modal .modal-drawer {
+  position: relative;
+  inset: auto;
+  width: min(920px, calc(100vw - 48px));
+  max-width: 920px;
+  max-height: min(82vh, 760px);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .46);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(18px) scale(.985);
+  transition: transform var(--transition-normal) cubic-bezier(.16, 1, .3, 1), opacity .18s ease;
+}
+
+.general-stat-modal.active .modal-drawer {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.general-stat-modal .drawer-drag-handle {
+  display: none;
+}
+
+.general-stat-modal .drawer-header {
+  flex: none;
+  padding: 18px 21px;
+}
+
+.general-stat-modal .drawer-title {
+  padding-right: 12px;
+  color: var(--text-primary);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.general-stat-modal .drawer-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  flex: none;
+}
+
+.general-stat-modal .drawer-body {
+  min-height: 0;
+  padding: 18px 21px 21px;
+  overflow: hidden;
+}
+
+.general-stat-modal-summary {
+  min-width: 0;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 13px;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.general-stat-modal-summary > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.general-stat-modal-summary strong {
+  color: var(--primary);
+  font-size: 1.36rem;
+  line-height: 1;
+}
+
+.general-stat-modal-summary > div > span {
+  color: var(--text-secondary);
+  font-size: .78rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.general-stat-modal-updated {
+  color: var(--text-muted);
+  font-size: .69rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.general-stat-modal-updated i {
+  margin-right: 4px;
+  color: var(--primary);
+}
+
+.general-stat-detail-list,
+.general-stat-modal .general-worker-list--modal {
+  max-height: min(60vh, 570px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.general-stat-detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding: 2px 4px 2px 1px;
+}
+
+.general-stat-detail-list--approvals {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.general-stat-detail-row {
+  width: 100%;
+  min-width: 0;
+  min-height: 84px;
+  padding: 13px 14px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--detail-color);
+  border-radius: 14px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  text-align: left;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+}
+
+.general-stat-detail-row:not(.is-clickable) {
+  grid-template-columns: 42px minmax(0, 1fr);
+}
+
+.general-stat-detail-row.is-clickable {
+  cursor: pointer;
+}
+
+.general-stat-detail-icon {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--detail-color);
+  font-size: .92rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.general-stat-detail-copy {
+  min-width: 0;
+}
+
+.general-stat-detail-copy > strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: .88rem;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.general-stat-detail-chips {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.general-stat-detail-chip {
+  min-width: 0;
+  min-height: 25px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: .69rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: inline-flex;
+  align-items: center;
+}
+
+.general-stat-detail-arrow {
+  color: var(--primary);
+  font-size: .78rem;
+  justify-self: end;
+}
+
+.general-stat-detail-empty {
+  grid-column: 1 / -1;
+  min-height: 150px;
+  padding: 28px 16px;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.general-stat-detail-empty i {
+  color: var(--status-approved);
+  font-size: 1.55rem;
+}
+
+.general-stat-detail-empty strong {
+  font-size: .84rem;
+  line-height: 1.45;
+}
+
+.general-stat-modal .general-worker-list--modal {
+  margin: 0;
+  padding: 2px 4px 2px 1px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 11px;
+}
+
+.general-stat-modal .general-worker-list--modal .general-worker-card {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-primary);
+}
+
+.general-stat-modal .general-worker-card__header strong {
+  font-size: .84rem;
+}
+
+.general-stat-modal .general-worker-card__header span {
+  font-size: .66rem;
+}
+
+.general-stat-modal .general-worker-card__meta,
+.general-stat-modal .general-worker-card__absence {
+  font-size: .67rem;
+}
+
+.general-stat-modal .general-worker-actions {
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.general-stat-modal .general-worker-status-select,
+.general-stat-modal .general-worker-sheet-btn {
+  height: 38px !important;
+}
+
+.general-stat-modal .general-worker-status-select {
+  padding-left: 10px !important;
+  font-size: .7rem !important;
+}
+
+.general-stat-modal .general-worker-sheet-btn {
+  width: 40px;
+}
+
+@media (max-width: 640px) {
+  .general-stat-modal {
+    padding: 10px;
+  }
+
+  .general-stat-modal .modal-drawer {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 18px;
+  }
+
+  .general-stat-modal .drawer-header {
+    padding: 15px 16px;
+  }
+
+  .general-stat-modal .drawer-title {
+    font-size: 1.05rem;
+  }
+
+  .general-stat-modal .drawer-body {
+    padding: 14px 14px 16px;
+  }
+
+  .general-stat-modal-summary {
+    margin-bottom: 11px;
+    padding: 11px 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .general-stat-modal-summary strong {
+    font-size: 1.22rem;
+  }
+
+  .general-stat-modal-summary > div > span {
+    font-size: .73rem;
+  }
+
+  .general-stat-modal-updated {
+    font-size: .64rem;
+    text-align: left;
+  }
+
+  .general-stat-detail-list,
+  .general-stat-modal .general-worker-list--modal {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: calc(100vh - 190px);
+    max-height: calc(100dvh - 190px);
+    gap: 9px;
+  }
+
+  .general-stat-detail-row {
+    min-height: 78px;
+    padding: 12px;
+    grid-template-columns: 38px minmax(0, 1fr) 14px;
+    gap: 10px;
+  }
+
+  .general-stat-detail-row:not(.is-clickable) {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .general-stat-detail-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: .84rem;
+  }
+
+  .general-stat-detail-copy > strong {
+    font-size: .82rem;
+  }
+
+  .general-stat-detail-chip {
+    min-height: 23px;
+    padding: 3px 7px;
+    font-size: .65rem;
+  }
+
+  .general-stat-modal .general-worker-list--modal .general-worker-card {
+    padding: 12px;
+  }
+}
+
+@media (max-height: 600px) and (min-width: 641px) {
+  .general-stat-modal {
+    padding: 12px 22px;
+  }
+
+  .general-stat-modal .modal-drawer {
+    max-height: calc(100vh - 24px);
+  }
+
+  .general-stat-modal .drawer-header {
+    padding: 13px 18px;
+  }
+
+  .general-stat-modal .drawer-body {
+    padding: 13px 18px 16px;
+  }
+
+  .general-stat-modal-summary {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+  }
+
+  .general-stat-detail-list,
+  .general-stat-modal .general-worker-list--modal {
+    max-height: calc(100vh - 148px);
+  }
+}
+
 /* Project drawer actions: stable layout from narrow phones to wide desktops */
 .project-drawer-actions {
   display: grid;

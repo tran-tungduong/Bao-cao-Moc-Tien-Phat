@@ -2518,12 +2518,13 @@ export const UI = {
     const openStatDetails = (key) => {
       if (key === 'attendance') {
         const attendanceModal = Modal.create('Nhân sự hôm nay', `
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; color:var(--text-secondary); font-size:.75rem;">
-            <span><strong style="color:var(--status-approved); font-size:.95rem;">${presentCount}/${workers.length}</strong> nhân sự đi làm</span>
-            <span>Cập nhật ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+          <div class="general-stat-modal-summary general-stat-modal-summary--attendance">
+            <div><strong>${presentCount}/${workers.length}</strong><span>Nhân sự đi làm hôm nay</span></div>
+            <span class="general-stat-modal-updated"><i class="fas fa-clock"></i> Cập nhật ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <div class="general-worker-list general-worker-list--modal">${workerCardsHtml || '<div class="general-worker-empty">Chưa có nhân sự thi công.</div>'}</div>
         `);
+        attendanceModal.element.classList.add('general-stat-modal', 'general-stat-modal--attendance');
         bindWorkerControls(attendanceModal.element, attendanceModal);
         return;
       }
@@ -2531,25 +2532,37 @@ export const UI = {
       if (!detail) return;
       const rowsHtml = detail.rows.map(row => {
         const metaChips = String(row.meta || '').split(' • ').filter(Boolean).map(part =>
-          `<span style="display:inline-flex; align-items:center; min-height:26px; padding:4px 8px; border-radius:8px; background:var(--bg-primary); border:1px solid var(--border-color); color:var(--text-secondary); font-size:.73rem; font-weight:600; line-height:1.35; overflow-wrap:anywhere;">${escapeHtml(part)}</span>`
+          `<span class="general-stat-detail-chip">${escapeHtml(part)}</span>`
         ).join('');
         const rowTag = row.projectId ? 'button' : 'div';
         return `
-          <${rowTag}${row.projectId ? ' type="button"' : ''} class="general-stat-detail-row${row.projectId ? ' is-clickable' : ''}" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:${row.projectId ? '44px minmax(0,1fr) 20px' : '44px minmax(0,1fr)'}; align-items:center; gap:12px; padding:14px 15px; border:1px solid var(--border-color); border-left:4px solid ${row.color}; border-radius:14px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
-            <span style="width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color); font-size:.9rem;"><i class="fas ${row.icon}"></i></span>
-            <span style="min-width:0;">
-              <strong style="display:block; font-size:.9rem; font-weight:800; line-height:1.4; overflow-wrap:anywhere;">${escapeHtml(this.formatReportNote(row.title))}</strong>
-              <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${metaChips}</span>
+          <${rowTag}${row.projectId ? ' type="button"' : ''} class="general-stat-detail-row${row.projectId ? ' is-clickable' : ''}" data-projectid="${row.projectId || ''}" style="--detail-color:${row.color};">
+            <span class="general-stat-detail-icon"><i class="fas ${row.icon}"></i></span>
+            <span class="general-stat-detail-copy">
+              <strong>${escapeHtml(this.formatReportNote(row.title))}</strong>
+              <span class="general-stat-detail-chips">${metaChips}</span>
             </span>
-            ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.8rem;"></i>' : ''}
+            ${row.projectId ? '<i class="fas fa-chevron-right general-stat-detail-arrow"></i>' : ''}
           </${rowTag}>`;
       }).join('');
       const hasProjectLinks = detail.rows.some(row => Boolean(row.projectId));
+      const modalDescriptions = {
+        projects: 'Theo dõi giai đoạn và tình trạng của từng công trình',
+        attention: 'Các công trình cần ưu tiên xử lý trước',
+        tasks: 'Danh sách nhiệm vụ chưa hoàn thành và người phụ trách',
+        approvals: 'Các báo cáo đang chờ xác nhận'
+      };
       const modal = Modal.create(detail.title, `
-        ${detail.rows.length ? `<div style="font-size:.75rem; color:var(--text-muted); margin-bottom:10px;"><strong style="color:var(--text-primary); font-size:.82rem;">${detail.rows.length} nội dung</strong>${hasProjectLinks ? ' — Bấm vào từng dòng để xem công trình liên quan' : ''}</div>` : ''}
-        <div style="display:flex; flex-direction:column; gap:11px; max-height:min(68vh,600px); overflow-y:auto; padding:2px 5px 2px 1px;">
-          ${rowsHtml || `<div style="text-align:center; color:var(--text-muted); padding:30px 16px; border:1px dashed var(--border-color); border-radius:12px;"><i class="fas fa-check-circle" style="display:block; color:var(--status-approved); font-size:1.4rem; margin-bottom:8px;"></i>${escapeHtml(detail.empty)}</div>`}
+        ${detail.rows.length ? `
+          <div class="general-stat-modal-summary">
+            <div><strong>${detail.rows.length}</strong><span>${escapeHtml(modalDescriptions[key] || 'Nội dung chi tiết')}</span></div>
+            ${hasProjectLinks ? '<span class="general-stat-modal-updated"><i class="fas fa-hand-pointer"></i> Chọn một nội dung để xem công trình</span>' : ''}
+          </div>
+        ` : ''}
+        <div class="general-stat-detail-list general-stat-detail-list--${key}">
+          ${rowsHtml || `<div class="general-stat-detail-empty"><i class="fas fa-check-circle"></i><strong>${escapeHtml(detail.empty)}</strong></div>`}
         </div>`);
+      modal.element.classList.add('general-stat-modal', `general-stat-modal--${key}`);
       modal.element.querySelectorAll('.general-stat-detail-row[data-projectid]').forEach(row => {
         row.addEventListener('click', () => {
           const projectId = row.getAttribute('data-projectid');

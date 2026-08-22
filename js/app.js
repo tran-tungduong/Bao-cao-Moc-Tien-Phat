@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-attendance-stat-no-task-progress';
-import { UI } from './ui.js?v=20260822-attendance-stat-no-task-progress';
+import { DB } from './db.js?v=20260822-centered-stat-modals';
+import { UI } from './ui.js?v=20260822-centered-stat-modals';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
