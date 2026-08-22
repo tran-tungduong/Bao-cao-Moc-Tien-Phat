@@ -284,8 +284,6 @@ export const UI = {
     const todayWork = initialData ? (initialData.todayWork || '') : '';
     const isCompleted = initialData ? (initialData.isCompleted === true || initialData.isCompleted === 'true' || initialData.progress === 100) : false;
     const pendingNotes = initialData ? initialData.pendingNotes : '';
-    const expectedDate = initialData ? (initialData.expectedCompletionDate || '') : '';
-    const expectedDateValue = expectedDate && expectedDate.includes('T') ? expectedDate.slice(0, 16) : '';
     const selectedTaskId = initialData ? (initialData.taskId || '') : (defaultTask ? defaultTask.id : '');
 
     row.innerHTML = `
@@ -336,10 +334,6 @@ export const UI = {
             <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Nội dung còn thiếu / Cần làm tiếp</label>
             <textarea class="form-input txt-chk-pending-notes" placeholder="Nhập phần việc còn thiếu hoặc lý do chưa xong..." style="height: auto; min-height: 50px; font-size: 0.8rem; padding: 8px; resize: none; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.4;" rows="2">${pendingNotes}</textarea>
           </div>
-          <div>
-            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 4px; color: var(--status-pending); font-weight:700;">Thời gian dự kiến xong nhiệm vụ</label>
-            <input type="datetime-local" class="form-input txt-chk-expected-date" style="height: 38px; font-size: 0.82rem; padding-left: 10px;" value="${expectedDateValue}">
-          </div>
         </div>
       </div>
     `;
@@ -354,7 +348,6 @@ export const UI = {
     const selectProgress = row.querySelector('.select-chk-progress');
     const pendingNotesWrapper = row.querySelector('.chk-pending-notes-wrapper');
     const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
-    const expectedDateInput = row.querySelector('.txt-chk-expected-date');
 
     const updateTasksDropdown = () => {
       if (!project || !project.subtasks) {
@@ -446,13 +439,6 @@ export const UI = {
       selectProgress.value = isDone ? '100' : '50';
       pendingNotesWrapper.style.display = isDone ? 'none' : 'flex';
     });
-
-    // Default expected date
-    if (!expectedDate && expectedDateInput) {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      expectedDateInput.value = d.toISOString().split('T')[0];
-    }
 
     updateTasksDropdown();
 
@@ -815,7 +801,7 @@ export const UI = {
           const progress = parseInt(row.querySelector('.select-chk-progress').value) || 50;
           const isCompleted = progress === 100;
           const pendingNotes = isCompleted ? '' : row.querySelector('.txt-chk-pending-notes').value.trim();
-          const expectedCompletionDate = isCompleted ? '' : row.querySelector('.txt-chk-expected-date').value;
+          const expectedCompletionDate = '';
 
           const selectedTaskId = row.querySelector('.select-chk-task').value;
 
@@ -909,7 +895,7 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}`);
         }).join('\n\n');
 
       } else {
@@ -5414,7 +5400,7 @@ export const UI = {
           const progress = parseInt(row.querySelector('.edit-select-progress').value) || 50;
           const isCompleted = progress === 100;
           const pendingNotes = isCompleted ? '' : row.querySelector('.edit-txt-pending-notes').value.trim();
-          const expectedCompletionDate = isCompleted ? '' : row.querySelector('.edit-txt-expected-date').value;
+          const expectedCompletionDate = '';
           const taskId = row.getAttribute('data-task-id') || originalItem.taskId || '';
 
           const isAssistant = user && user.role === 'assistant_worker';
@@ -5459,7 +5445,7 @@ export const UI = {
         // Generate text note summary for old compatibility
         note = items.map(it => {
           return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
-            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}\n  + Dự kiến xong: ${it.expectedCompletionDate ? new Date(it.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}`);
+            (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}`);
         }).join('\n\n');
 
       } else {

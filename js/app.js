@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-hide-worker-assignment-banner';
-import { UI } from './ui.js?v=20260822-hide-worker-assignment-banner';
+import { DB } from './db.js?v=20260822-remove-task-estimate';
+import { UI } from './ui.js?v=20260822-remove-task-estimate';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
