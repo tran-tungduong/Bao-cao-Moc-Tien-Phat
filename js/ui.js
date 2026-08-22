@@ -2146,6 +2146,7 @@ export const UI = {
       3: 'Lắp ráp công trình',
       4: 'Bàn giao'
     };
+    const workPeriodValues = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'];
     const canManageAttendance = user.role === 'manager' || user.role === 'kts' || user.id === 'usr_hai' || user.username === 'hai.ta';
 
     const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
@@ -2277,6 +2278,11 @@ export const UI = {
         label = 'Nghỉ';
         color = 'var(--status-rejected)';
         icon = 'fa-bed';
+      } else if (record && record.status === 'present' && worker.role === 'assistant_worker' && !currentTask && !record.dailyWorkload) {
+        status = 'supporting';
+        label = 'Theo thợ chính';
+        color = 'var(--status-approved)';
+        icon = 'fa-people-arrows';
       } else if (record && record.status === 'present' && (currentTask || record.dailyWorkload)) {
         status = 'working';
         label = 'Đang làm';
@@ -2467,8 +2473,8 @@ export const UI = {
               <strong style="font-size:.78rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(shortName(item.worker.name))}</strong>
               <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
             </div>
-            ${item.status === 'absent' ? `<div style="font-size:.69rem; color:var(--status-rejected); margin-top:4px; line-height:1.4; font-weight:700;">${escapeHtml(`Lý do vắng: ${item.record.note || 'Chưa cập nhật lý do'}`)}</div>` : ''}
-            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
+            ${item.status === 'absent' ? `<div style="font-size:.69rem; color:var(--status-rejected); margin-top:4px; line-height:1.4; font-weight:700;">${escapeHtml(`Lý do vắng: ${item.record.note && !workPeriodValues.includes(item.record.note) ? item.record.note : 'Chưa cập nhật lý do'}`)}</div>` : ''}
+            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(workPeriodValues.includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
             ${managerActions}
           </div>
         </div>`;
@@ -2535,8 +2541,8 @@ export const UI = {
           icon: item.icon, color: item.color,
           title: shortName(item.worker.name),
           meta: item.status === 'absent'
-            ? `${item.label} • Lý do: ${item.record?.note || 'Chưa cập nhật lý do'}`
-            : `${item.label}${item.record?.status === 'present' ? ` • ${['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(item.record.note) ? item.record.note : 'Cả ngày'}` : ''}`
+            ? `${item.label} • Lý do: ${item.record?.note && !workPeriodValues.includes(item.record.note) ? item.record.note : 'Chưa cập nhật lý do'}`
+            : `${item.label}${item.record?.status === 'present' ? ` • ${workPeriodValues.includes(item.record.note) ? item.record.note : 'Cả ngày'}` : ''}`
         }))
       },
       approvals: {
@@ -2632,7 +2638,7 @@ export const UI = {
                 <tr>
                   <td style="padding:10px; border-bottom:1px solid var(--border-color); white-space:nowrap; font-weight:700;">${escapeHtml(new Date(`${record.date}T00:00:00`).toLocaleDateString('vi-VN'))}</td>
                   <td style="padding:10px; border-bottom:1px solid var(--border-color); color:${record.status === 'present' ? 'var(--status-approved)' : record.status === 'absent' ? 'var(--status-rejected)' : 'var(--text-muted)'}; font-weight:800; white-space:nowrap;">${escapeHtml(statusLabel(record.status))}</td>
-                  <td style="padding:10px; border-bottom:1px solid var(--border-color); line-height:1.4; font-weight:600;">${escapeHtml(record.status === 'absent' ? (record.note || 'Chưa cập nhật lý do') : record.status === 'present' ? (['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày') : '—')}</td>
+                  <td style="padding:10px; border-bottom:1px solid var(--border-color); line-height:1.4; font-weight:600;">${escapeHtml(record.status === 'absent' ? (record.note && !workPeriodValues.includes(record.note) ? record.note : 'Chưa cập nhật lý do') : record.status === 'present' ? (workPeriodValues.includes(record.note) ? record.note : 'Cả ngày') : '—')}</td>
                 </tr>`).join('') || '<tr><td colspan="3" style="padding:28px; text-align:center; color:var(--text-muted);">Tháng này chưa có dữ liệu chấm công.</td></tr>'}</tbody>
             </table>
           </div>`;
@@ -2652,9 +2658,9 @@ export const UI = {
             record.date,
             statusLabel(record.status),
             record.status === 'absent'
-              ? (record.note || 'Chưa cập nhật lý do')
+              ? (record.note && !workPeriodValues.includes(record.note) ? record.note : 'Chưa cập nhật lý do')
               : record.status === 'present'
-                ? (['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày')
+                ? (workPeriodValues.includes(record.note) ? record.note : 'Cả ngày')
                 : ''
           ])
         ];
@@ -3805,8 +3811,9 @@ export const UI = {
               <span>Thời lượng: <strong style="color:var(--primary);">${workPeriod}</strong></span>
             </div>
           `;
-        } else if (r.note) {
-          assignInfoHtml = `<div style="font-size:0.75rem; color:var(--primary); margin-top:4px; font-style:italic;">"${r.note}"</div>`;
+        } else if (r.status === 'absent') {
+          const absenceReason = r.note && !['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(r.note) ? r.note : 'Chưa cập nhật lý do';
+          assignInfoHtml = `<div style="font-size:0.75rem; color:var(--status-rejected); margin-top:4px; font-style:italic;">"${absenceReason}"</div>`;
         }
 
         return `
@@ -3857,7 +3864,9 @@ export const UI = {
 
   // 7.3 OPEN ATTENDANCE EDIT MODAL DIALOG (FOR MANAGER)
   openEditAttendanceModal(record, onSaved) {
-    const currentWorkPeriod = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'].includes(record.note) ? record.note : 'Cả ngày';
+    const workPeriodValues = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'];
+    const currentWorkPeriod = workPeriodValues.includes(record.note) ? record.note : 'Cả ngày';
+    const existingAbsenceReason = record.status === 'absent' && record.note && !workPeriodValues.includes(record.note) ? record.note : '';
 
     const html = `
       <form id="edit-attendance-form" style="display:flex; flex-direction:column; gap:16px;">
@@ -3886,7 +3895,7 @@ export const UI = {
 
         <div id="edit-att-note-box">
           <label class="form-label">Lý do vắng</label>
-          <textarea id="edit-att-note" class="form-textarea" placeholder="Nhập lý do vắng mặt...">${record.status === 'absent' ? (record.note || '') : ''}</textarea>
+          <textarea id="edit-att-note" class="form-textarea" placeholder="Nhập lý do vắng mặt...">${existingAbsenceReason}</textarea>
           <div id="edit-att-note-help" style="font-size:.68rem; color:var(--status-rejected); margin-top:5px;">Bắt buộc nhập lý do khi chọn Vắng mặt.</div>
         </div>
 

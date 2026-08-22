@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260821-static-worker-status';
-import { UI } from './ui.js?v=20260821-static-worker-status';
+import { DB } from './db.js?v=20260822-assistant-supporting';
+import { UI } from './ui.js?v=20260822-assistant-supporting';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
