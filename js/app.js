@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-system-centered-dialogs';
-import { UI } from './ui.js?v=20260822-system-centered-dialogs';
+import { DB } from './db.js?v=20260822-ios-safe-area-modal-lock';
+import { UI } from './ui.js?v=20260822-ios-safe-area-modal-lock';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -115,7 +115,7 @@ function showConnectionBanner() {
   if (document.getElementById('offline-mode-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'offline-mode-banner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#D97706;color:#fff;text-align:center;padding:7px 16px;font-size:0.78rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#D97706;color:#fff;text-align:center;padding:calc(7px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 7px max(16px,env(safe-area-inset-left,0px));font-size:0.78rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
   banner.innerHTML = navigator.onLine === false
     ? '⚠️ Thiết bị đang mất mạng — Đang dùng dữ liệu đã lưu trên máy...'
     : '⏳ Đang tải dữ liệu mới nhất từ máy chủ...';

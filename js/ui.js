@@ -1,5 +1,5 @@
 ﻿import { DB } from './db.js?v=20260821-general-overview';
-import { Toast, Modal, MockImages } from './components.js?v=20260822-system-centered-dialogs';
+import { Toast, Modal, MockImages } from './components.js?v=20260822-ios-safe-area-modal-lock';
 import { PushNotifications } from './notifications.js';
 
 window.showPhotoLightbox = (url) => {

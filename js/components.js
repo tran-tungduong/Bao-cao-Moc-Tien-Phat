@@ -39,6 +39,9 @@ export const Modal = {
     const existing = document.getElementById('app-modal');
     if (existing) existing.remove();
 
+    // Prevent iOS/PWA from scrolling the page behind an open dialog.
+    document.body.classList.add('modal-open');
+
     const overlay = document.createElement('div');
     overlay.id = 'app-modal';
     overlay.className = 'modal-overlay';
@@ -62,10 +65,19 @@ export const Modal = {
     setTimeout(() => overlay.classList.add('active'), 50);
 
     const close = () => {
-      overlay.classList.remove('active');
-      overlay.addEventListener('transitionend', () => {
+      let finished = false;
+      const finishClose = () => {
+        if (finished) return;
+        finished = true;
         overlay.remove();
-      });
+        if (!document.querySelector('.modal-overlay')) {
+          document.body.classList.remove('modal-open');
+        }
+      };
+      overlay.classList.remove('active');
+      overlay.addEventListener('transitionend', finishClose, { once: true });
+      // Older iOS WebViews may skip transitionend after an app resumes.
+      setTimeout(finishClose, 400);
     };
 
     overlay.querySelector('#modal-close-btn').addEventListener('click', close);
