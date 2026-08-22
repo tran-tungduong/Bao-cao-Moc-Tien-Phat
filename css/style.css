@@ -1650,7 +1650,7 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 
 .general-overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(250px, .72fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -1701,7 +1701,6 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 
 .general-project-card__header,
 .general-project-card__footer,
-.general-project-progress__label,
 .general-project-priority__meta {
   display: flex;
   justify-content: space-between;
@@ -1756,36 +1755,6 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
   border: 1px solid var(--project-health);
   background: var(--project-health-bg);
   color: var(--project-health);
-}
-
-.general-project-progress__label {
-  align-items: center;
-  margin-bottom: 5px;
-  color: var(--text-secondary);
-  font-size: .69rem;
-}
-
-.general-project-progress__label strong {
-  color: var(--project-health);
-}
-
-.general-project-progress__track {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--bg-primary);
-}
-
-.general-project-progress__track > div {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--project-health);
-}
-
-.general-project-progress__count {
-  margin-top: 5px;
-  color: var(--text-muted);
-  font-size: .64rem;
 }
 
 .general-project-priority {
@@ -1863,6 +1832,16 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 
 .general-worker-list {
   margin-top: 7px;
+}
+
+.general-worker-list--modal {
+  max-height: min(68vh, 620px);
+  padding: 0 4px;
+  overflow-y: auto;
+}
+
+.general-worker-list--modal .general-worker-card {
+  padding: 12px 2px;
 }
 
 .general-worker-card {
@@ -2028,9 +2007,6 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
     grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   }
 
-  .general-overview-grid {
-    grid-template-columns: minmax(0, 1.55fr) minmax(230px, .72fr);
-  }
 }
 
 @media (max-width: 760px) {

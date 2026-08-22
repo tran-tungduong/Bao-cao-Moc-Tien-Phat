@@ -2160,9 +2160,7 @@ export const UI = {
 
     const projectSummaries = projects.map(project => {
       const subtasks = project.subtasks || [];
-      const completedTasks = subtasks.filter(st => st.status === 'completed').length;
       const pendingTasks = subtasks.filter(st => st.status !== 'completed');
-      const progress = subtasks.length ? Math.round(completedTasks / subtasks.length * 100) : 0;
       const deadline = project.deadline ? new Date(`${project.deadline}T23:59:59`) : null;
       const diffDays = deadline && !isNaN(deadline.getTime()) ? Math.ceil((deadline - now) / 86400000) : null;
       const hasRework = pendingTasks.some(st => st.type === 'rework') || project.isRework;
@@ -2185,7 +2183,7 @@ export const UI = {
         healthColor = 'var(--status-rejected)';
         healthBg = 'rgba(239,68,68,0.12)';
         rank = 0;
-      } else if (diffDays !== null && diffDays <= 3 && progress < 70) {
+      } else if (diffDays !== null && diffDays <= 3 && pendingTasks.length > 0) {
         health = 'warning';
         healthLabel = 'Cần chú ý';
         healthColor = 'var(--status-pending)';
@@ -2206,9 +2204,7 @@ export const UI = {
       return {
         project,
         subtasks,
-        completedTasks,
         pendingTasks,
-        progress,
         diffDays,
         health,
         healthLabel,
@@ -2292,7 +2288,7 @@ export const UI = {
           projectId: p.id,
           color: 'var(--status-pending)',
           icon: 'fa-hourglass-half',
-          text: `${p.name} còn ${Math.max(0, item.diffDays)} ngày, tiến độ hiện tại ${item.progress}%.`
+          text: `${p.name} còn ${Math.max(0, item.diffDays)} ngày và ${item.pendingTasks.length} nhiệm vụ cần xử lý.`
         });
       } else if (item.health === 'frozen') {
         alerts.push({
@@ -2395,16 +2391,6 @@ export const UI = {
             <span class="general-project-stage"><i class="fas fa-layer-group"></i>${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)}</span>
             <span class="general-project-deadline"><i class="fas fa-clock"></i>${escapeHtml(deadlineText)}</span>
           </div>
-          <div class="general-project-progress">
-            <div class="general-project-progress__label">
-              <span>Tiến độ</span>
-              <strong>${item.progress}%</strong>
-            </div>
-            <div class="general-project-progress__track">
-              <div style="width:${item.progress}%;"></div>
-            </div>
-            <div class="general-project-progress__count">${item.completedTasks}/${item.subtasks.length} nhiệm vụ hoàn thành</div>
-          </div>
           <div class="general-project-priority ${priorityTask ? '' : 'is-clear'}">
             <div class="general-project-priority__eyebrow">
               <i class="fas ${priorityTask ? 'fa-hammer' : 'fa-check-circle'}"></i>
@@ -2477,7 +2463,7 @@ export const UI = {
           projectId: item.project.id,
           icon: 'fa-building', color: item.healthColor,
           title: item.project.name,
-          meta: `${stageNames[item.project.step] || `Giai đoạn ${item.project.step || '?'}`} • ${item.progress}% hoàn thành • ${item.healthLabel}`
+          meta: `${stageNames[item.project.step] || `Giai đoạn ${item.project.step || '?'}`} • ${item.healthLabel}`
         }))
       },
       attention: {
@@ -2487,7 +2473,7 @@ export const UI = {
           projectId: item.project.id,
           icon: item.health === 'frozen' ? 'fa-pause-circle' : 'fa-exclamation-triangle', color: item.healthColor,
           title: item.project.name,
-          meta: `${item.healthLabel} • ${item.pendingTasks.length} nhiệm vụ chưa xong • Tiến độ ${item.progress}%`
+          meta: `${item.healthLabel} • ${item.pendingTasks.length} nhiệm vụ chưa xong`
         }))
       },
       tasks: {
@@ -2530,6 +2516,17 @@ export const UI = {
     };
 
     const openStatDetails = (key) => {
+      if (key === 'attendance') {
+        const attendanceModal = Modal.create('Nhân sự hôm nay', `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; color:var(--text-secondary); font-size:.75rem;">
+            <span><strong style="color:var(--status-approved); font-size:.95rem;">${presentCount}/${workers.length}</strong> nhân sự đi làm</span>
+            <span>Cập nhật ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <div class="general-worker-list general-worker-list--modal">${workerCardsHtml || '<div class="general-worker-empty">Chưa có nhân sự thi công.</div>'}</div>
+        `);
+        bindWorkerControls(attendanceModal.element, attendanceModal);
+        return;
+      }
       const detail = statDetails[key];
       if (!detail) return;
       const rowsHtml = detail.rows.map(row => {
@@ -2649,6 +2646,32 @@ export const UI = {
       renderWorkerSheet();
     };
 
+    const bindWorkerControls = (root, parentModal = null) => {
+      root.querySelectorAll('.general-worker-status-select').forEach(select => {
+        select.addEventListener('change', () => {
+          const workerId = select.getAttribute('data-workerid');
+          const nextStatus = select.value;
+          const currentStatus = select.getAttribute('data-current-status') || 'no_record';
+          const state = workerStates.find(item => item.worker.id === workerId);
+          select.value = currentStatus;
+          if (!state) return;
+          if (parentModal) parentModal.close();
+          this.openEditAttendanceModal({ ...state.record, status: nextStatus }, () => this.renderGeneralManagement(user));
+        });
+      });
+
+      root.querySelectorAll('.general-worker-sheet-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const workerId = button.getAttribute('data-workerid');
+          const worker = workers.find(item => item.id === workerId);
+          if (worker) {
+            if (parentModal) parentModal.close();
+            openWorkerAttendanceSheet(worker);
+          }
+        });
+      });
+    };
+
     container.innerHTML = `
       <section class="fade-in general-management-view">
         <div class="general-management-header">
@@ -2700,14 +2723,6 @@ export const UI = {
               ${projectCardsHtml || '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:28px; border:1px dashed var(--border-color); border-radius:14px;">Không có công trình đang chạy.</div>'}
             </div>
           </div>
-
-          <aside class="general-workers-panel">
-              <div class="general-section-title">
-                <h4><i class="fas fa-user-hard-hat"></i> Nhân sự hôm nay</h4>
-                <span>${presentCount}/${workers.length} đi làm</span>
-              </div>
-              <div class="general-worker-list">${workerCardsHtml || '<div class="general-worker-empty">Chưa có nhân sự thi công.</div>'}</div>
-          </aside>
         </div>
 
         <div class="general-activity-panel">
@@ -2719,26 +2734,6 @@ export const UI = {
           ${events.length > visibleEventCount ? `<button type="button" id="general-activity-toggle" class="general-activity-toggle" data-expanded="false"><span>Xem thêm ${Math.min(events.length, 20) - visibleEventCount} hoạt động</span><i class="fas fa-chevron-down"></i></button>` : ''}
         </div>
       </section>`;
-
-    container.querySelectorAll('.general-worker-status-select').forEach(select => {
-      select.addEventListener('change', () => {
-        const workerId = select.getAttribute('data-workerid');
-        const nextStatus = select.value;
-        const currentStatus = select.getAttribute('data-current-status') || 'no_record';
-        const state = workerStates.find(item => item.worker.id === workerId);
-        select.value = currentStatus;
-        if (!state) return;
-        this.openEditAttendanceModal({ ...state.record, status: nextStatus }, () => this.renderGeneralManagement(user));
-      });
-    });
-
-    container.querySelectorAll('.general-worker-sheet-btn').forEach(button => {
-      button.addEventListener('click', () => {
-        const workerId = button.getAttribute('data-workerid');
-        const worker = workers.find(item => item.id === workerId);
-        if (worker) openWorkerAttendanceSheet(worker);
-      });
-    });
 
     container.querySelectorAll('.general-project-card').forEach(card => {
       card.addEventListener('click', () => {
