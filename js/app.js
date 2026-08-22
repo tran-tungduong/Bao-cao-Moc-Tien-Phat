@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-project-actions-responsive';
-import { UI } from './ui.js?v=20260822-project-actions-responsive';
+import { DB } from './db.js?v=20260822-calm-general-overview';
+import { UI } from './ui.js?v=20260822-calm-general-overview';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

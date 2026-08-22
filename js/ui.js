@@ -51,7 +51,9 @@ export const UI = {
   },
 
   formatReportNote(note) {
-    return String(note || '').replace(/\[([^\]\r\n]+?)\s*-\s*Cả\s+phòng\]/gi, '[$1]');
+    return String(note || '')
+      .replace(/\[([^\]\r\n]+?)\s*-\s*Cả\s+phòng\]/gi, '[$1]')
+      .replace(/,\s*Dự kiến xong:\s*\S+/gi, '');
   },
 
   // 1. RENDER LOGIN SCREEN
@@ -2375,96 +2377,94 @@ export const UI = {
 
     const projectCardsHtml = projectSummaries.map(item => {
       const p = item.project;
-      const people = item.assignedWorkers.length
-        ? item.assignedWorkers.map(worker => shortName(worker.name)).join(', ')
-        : 'Chưa phân công';
       const deadlineText = item.diffDays === null
         ? 'Chưa đặt deadline'
         : item.diffDays < 0
           ? `Quá hạn ${Math.abs(item.diffDays)} ngày`
           : item.diffDays === 0 ? 'Hết hạn hôm nay' : `Còn ${item.diffDays} ngày`;
+      const priorityTask = item.pendingTasks[0] || null;
+      const priorityWorker = priorityTask ? db.users.find(u => u.id === priorityTask.assignedTo) : null;
+      const remainingTaskCount = Math.max(0, item.pendingTasks.length - 1);
       return `
-        <article class="general-project-card" data-projectid="${p.id}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-left:4px solid ${item.healthColor}; border-radius:16px; padding:15px; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .15s ease,border-color .15s ease; display:flex; flex-direction:column; gap:11px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-            <div style="min-width:0;">
-              <h4 style="font-size:.92rem; color:var(--text-primary); line-height:1.35; margin:0; overflow-wrap:anywhere;">${escapeHtml(p.name)}</h4>
+        <article class="general-project-card" data-projectid="${p.id}" style="--project-health:${item.healthColor}; --project-health-bg:${item.healthBg};">
+          <div class="general-project-card__header">
+            <h4>${escapeHtml(p.name)}</h4>
+            <span class="general-project-health">${escapeHtml(item.healthLabel)}</span>
+          </div>
+          <div class="general-project-card__meta">
+            <span class="general-project-stage"><i class="fas fa-layer-group"></i>${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)}</span>
+            <span class="general-project-deadline"><i class="fas fa-clock"></i>${escapeHtml(deadlineText)}</span>
+          </div>
+          <div class="general-project-progress">
+            <div class="general-project-progress__label">
+              <span>Tiến độ</span>
+              <strong>${item.progress}%</strong>
             </div>
-            <span style="flex:none; font-size:.66rem; font-weight:800; color:${item.healthColor}; background:${item.healthBg}; border:1px solid ${item.healthColor}; border-radius:999px; padding:4px 8px;">${escapeHtml(item.healthLabel)}</span>
-          </div>
-          <div style="display:flex; flex-wrap:wrap; gap:7px;">
-            <span style="display:inline-flex; align-items:center; gap:5px; padding:6px 9px; border-radius:9px; background:rgba(96,165,250,.13); border:1px solid rgba(96,165,250,.45); color:#60A5FA; font-size:.7rem; font-weight:800;"><i class="fas fa-layer-group"></i>${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)}</span>
-            <span style="display:inline-flex; align-items:center; gap:5px; padding:6px 9px; border-radius:9px; background:${item.healthBg}; border:1px solid ${item.healthColor}; color:${item.healthColor}; font-size:.7rem; font-weight:800;"><i class="fas fa-clock"></i>${escapeHtml(deadlineText)}</span>
-          </div>
-          <div>
-            <div style="display:flex; justify-content:space-between; font-size:.7rem; margin-bottom:5px;">
-              <span style="color:var(--text-secondary);">Tiến độ nhiệm vụ</span>
-              <strong style="color:${item.healthColor};">${item.progress}%</strong>
+            <div class="general-project-progress__track">
+              <div style="width:${item.progress}%;"></div>
             </div>
-            <div style="height:7px; background:var(--bg-primary); border-radius:999px; overflow:hidden; border:1px solid var(--border-color);">
-              <div style="height:100%; width:${item.progress}%; background:${item.healthColor}; border-radius:999px;"></div>
+            <div class="general-project-progress__count">${item.completedTasks}/${item.subtasks.length} nhiệm vụ hoàn thành</div>
+          </div>
+          <div class="general-project-priority ${priorityTask ? '' : 'is-clear'}">
+            <div class="general-project-priority__eyebrow">
+              <i class="fas ${priorityTask ? 'fa-hammer' : 'fa-check-circle'}"></i>
+              ${priorityTask ? 'Nhiệm vụ cần xử lý' : 'Không còn nhiệm vụ chưa hoàn thành'}
             </div>
-            <div style="font-size:.67rem; color:var(--text-muted); margin-top:5px;">${item.completedTasks}/${item.subtasks.length} nhiệm vụ hoàn thành</div>
+            ${priorityTask ? `
+              <div class="general-project-priority__title">${escapeHtml(taskTitle(priorityTask.title))}</div>
+              <div class="general-project-priority__meta">
+                <span><i class="fas fa-user"></i>${escapeHtml(priorityWorker ? shortName(priorityWorker.name) : 'Chưa giao người làm')}</span>
+                ${remainingTaskCount ? `<span class="general-project-more">+${remainingTaskCount} nhiệm vụ khác</span>` : ''}
+              </div>
+            ` : ''}
           </div>
-          <div style="font-size:.75rem; color:var(--text-secondary); display:flex; align-items:flex-start; gap:6px;">
-            <i class="fas fa-users" style="color:var(--primary); margin-top:2px;"></i>
-            <span><strong style="color:var(--text-primary);">Nhân sự:</strong> ${escapeHtml(people)}</span>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:7px; border-top:1px dashed var(--border-color); padding-top:10px;">
-            <div style="font-size:.68rem; color:var(--primary); font-weight:800; text-transform:uppercase; letter-spacing:.035em;"><i class="fas fa-list-check" style="margin-right:5px;"></i>Nhiệm vụ còn lại (${item.pendingTasks.length})</div>
-            ${item.pendingTasks.map(task => {
-              const worker = db.users.find(u => u.id === task.assignedTo);
-              return `<div style="background:var(--bg-primary); border:1px solid var(--border-color); border-left:3px solid var(--primary); border-radius:10px; padding:9px 10px;">
-                <div style="display:flex; align-items:flex-start; gap:7px; color:var(--text-primary); font-size:.73rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere;"><i class="fas fa-hammer" style="color:var(--primary); margin-top:3px; flex:none;"></i><span>${escapeHtml(this.formatReportNote(task.title || 'Nhiệm vụ chưa đặt tên'))}</span></div>
-                <div style="font-size:.65rem; color:var(--text-muted); margin-top:5px; padding-left:19px;"><i class="fas fa-user" style="margin-right:5px;"></i>${escapeHtml(worker ? shortName(worker.name) : 'Chưa giao người làm')}</div>
-              </div>`;
-            }).join('') || '<div style="font-size:.72rem; color:var(--status-approved); background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3); border-radius:10px; padding:9px 10px;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Không còn nhiệm vụ chưa hoàn thành</div>'}
-          </div>
-          <div style="font-size:.66rem; color:var(--text-muted); display:flex; justify-content:space-between; gap:8px;">
+          <div class="general-project-card__footer">
             <span><i class="fas fa-sync-alt"></i> ${escapeHtml(relativeTime(item.latestUpdate))}</span>
-            <span style="color:var(--primary); font-weight:700;">Xem chi tiết <i class="fas fa-chevron-right"></i></span>
+            <span>Xem chi tiết <i class="fas fa-chevron-right"></i></span>
           </div>
         </article>`;
     }).join('');
 
     const workerCardsHtml = workerStates.map(item => {
       const managerActions = canManageAttendance ? `
-        <div style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:9px; padding-top:9px; border-top:1px dashed var(--border-color);">
-          <select class="general-worker-status-select form-select" data-workerid="${item.worker.id}" data-current-status="${item.status === 'no_record' ? 'no_record' : item.record.status}" aria-label="Đổi trạng thái chấm công của ${escapeHtml(shortName(item.worker.name))}" style="height:34px; min-width:0; padding:4px 28px 4px 9px; font-size:.68rem; font-weight:700;">
+        <div class="general-worker-actions">
+          <select class="general-worker-status-select form-select" data-workerid="${item.worker.id}" data-current-status="${item.status === 'no_record' ? 'no_record' : item.record.status}" aria-label="Đổi trạng thái chấm công của ${escapeHtml(shortName(item.worker.name))}">
             <option value="no_record" ${item.status === 'no_record' ? 'selected' : ''}>Chưa chấm công</option>
-            <option value="present" ${item.record.status === 'present' ? 'selected' : ''}>Đi làm</option>
-            <option value="absent" ${item.record.status === 'absent' ? 'selected' : ''}>Vắng mặt</option>
+            <option value="present" ${item.record?.status === 'present' ? 'selected' : ''}>Đi làm</option>
+            <option value="absent" ${item.record?.status === 'absent' ? 'selected' : ''}>Vắng mặt</option>
           </select>
-          <button type="button" class="general-worker-sheet-btn" data-workerid="${item.worker.id}" style="height:34px; padding:0 10px; border:1px solid rgba(16,185,129,.35); border-radius:9px; background:rgba(16,185,129,.1); color:var(--status-approved); font-size:.66rem; font-weight:800; white-space:nowrap; cursor:pointer;"><i class="fas fa-table"></i> Bảng chấm công</button>
+          <button type="button" class="general-worker-sheet-btn" data-workerid="${item.worker.id}" title="Xem bảng chấm công của ${escapeHtml(shortName(item.worker.name))}" aria-label="Xem bảng chấm công của ${escapeHtml(shortName(item.worker.name))}"><i class="fas fa-table"></i></button>
         </div>` : '';
       return `
-        <div style="background:var(--bg-primary); border:1px solid var(--border-color); border-radius:13px; padding:11px; display:flex; align-items:flex-start;">
-          <div style="min-width:0; flex:1;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <strong style="font-size:.78rem; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(shortName(item.worker.name))}</strong>
-              <span style="font-size:.62rem; color:${item.color}; font-weight:800; white-space:nowrap;"><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
+        <div class="general-worker-card" style="--worker-status:${item.color};">
+          <div class="general-worker-card__main">
+            <div class="general-worker-card__header">
+              <strong>${escapeHtml(shortName(item.worker.name))}</strong>
+              <span><i class="fas ${item.icon}"></i> ${escapeHtml(item.label)}</span>
             </div>
-            ${item.status === 'absent' ? `<div style="font-size:.69rem; color:var(--status-rejected); margin-top:4px; line-height:1.4; font-weight:700;">${escapeHtml(`Lý do vắng: ${item.record.note && !workPeriodValues.includes(item.record.note) ? item.record.note : 'Chưa cập nhật lý do'}`)}</div>` : ''}
-            <div style="font-size:.61rem; color:var(--text-muted); margin-top:4px;">${item.record.status === 'present' ? `Thời lượng: ${escapeHtml(workPeriodValues.includes(item.record.note) ? item.record.note : 'Cả ngày')}` : item.status === 'absent' ? 'Đã cập nhật trạng thái nghỉ' : 'Chưa có cập nhật hôm nay'}</div>
+            ${item.status === 'absent' ? `<div class="general-worker-card__absence">${escapeHtml(`Lý do: ${item.record.note && !workPeriodValues.includes(item.record.note) ? item.record.note : 'Chưa cập nhật'}`)}</div>` : ''}
+            <div class="general-worker-card__meta">${item.record?.status === 'present' ? escapeHtml(workPeriodValues.includes(item.record.note) ? item.record.note : 'Cả ngày') : item.status === 'absent' ? 'Đã cập nhật nghỉ' : 'Chưa cập nhật hôm nay'}</div>
             ${managerActions}
           </div>
         </div>`;
     }).join('');
 
-    const alertsHtml = alerts.slice(0, 8).map(alert => `
-      <button type="button" class="general-alert-item" data-projectid="${alert.projectId}" style="width:100%; text-align:left; background:var(--bg-primary); border:1px solid var(--border-color); border-left:3px solid ${alert.color}; border-radius:10px; padding:9px 11px; color:var(--text-secondary); font-size:.72rem; line-height:1.4; cursor:${alert.projectId ? 'pointer' : 'default'}; display:flex; align-items:flex-start; gap:8px;">
-        <i class="fas ${alert.icon}" style="color:${alert.color}; margin-top:2px;"></i>
+    const alertsHtml = alerts.slice(0, 4).map(alert => `
+      <button type="button" class="general-alert-item" data-projectid="${alert.projectId}" style="--alert-color:${alert.color}; cursor:${alert.projectId ? 'pointer' : 'default'};">
+        <i class="fas ${alert.icon}"></i>
         <span>${escapeHtml(alert.text)}</span>
       </button>`).join('');
 
-    const eventsHtml = events.slice(0, 30).map(event => {
+    const visibleEventCount = 5;
+    const eventsHtml = events.slice(0, 20).map((event, index) => {
       const visual = eventIcon(event.action);
       return `
-        <div class="general-activity-item" data-projectid="${event.projectId}" style="display:grid; grid-template-columns:42px 26px minmax(0,1fr); gap:8px; align-items:start; padding:9px 0; border-bottom:1px solid var(--border-color);">
-          <time style="font-size:.64rem; color:var(--text-muted); padding-top:3px;">${escapeHtml(formatEventTime(event.timestamp))}</time>
-          <span style="width:24px; height:24px; border-radius:50%; background:${visual.color}20; color:${visual.color}; display:flex; align-items:center; justify-content:center; font-size:.65rem;"><i class="fas ${visual.icon}"></i></span>
-          <div style="min-width:0;">
-            <div style="font-size:.72rem; color:var(--text-secondary); line-height:1.4;"><strong style="color:var(--text-primary);">${escapeHtml(shortName(event.user))}</strong> — ${escapeHtml(this.formatReportNote(event.action))}</div>
-            <button type="button" class="general-activity-project" data-projectid="${event.projectId}" style="margin-top:4px; padding:2px 7px; border-radius:999px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--primary); font-size:.61rem; cursor:${event.projectId ? 'pointer' : 'default'}; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(event.projectName)}</button>
+        <div class="general-activity-item" data-projectid="${event.projectId}" data-extra="${index >= visibleEventCount ? 'true' : 'false'}" ${index >= visibleEventCount ? 'hidden' : ''}>
+          <time>${escapeHtml(formatEventTime(event.timestamp))}</time>
+          <span class="general-activity-icon" style="--activity-color:${visual.color};"><i class="fas ${visual.icon}"></i></span>
+          <div class="general-activity-copy">
+            <div><strong>${escapeHtml(shortName(event.user))}</strong> — ${escapeHtml(this.formatReportNote(event.action))}</div>
+            <button type="button" class="general-activity-project" data-projectid="${event.projectId}" style="cursor:${event.projectId ? 'pointer' : 'default'};">${escapeHtml(event.projectName)}</button>
           </div>
         </div>`;
     }).join('');
@@ -2650,22 +2650,22 @@ export const UI = {
     };
 
     container.innerHTML = `
-      <section class="fade-in" style="display:flex; flex-direction:column; gap:14px; padding-bottom:28px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+      <section class="fade-in general-management-view">
+        <div class="general-management-header">
           <div>
-            <h3 style="font-family:var(--font-title); font-size:1.05rem; color:var(--text-primary); margin:0;"><i class="fas fa-chart-pie" style="color:var(--primary);"></i> Quản lý chung</h3>
-            <p style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">Tình trạng công trình và nhân sự tại thời điểm ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+            <h3><i class="fas fa-chart-pie"></i> Quản lý chung</h3>
+            <p>Cập nhật lúc ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
           </div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <select id="general-project-filter" class="form-select" style="height:36px; padding:4px 30px 4px 10px; font-size:.72rem; min-width:170px;">
+          <div class="general-management-tools">
+            <select id="general-project-filter" class="form-select">
               <option value="all">Tất cả công trình</option>
               ${projectSummaries.map(item => `<option value="${item.project.id}">${escapeHtml(item.project.name)}</option>`).join('')}
             </select>
-            <button type="button" id="general-refresh-btn" class="btn-primary" style="height:36px; width:36px; padding:0; border-radius:10px; flex:none;" title="Làm mới dữ liệu"><i class="fas fa-sync-alt"></i></button>
+            <button type="button" id="general-refresh-btn" class="btn-primary" title="Làm mới dữ liệu" aria-label="Làm mới dữ liệu"><i class="fas fa-sync-alt"></i></button>
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:9px;">
+        <div class="general-stats-grid">
           ${[
             { key: 'projects', label: 'Công trình đang chạy', value: projects.length, icon: 'fa-building', color: 'var(--primary)' },
             { key: 'attention', label: 'Cần chú ý', value: attentionCount, icon: 'fa-exclamation-triangle', color: attentionCount ? 'var(--status-rejected)' : 'var(--status-approved)' },
@@ -2673,49 +2673,50 @@ export const UI = {
             { key: 'attendance', label: 'Nhân sự đi làm', value: `${presentCount}/${workers.length}`, icon: 'fa-users', color: 'var(--status-approved)' },
             { key: 'approvals', label: 'Báo cáo chờ duyệt', value: pendingApprovals, icon: 'fa-file-signature', color: pendingApprovals ? 'var(--status-pending)' : 'var(--text-muted)' }
           ].map(stat => `
-            <button type="button" class="general-stat-card" data-stat="${stat.key}" aria-label="Xem chi tiết ${stat.label}" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:14px; padding:11px 12px; min-width:0; text-align:left; cursor:pointer; color:inherit;">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;"><span style="font-size:.64rem; color:var(--text-muted); line-height:1.25;">${stat.label}</span><i class="fas ${stat.icon}" style="color:${stat.color}; font-size:.72rem;"></i></div>
-              <strong style="display:block; font-size:1.3rem; color:${stat.color}; margin-top:5px;">${stat.value}</strong>
-              <span style="display:block; font-size:.6rem; color:var(--primary); font-weight:700; margin-top:5px;">Xem chi tiết <i class="fas fa-chevron-right" style="font-size:.52rem;"></i></span>
+            <button type="button" class="general-stat-card" data-stat="${stat.key}" aria-label="Xem chi tiết ${stat.label}" style="--stat-color:${stat.color};">
+              <div><span>${stat.label}</span><i class="fas ${stat.icon}"></i></div>
+              <strong>${stat.value}</strong>
             </button>`).join('')}
         </div>
 
-        <div style="display:grid; grid-template-columns:minmax(0,1.7fr) minmax(260px,.85fr); gap:13px; align-items:start;" class="general-overview-grid">
-          <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <h4 style="font-size:.83rem; color:var(--text-primary); margin:0;"><i class="fas fa-building" style="color:var(--primary);"></i> Tình trạng công trình</h4>
-              <span style="font-size:.65rem; color:var(--text-muted);">Ưu tiên rủi ro trước</span>
+        <div class="general-attention-panel ${alerts.length ? '' : 'is-clear'}">
+          <div class="general-section-heading">
+            <div>
+              <span class="general-section-heading__icon"><i class="fas ${alerts.length ? 'fa-bell' : 'fa-check'}"></i></span>
+              <div><h4>${alerts.length ? 'Cần xử lý trước' : 'Không có cảnh báo'}</h4><p>${alerts.length ? `${alerts.length} nội dung cần theo dõi` : 'Mọi công trình đang ổn định'}</p></div>
             </div>
-            <div id="general-project-list" class="general-project-list" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px;">
+            ${alerts.length > 4 ? `<span class="general-attention-more">+${alerts.length - 4} mục khác</span>` : ''}
+          </div>
+          <div id="general-alert-list" class="general-alert-list">${alertsHtml || '<div class="general-alert-empty"><i class="fas fa-check-circle"></i> Hiện không có nội dung cần xử lý.</div>'}</div>
+        </div>
+
+        <div class="general-overview-grid">
+          <div class="general-projects-column">
+            <div class="general-section-title">
+              <h4><i class="fas fa-building"></i> Tình trạng công trình</h4>
+              <span>Ưu tiên rủi ro trước</span>
+            </div>
+            <div id="general-project-list" class="general-project-list">
               ${projectCardsHtml || '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:28px; border:1px dashed var(--border-color); border-radius:14px;">Không có công trình đang chạy.</div>'}
             </div>
           </div>
 
-          <aside style="display:flex; flex-direction:column; gap:12px; min-width:0;">
-            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h4 style="font-size:.8rem; color:var(--text-primary); margin:0;"><i class="fas fa-user-hard-hat" style="color:var(--primary);"></i> Trạng thái nhân sự</h4>
-                <span style="font-size:.62rem; color:var(--text-muted);">Hôm nay</span>
+          <aside class="general-workers-panel">
+              <div class="general-section-title">
+                <h4><i class="fas fa-user-hard-hat"></i> Nhân sự hôm nay</h4>
+                <span>${presentCount}/${workers.length} đi làm</span>
               </div>
-              <div style="display:flex; flex-direction:column; gap:8px;">${workerCardsHtml || '<div style="font-size:.72rem; color:var(--text-muted);">Chưa có nhân sự thi công.</div>'}</div>
-            </div>
-
-            <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:9px;">
-                <h4 style="font-size:.8rem; color:var(--text-primary); margin:0;"><i class="fas fa-bell" style="color:var(--status-pending);"></i> Cần chú ý</h4>
-                <span style="font-size:.62rem; color:var(--text-muted);">${alerts.length} mục</span>
-              </div>
-              <div id="general-alert-list" style="display:flex; flex-direction:column; gap:7px; max-height:330px; overflow-y:auto;">${alertsHtml || '<div style="font-size:.72rem; color:var(--status-approved); padding:10px; text-align:center;"><i class="fas fa-check-circle"></i> Hiện không có cảnh báo.</div>'}</div>
-            </div>
+              <div class="general-worker-list">${workerCardsHtml || '<div class="general-worker-empty">Chưa có nhân sự thi công.</div>'}</div>
           </aside>
         </div>
 
-        <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:13px 14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-            <h4 style="font-size:.82rem; color:var(--text-primary); margin:0;"><i class="fas fa-stream" style="color:#60A5FA;"></i> Hoạt động mới nhất</h4>
-            <span style="font-size:.62rem; color:var(--text-muted);">Theo thứ tự thời gian</span>
+        <div class="general-activity-panel">
+          <div class="general-section-title">
+            <h4><i class="fas fa-stream"></i> Hoạt động mới nhất</h4>
+            <span>5 cập nhật gần nhất</span>
           </div>
-          <div id="general-activity-list" style="max-height:430px; overflow-y:auto;">${eventsHtml || '<div style="font-size:.72rem; color:var(--text-muted); text-align:center; padding:24px;">Chưa có hoạt động nào.</div>'}</div>
+          <div id="general-activity-list">${eventsHtml || '<div class="general-activity-empty">Chưa có hoạt động nào.</div>'}</div>
+          ${events.length > visibleEventCount ? `<button type="button" id="general-activity-toggle" class="general-activity-toggle" data-expanded="false"><span>Xem thêm ${Math.min(events.length, 20) - visibleEventCount} hoạt động</span><i class="fas fa-chevron-down"></i></button>` : ''}
         </div>
       </section>`;
 
@@ -2758,16 +2759,49 @@ export const UI = {
       });
     });
 
+    let activityExpanded = false;
     const filter = document.getElementById('general-project-filter');
-    if (filter) {
-      filter.addEventListener('change', () => {
-        const selected = filter.value;
-        container.querySelectorAll('.general-project-card, .general-activity-item, .general-alert-item').forEach(item => {
-          const projectId = item.getAttribute('data-projectid') || '';
-          item.style.display = selected === 'all' || projectId === selected ? '' : 'none';
-        });
+    const activityToggle = document.getElementById('general-activity-toggle');
+    const applyGeneralVisibility = () => {
+      const selected = filter ? filter.value : 'all';
+      container.querySelectorAll('.general-project-card, .general-alert-item').forEach(item => {
+        const projectId = item.getAttribute('data-projectid') || '';
+        item.style.display = selected === 'all' || projectId === selected ? '' : 'none';
+      });
+      const matchingActivityItems = Array.from(container.querySelectorAll('.general-activity-item')).filter(item => {
+        const projectId = item.getAttribute('data-projectid') || '';
+        return selected === 'all' || projectId === selected;
+      });
+      container.querySelectorAll('.general-activity-item').forEach(item => {
+        const matchingIndex = matchingActivityItems.indexOf(item);
+        item.hidden = matchingIndex < 0 || (!activityExpanded && matchingIndex >= visibleEventCount);
+      });
+      if (activityToggle) {
+        const extraCount = Math.max(0, matchingActivityItems.length - visibleEventCount);
+        activityToggle.hidden = extraCount === 0;
+        activityToggle.querySelector('span').textContent = activityExpanded
+          ? 'Thu gọn hoạt động'
+          : `Xem thêm ${extraCount} hoạt động`;
+      }
+    };
+
+    if (activityToggle) {
+      activityToggle.addEventListener('click', () => {
+        activityExpanded = !activityExpanded;
+        activityToggle.setAttribute('data-expanded', String(activityExpanded));
+        activityToggle.querySelector('span').textContent = activityExpanded
+          ? 'Thu gọn hoạt động'
+          : `Xem thêm ${Math.min(events.length, 20) - visibleEventCount} hoạt động`;
+        activityToggle.querySelector('i').className = `fas fa-chevron-${activityExpanded ? 'up' : 'down'}`;
+        applyGeneralVisibility();
       });
     }
+
+    if (filter) {
+      filter.addEventListener('change', applyGeneralVisibility);
+    }
+
+    applyGeneralVisibility();
 
     const refreshButton = document.getElementById('general-refresh-btn');
     if (refreshButton) {
