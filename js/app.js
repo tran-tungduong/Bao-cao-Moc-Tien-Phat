@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-centered-stat-modals';
-import { UI } from './ui.js?v=20260822-centered-stat-modals';
+import { DB } from './db.js?v=20260822-centered-project-details';
+import { UI } from './ui.js?v=20260822-centered-project-details';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

@@ -4528,12 +4528,12 @@ export const UI = {
 
       const canAdd = isManagementRole && !proj.isCompleted;
       return `
-        <div id="scope-manager-section" style="margin-top:8px;">
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; color:var(--primary);">
+        <div id="scope-manager-section" class="project-detail-section project-detail-scope-section" style="margin-top:8px;">
+          <h5 class="project-detail-section-heading" style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; color:var(--primary);">
             <span><i class="fas fa-list-check"></i> Hạng mục & Nhiệm vụ thi công</span>
             ${canAdd ? `
               <div style="display:flex; gap:6px;">
-                <button id="drawer-add-task-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> GIAO VIỆC</button>
+                <button id="drawer-add-task-btn" class="project-detail-section-action" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> GIAO VIỆC</button>
               </div>
             ` : ''}
           </h5>
@@ -4549,13 +4549,13 @@ export const UI = {
 
     const scopeManagerHtml = buildScopeManagerHtml(project);
     const html = `
-      <div style="display:flex; flex-direction:column; gap:20px;">
-        <div style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
-          <h4 style="font-family:var(--font-title); font-size:1.15rem; color:var(--text-primary);">${project.name}</h4>
+      <div class="project-detail-content" style="display:flex; flex-direction:column; gap:20px;">
+        <div class="project-detail-summary" style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+          <h4 class="project-detail-project-name" style="font-family:var(--font-title); font-size:1.15rem; color:var(--text-primary);">${project.name}</h4>
           
           <!-- Visual Stepper: completed steps are filled -->
-          <div style="margin: 12px 0 16px 0;">
-            <label class="form-label" style="font-size:0.75rem; margin-bottom:8px; display:block;">Trình tự các giai đoạn (4 Giai đoạn):</label>
+          <div class="project-detail-stepper" style="margin: 12px 0 16px 0;">
+            <label class="form-label project-detail-stepper-label" style="font-size:0.75rem; margin-bottom:8px; display:block;">Trình tự các giai đoạn (4 Giai đoạn):</label>
             <div class="stepper-scroll-container" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory;">
               ${STEPS.map((s, idx) => {
       const isCompleted = s.num < project.step;
@@ -4590,7 +4590,7 @@ export const UI = {
             </div>
           </div>
 
-          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
+          <p class="project-detail-deadline" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
             Hạn deadline: <span style="font-weight:700; font-size:0.78rem; padding:2px 8px; border-radius:6px; background-color:rgba(197, 168, 128, 0.12); border:1px solid rgba(197, 168, 128, 0.3); color:var(--primary);">${project.deadline}</span> 
             (Hạn gốc: ${project.originalDeadline})
           </p>
@@ -4645,11 +4645,11 @@ export const UI = {
 
 
 
-        <div>
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="project-detail-section project-detail-report-section">
+          <h5 class="project-detail-section-heading" style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
             <span>Lịch Sử Báo Cáo Hàng Ngày (${project.dailyLogs.filter(l => l.approved !== false).length})</span>
             ${['manager', 'kts', 'sales'].includes(user.role) && !project.isCompleted
-        ? `<button id="drawer-add-log-btn" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
+        ? `<button id="drawer-add-log-btn" class="project-detail-section-action" style="background:linear-gradient(135deg, var(--primary), #9E815B); color:var(--bg-primary); border:none; font-size:0.72rem; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:4px; box-shadow:var(--shadow-sm);"><i class="fas fa-plus"></i> THÊM BÁO CÁO</button>`
         : ''
       }
           </h5>
@@ -4658,15 +4658,15 @@ export const UI = {
         const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : l.reporterRole === 'manager' ? 'Sếp' : 'Khác';
         const actualIdx = project.dailyLogs.findIndex(dl => dl.id === l.id);
         return `
-                <div style="background-color:rgba(0,0,0,0.15); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; box-sizing:border-box;">
-                  <div class="btn-view-log-item" data-log-index="${actualIdx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
+                <div class="project-report-log-row" style="background-color:rgba(0,0,0,0.15); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; box-sizing:border-box;">
+                  <div class="btn-view-log-item project-report-log-copy" data-log-index="${actualIdx}" style="cursor:pointer; display:flex; align-items:center; gap:10px; flex:1;">
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
                       <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName} ${l.isEdited ? '<span style="font-size:0.68rem; color:var(--status-pending); font-weight:700; margin-left:4px;">[ĐÃ SỬA]</span>' : ''}</div>
                       <div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.4;">${roleDisplay} • ${this.formatReportNote(l.note)}</div>
                     </div>
                   </div>
-                  <div style="display:flex; align-items:center; gap:8px;">
+                  <div class="project-report-log-actions" style="display:flex; align-items:center; gap:8px;">
                     <div class="btn-view-log-item" data-log-index="${actualIdx}" style="font-size:0.75rem; color:var(--primary); font-weight:600; cursor:pointer;">Xem &rarr;</div>
                     ${['manager', 'kts', 'sales'].includes(user.role) ? `
                       <button class="btn-delete-log-item" data-log-id="${l.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa báo cáo"><i class="fas fa-trash-alt"></i></button>
@@ -4680,9 +4680,9 @@ export const UI = {
         </div>
 
         <!-- Project History Logs -->
-        <div>
-          <h5 style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px;">Nhật Ký Hệ Thống</h5>
-          <div style="background-color: var(--bg-primary); border-radius:12px; padding:12px; font-size:0.75rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px; max-height:150px; overflow-y:auto; border:1px solid var(--border-color);">
+        <div class="project-detail-section project-detail-system-section">
+          <h5 class="project-detail-section-heading" style="font-family:var(--font-title); font-size:0.9rem; margin-bottom:8px;">Nhật Ký Hệ Thống</h5>
+          <div class="project-system-log-list" style="background-color: var(--bg-primary); border-radius:12px; padding:12px; font-size:0.75rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px; max-height:150px; overflow-y:auto; border:1px solid var(--border-color);">
             ${[...(project.history || [])].reverse().map(h => {
         const dt = new Date(h.timestamp);
         let timeStr = '';
@@ -4711,6 +4711,7 @@ export const UI = {
     `;
 
     const drawer = Modal.create('Chi Tiết Dự Án & Quản Lý', html);
+    drawer.element.classList.add('project-detail-modal');
 
     // Auto-scroll stepper container to current step card
     setTimeout(() => {
