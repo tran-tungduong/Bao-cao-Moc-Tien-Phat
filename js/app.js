@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-centered-project-details';
-import { UI } from './ui.js?v=20260822-centered-project-details';
+import { DB } from './db.js?v=20260822-system-centered-dialogs';
+import { UI } from './ui.js?v=20260822-system-centered-dialogs';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

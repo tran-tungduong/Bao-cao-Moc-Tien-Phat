@@ -44,11 +44,11 @@ export const Modal = {
     overlay.className = 'modal-overlay';
 
     overlay.innerHTML = `
-      <div class="modal-drawer">
+      <div class="modal-drawer" role="dialog" aria-modal="true" aria-labelledby="modal-dialog-title">
         <div class="drawer-drag-handle"></div>
         <div class="drawer-header">
-          <h3 class="drawer-title">${title}</h3>
-          <button class="drawer-close" id="modal-close-btn">&times;</button>
+          <h3 class="drawer-title" id="modal-dialog-title">${title}</h3>
+          <button class="drawer-close" id="modal-close-btn" type="button" aria-label="Đóng cửa sổ">&times;</button>
         </div>
         <div class="drawer-body">
           ${contentHtml}
