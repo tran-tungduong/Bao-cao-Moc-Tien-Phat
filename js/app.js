@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-remove-task-estimate';
-import { UI } from './ui.js?v=20260822-remove-task-estimate';
+import { DB } from './db.js?v=20260822-hide-whole-room-label';
+import { UI } from './ui.js?v=20260822-hide-whole-room-label';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

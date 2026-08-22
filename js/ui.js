@@ -42,6 +42,18 @@ export const UI = {
     return document.getElementById('app');
   },
 
+  isWholeRoomItem(item) {
+    return String(item || '').trim().toLocaleLowerCase('vi-VN') === 'cả phòng';
+  },
+
+  formatScopeTitle(room, item) {
+    return this.isWholeRoomItem(item) ? `[${room}]` : `[${room} - ${item}]`;
+  },
+
+  formatReportNote(note) {
+    return String(note || '').replace(/\[([^\]\r\n]+?)\s*-\s*Cả\s+phòng\]/gi, '[$1]');
+  },
+
   // 1. RENDER LOGIN SCREEN
   renderLogin(onLoginSuccess) {
     const container = this.getAppContainer();
@@ -894,7 +906,7 @@ export const UI = {
 
         // Generate text note summary for old compatibility
         note = items.map(it => {
-          return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
+          return `${this.formatScopeTitle(it.room, it.item)}: ${it.todayWork || 'Thi công'}\n` +
             (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}`);
         }).join('\n\n');
 
@@ -974,7 +986,7 @@ export const UI = {
 
             </div>
             
-            <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${l.note}</div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${this.formatReportNote(l.note)}</div>
             
             ${l.isEdited ? `
               <div style="font-size:0.72rem; color:var(--status-pending); font-style:italic; font-weight:600; display:flex; align-items:center; gap:4px; background:rgba(245,158,11,0.08); padding:4px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.2);">
@@ -1099,7 +1111,7 @@ export const UI = {
                     Chờ duyệt
                   </span>
                 </div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${item.log.note}</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; white-space: pre-wrap; margin: 4px 0;">${this.formatReportNote(item.log.note)}</div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
                   <span style="font-size: 0.72rem; color: var(--text-muted);">
                     <i class="fas fa-camera"></i> ${numPhotos} ảnh | <i class="fas fa-calendar-alt"></i> Hạn: ${item.log.expectedCompletionDate ? new Date(item.log.expectedCompletionDate).toLocaleDateString('vi-VN') : 'Chưa đặt'}
@@ -1300,7 +1312,7 @@ export const UI = {
       }
 
       const note = items.map(it => {
-        return `[${it.room} - ${it.item}]: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
+        return `${this.formatScopeTitle(it.room, it.item)}: ${it.isCompleted ? 'Đã xong ✅' : `Chưa xong (Cần làm: ${it.pendingNotes}) ⚠️`}`;
       }).join('\n');
 
       try {
@@ -1592,7 +1604,7 @@ export const UI = {
                 <div style="flex:1;">
                   <div style="font-size:0.88rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center; flex-wrap:wrap; gap:4px; line-height:1.4;">
                     ${badgeHtml}
-                    <span>${st.title}</span>
+                    <span>${this.formatReportNote(st.title)}</span>
                   </div>
                   <div style="font-size:0.75rem; color:var(--primary); margin-top:6px; font-weight:600;">
                     <i class="fas fa-building" style="margin-right:2px;"></i> ${st.projectName}
@@ -2402,7 +2414,7 @@ export const UI = {
             ${item.pendingTasks.map(task => {
               const worker = db.users.find(u => u.id === task.assignedTo);
               return `<div style="background:var(--bg-primary); border:1px solid var(--border-color); border-left:3px solid var(--primary); border-radius:10px; padding:9px 10px;">
-                <div style="display:flex; align-items:flex-start; gap:7px; color:var(--text-primary); font-size:.73rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere;"><i class="fas fa-hammer" style="color:var(--primary); margin-top:3px; flex:none;"></i><span>${escapeHtml(task.title || 'Nhiệm vụ chưa đặt tên')}</span></div>
+                <div style="display:flex; align-items:flex-start; gap:7px; color:var(--text-primary); font-size:.73rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere;"><i class="fas fa-hammer" style="color:var(--primary); margin-top:3px; flex:none;"></i><span>${escapeHtml(this.formatReportNote(task.title || 'Nhiệm vụ chưa đặt tên'))}</span></div>
                 <div style="font-size:.65rem; color:var(--text-muted); margin-top:5px; padding-left:19px;"><i class="fas fa-user" style="margin-right:5px;"></i>${escapeHtml(worker ? shortName(worker.name) : 'Chưa giao người làm')}</div>
               </div>`;
             }).join('') || '<div style="font-size:.72rem; color:var(--status-approved); background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3); border-radius:10px; padding:9px 10px;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Không còn nhiệm vụ chưa hoàn thành</div>'}
@@ -2451,7 +2463,7 @@ export const UI = {
           <time style="font-size:.64rem; color:var(--text-muted); padding-top:3px;">${escapeHtml(formatEventTime(event.timestamp))}</time>
           <span style="width:24px; height:24px; border-radius:50%; background:${visual.color}20; color:${visual.color}; display:flex; align-items:center; justify-content:center; font-size:.65rem;"><i class="fas ${visual.icon}"></i></span>
           <div style="min-width:0;">
-            <div style="font-size:.72rem; color:var(--text-secondary); line-height:1.4;"><strong style="color:var(--text-primary);">${escapeHtml(shortName(event.user))}</strong> — ${escapeHtml(event.action)}</div>
+            <div style="font-size:.72rem; color:var(--text-secondary); line-height:1.4;"><strong style="color:var(--text-primary);">${escapeHtml(shortName(event.user))}</strong> — ${escapeHtml(this.formatReportNote(event.action))}</div>
             <button type="button" class="general-activity-project" data-projectid="${event.projectId}" style="margin-top:4px; padding:2px 7px; border-radius:999px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--primary); font-size:.61rem; cursor:${event.projectId ? 'pointer' : 'default'}; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(event.projectName)}</button>
           </div>
         </div>`;
@@ -2512,7 +2524,7 @@ export const UI = {
             projectId: item.project.id,
             icon: 'fa-file-signature', color: 'var(--status-pending)',
             title: `${log.reporterName || 'Thợ thi công'} — ${item.project.name}`,
-            meta: `${log.date || 'Chưa rõ ngày'} • ${log.status === 'delayed' ? 'Bị chậm' : 'Đúng tiến độ'}${log.note ? ` • ${log.note}` : ''}`
+            meta: `${log.date || 'Chưa rõ ngày'} • ${log.status === 'delayed' ? 'Bị chậm' : 'Đúng tiến độ'}${log.note ? ` • ${this.formatReportNote(log.note)}` : ''}`
           })))
       }
     };
@@ -2529,7 +2541,7 @@ export const UI = {
           <${rowTag}${row.projectId ? ' type="button"' : ''} class="general-stat-detail-row${row.projectId ? ' is-clickable' : ''}" data-projectid="${row.projectId || ''}" style="width:100%; display:grid; grid-template-columns:${row.projectId ? '44px minmax(0,1fr) 20px' : '44px minmax(0,1fr)'}; align-items:center; gap:12px; padding:14px 15px; border:1px solid var(--border-color); border-left:4px solid ${row.color}; border-radius:14px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); text-align:left; color:var(--text-primary); cursor:${row.projectId ? 'pointer' : 'default'};">
             <span style="width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; color:${row.color}; background:var(--bg-primary); border:1px solid var(--border-color); font-size:.9rem;"><i class="fas ${row.icon}"></i></span>
             <span style="min-width:0;">
-              <strong style="display:block; font-size:.9rem; font-weight:800; line-height:1.4; overflow-wrap:anywhere;">${escapeHtml(row.title)}</strong>
+              <strong style="display:block; font-size:.9rem; font-weight:800; line-height:1.4; overflow-wrap:anywhere;">${escapeHtml(this.formatReportNote(row.title))}</strong>
               <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${metaChips}</span>
             </span>
             ${row.projectId ? '<i class="fas fa-chevron-right" style="color:var(--primary); font-size:.8rem;"></i>' : ''}
@@ -3655,7 +3667,7 @@ export const UI = {
             </div>
             
             <p style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:4px;"><i class="fas fa-building"></i> ${l.projectName}</p>
-            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">${l.note}</p>
+            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">${this.formatReportNote(l.note)}</p>
             
             ${l.photos && l.photos.length > 0 ? `
               <div style="display:flex; gap:6px; margin-top:8px; overflow-x:auto;">
@@ -4253,6 +4265,7 @@ export const UI = {
 
           // Render Level 2 cards inside this Room
           const level2CardsHtml = items.map(item => {
+            const isWholeRoom = this.isWholeRoomItem(item);
             const matchedSubtasks = roomTasks.filter(st => {
               const match = st.title.match(/^\[([^\]\-]+)\s*-\s*([^\]]+)\]:/);
               return match && match[2].trim() === item;
@@ -4344,10 +4357,12 @@ export const UI = {
 
             return `
                 <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border-color); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; margin-bottom:4px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;">
-                    <span style="font-size:0.78rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
-                      <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted);"></i> ${item}
-                    </span>
+                  <div style="display:flex; justify-content:${isWholeRoom ? 'flex-end' : 'space-between'}; align-items:center; ${isWholeRoom ? '' : 'border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px; margin-bottom:2px;'}">
+                    ${isWholeRoom ? '' : `
+                      <span style="font-size:0.78rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-cube" style="font-size:0.7rem; color:var(--text-muted);"></i> ${item}
+                      </span>
+                    `}
                     <div style="display:flex; align-items:center; gap:6px;">
                       ${itemStatusBadge}
                       ${canEdit && scopeIndexInProj > -1 ? `
@@ -4418,7 +4433,7 @@ export const UI = {
                 <div style="font-size:0.76rem; font-weight:600; color:${isDone ? 'var(--text-muted)' : 'var(--text-primary)'}; text-decoration:${isDone ? 'line-through' : 'none'}; word-break:break-word; line-height:1.35;">
                   ${st.type === 'rework' ? '<span style="color:var(--status-rejected); font-weight:700;">[SỬA LỖI]</span> ' : ''}
                   ${st.type === 'small_scope' ? '<span style="color:var(--status-pending); font-weight:700;">[PHÁT SINH]</span> ' : ''}
-                  ${st.title}
+                  ${this.formatReportNote(st.title)}
                 </div>
                 <div style="font-size:0.62rem; color:var(--text-muted); margin-top:2px;">
                   <i class="fas fa-user" style="font-size:0.52rem;"></i>
@@ -4603,7 +4618,7 @@ export const UI = {
                     <div style="width:8px; height:8px; border-radius:50%; background-color:${l.status === 'on_track' ? 'var(--status-approved)' : 'var(--status-rejected)'}; flex-shrink:0;"></div>
                     <div>
                       <div style="font-size:0.85rem; font-weight:600;">${l.date} - ${l.reporterName} ${l.isEdited ? '<span style="font-size:0.68rem; color:var(--status-pending); font-weight:700; margin-left:4px;">[ĐÃ SỬA]</span>' : ''}</div>
-                      <div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.4;">${roleDisplay} • ${l.note}</div>
+                      <div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.4;">${roleDisplay} • ${this.formatReportNote(l.note)}</div>
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
@@ -4639,7 +4654,7 @@ export const UI = {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
                   <div style="flex:1; min-width:0;">
                     <span style="color:var(--text-muted); font-size:0.7rem;">${timeStr}</span> • 
-                    <strong style="color:var(--text-primary);">${h.action}</strong>
+                    <strong style="color:var(--text-primary);">${this.formatReportNote(h.action)}</strong>
                   </div>
                   <span style="color:var(--primary); font-weight:600; font-size:0.7rem; flex-shrink:0;">(${h.user})</span>
                 </div>
@@ -5180,7 +5195,7 @@ export const UI = {
                   <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.06); border-left: 3px solid ${statusColor}; border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                       <span style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">
-                        ${it.room} ➔ <span style="color:var(--primary);">${it.item}</span> ${prevReportWork ? `<span style="font-size:0.75rem; color:var(--status-pending); font-weight:normal; font-style:italic; margin-left:4px;">(Lần trước: ${prevReportWork})</span>` : ''}
+                        ${this.isWholeRoomItem(it.item) ? it.room : `${it.room} ➔ <span style="color:var(--primary);">${it.item}</span>`} ${prevReportWork ? `<span style="font-size:0.75rem; color:var(--status-pending); font-weight:normal; font-style:italic; margin-left:4px;">(Lần trước: ${prevReportWork})</span>` : ''}
                       </span>
                       <span style="font-size:0.75rem; font-weight:700; color:${statusColor}; display:flex; align-items:center; gap:4px;">
                         ${statusIcon} ${isDone ? 'Đã hoàn thành' : 'Đang làm'}
@@ -5205,7 +5220,7 @@ export const UI = {
         ` : `
           <div>
             <label class="form-label" style="font-size:0.75rem;">Nội dung ghi chú báo cáo</label>
-            <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${log.note}</div>
+            <div style="background-color: var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; padding:12px; font-size:0.85rem; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${this.formatReportNote(log.note)}</div>
           </div>
         `}
         ${log.expectedCompletionDate ? `
@@ -5444,7 +5459,7 @@ export const UI = {
 
         // Generate text note summary for old compatibility
         note = items.map(it => {
-          return `[${it.room} - ${it.item}]: ${it.todayWork || 'Thi công'}\n` +
+          return `${this.formatScopeTitle(it.room, it.item)}: ${it.todayWork || 'Thi công'}\n` +
             (it.isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${it.pendingNotes}`);
         }).join('\n\n');
 
@@ -5828,7 +5843,7 @@ export const UI = {
         <div style="border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:8px;">
           <label class="form-label" style="font-size:0.75rem; color:var(--text-secondary);">Nhiệm vụ cần phân công</label>
           <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary); line-height:1.4; display:block; margin-top:2px;">
-            ${task.title}
+            ${this.formatReportNote(task.title)}
           </span>
         </div>
 
@@ -6599,7 +6614,7 @@ export const UI = {
             ${logMatches.map(l => `
               <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
                 <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);"><i class="fas fa-clock" style="color:var(--status-rejected); margin-right:4px;"></i> ${l.projectName}</div>
-                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:6px;">Báo cáo chậm: "${l.note}"</div>
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:6px;">Báo cáo chậm: "${this.formatReportNote(l.note)}"</div>
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Bởi: ${l.reporter} • Ngày: ${l.date}</div>
               </div>
             `).join('')}
@@ -6688,7 +6703,7 @@ export const UI = {
           ${freezeRecords.map(r => `
             <div style="background-color:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
               <div style="font-size:0.85rem; font-weight:700; color:var(--text-primary);">${r.projectName}</div>
-              <div style="font-size:0.78rem; color:var(--status-rejected); margin-top:4px; font-weight:600;">${r.action}</div>
+              <div style="font-size:0.78rem; color:var(--status-rejected); margin-top:4px; font-weight:600;">${this.formatReportNote(r.action)}</div>
               <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Thời gian: ${new Date(r.time).toLocaleString('vi-VN')}</div>
             </div>
           `).join('')}
