@@ -4555,19 +4555,22 @@ export const UI = {
         </div>
 
         <!-- System state & action buttons -->
-        <div style="display:flex; flex-direction:column; gap:8px;">
+        <div class="project-drawer-actions ${isManagementRole ? 'has-management-actions' : ''} ${project.isCompleted ? 'is-completed' : ''}">
           ${isManagementRole && project.step < 4 && nextStepInfo
         ? `
-              <button class="btn-primary" id="drawer-btn-advance" style="padding:12px 16px; font-size:0.88rem; width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; height:auto; line-height:1.3; background:linear-gradient(135deg, #4F46E5, #4338CA); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer;">
-                <span style="font-weight:700;"><i class="fas fa-step-forward"></i> Phê Duyệt Sang Giai Đoạn Tiếp Theo</span>
-                <span style="font-size:0.7rem; opacity:0.85; font-weight:normal;">Lên: GĐ ${nextStepInfo.num} - ${nextStepInfo.title}</span>
+              <button class="btn-primary project-drawer-action project-drawer-action--advance" id="drawer-btn-advance">
+                <i class="fas fa-step-forward project-drawer-action-icon"></i>
+                <span class="project-drawer-action-copy">
+                  <span class="project-drawer-action-label">Phê Duyệt Sang Giai Đoạn Tiếp Theo</span>
+                  <span class="project-drawer-action-note">Lên: GĐ ${nextStepInfo.num} - ${nextStepInfo.title}</span>
+                </span>
               </button>
             `
         : ''
       }
           ${isManagementRole && project.step === 4 && !project.isCompleted
         ? `
-              <button class="btn-primary" id="drawer-btn-complete-project" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.25);">
+              <button class="btn-primary project-drawer-action project-drawer-action--complete" id="drawer-btn-complete-project">
                 <i class="fas fa-check-double"></i> Hoàn Thành Công Trình
               </button>
             `
@@ -4575,19 +4578,19 @@ export const UI = {
       }
           ${!project.isCompleted
         ? `
-              <button class="btn-action" id="drawer-btn-rework" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2; width:100%; margin-bottom:8px;"><i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi</button>
+              <button class="btn-action project-drawer-action project-drawer-action--rework" id="drawer-btn-rework"><i class="fas fa-exclamation-triangle"></i><span>Báo Hàng Lỗi</span></button>
               ${isManagementRole ? `
-                <button class="btn-action" id="drawer-btn-scope" style="padding:12px; font-size:0.8rem; background:linear-gradient(135deg, #F59E0B, #D97706); color:white; border:none; border-radius:12px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; height:auto; line-height:1.2;"><i class="fas fa-plus-circle"></i> Báo Phát Sinh Hạng Mục</button>
+                <button class="btn-action project-drawer-action project-drawer-action--scope" id="drawer-btn-scope"><i class="fas fa-plus-circle"></i><span>Báo Phát Sinh Hạng Mục</span></button>
               ` : ''}
             `
         : ''
       }
           ${isManagementRole && project.isCompleted
         ? `
-              <div style="background-color:rgba(78, 141, 124, 0.15); border:1px solid var(--status-approved); color:var(--status-approved); padding:12px; border-radius:12px; font-size:0.85rem; font-weight:600; width:100%; text-align:center; margin-bottom:8px;">
+              <div class="project-drawer-status">
                 <i class="fas fa-check-double"></i> Dự án này đã hoàn thành toàn bộ và lưu trữ
               </div>
-              <button class="btn-primary" id="drawer-btn-export-excel" style="padding:14px; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #10B981, #047857); color:#FFF; display:flex; align-items:center; justify-content:center; gap:6px; border:none; border-radius:12px; cursor:pointer;">
+              <button class="btn-primary project-drawer-action project-drawer-action--export" id="drawer-btn-export-excel">
                 <i class="fas fa-file-excel"></i> Xuất Báo Cáo Excel (.CSV)
               </button>
             `

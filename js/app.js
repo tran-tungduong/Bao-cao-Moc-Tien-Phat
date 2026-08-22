@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-hide-whole-room-label';
-import { UI } from './ui.js?v=20260822-hide-whole-room-label';
+import { DB } from './db.js?v=20260822-project-actions-responsive';
+import { UI } from './ui.js?v=20260822-project-actions-responsive';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
