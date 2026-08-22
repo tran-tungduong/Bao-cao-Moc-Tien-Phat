@@ -3314,6 +3314,24 @@ body.modal-open .app-body {
   color: #1D4ED8;
 }
 
+[data-theme="light"] .stepper-item-active {
+  background: #8A6514 !important;
+  border-color: #6E4E0C !important;
+  box-shadow: 0 4px 12px rgba(110, 78, 12, .22);
+}
+
+[data-theme="light"] .stepper-item-active > div,
+[data-theme="light"] .stepper-item-active > span,
+[data-theme="light"] .stepper-item-active span {
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .project-detail-section-action {
+  background: linear-gradient(135deg, #9A7419, #6E4E0C) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 3px 10px rgba(110, 78, 12, .2) !important;
+}
+
 [data-theme="light"] .general-project-priority,
 [data-theme="light"] .general-alert-item,
 [data-theme="light"] .general-stat-modal-summary,
