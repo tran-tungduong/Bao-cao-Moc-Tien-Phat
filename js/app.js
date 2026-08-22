@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-ios-safe-area-modal-lock';
-import { UI } from './ui.js?v=20260822-ios-safe-area-modal-lock';
+import { DB } from './db.js?v=20260822-project-modal-continuity';
+import { UI } from './ui.js?v=20260822-project-modal-continuity';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

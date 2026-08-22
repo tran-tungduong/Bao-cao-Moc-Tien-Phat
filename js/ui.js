@@ -1,5 +1,5 @@
 ﻿import { DB } from './db.js?v=20260821-general-overview';
-import { Toast, Modal, MockImages } from './components.js?v=20260822-ios-safe-area-modal-lock';
+import { Toast, Modal, MockImages } from './components.js?v=20260822-project-modal-continuity';
 import { PushNotifications } from './notifications.js';
 
 window.showPhotoLightbox = (url) => {
@@ -4713,6 +4713,18 @@ export const UI = {
     const drawer = Modal.create('Chi Tiết Dự Án & Quản Lý', html);
     drawer.element.classList.add('project-detail-modal');
 
+    // Keep project workflows inside the project dialog after a successful action.
+    // The underlying board is refreshed first, then the same project is reopened
+    // with its latest step, tasks, logs and status.
+    const refreshAndReopenProject = () => {
+      if (typeof onUpdate === 'function') onUpdate();
+      setTimeout(() => {
+        if (DB.getProject(projectId)) {
+          this.openProjectDetailsDrawer(projectId, user, onUpdate);
+        }
+      }, 80);
+    };
+
     // Auto-scroll stepper container to current step card
     setTimeout(() => {
       const container = drawer.element.querySelector('.stepper-scroll-container');
@@ -4957,8 +4969,7 @@ export const UI = {
           if (confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này không?\nHành động này không thể khôi phục!')) {
             DB.deleteDailyLog(projectId, logId, user.id);
             Toast.success('Đã xóa báo cáo thi công.');
-            drawer.close();
-            onUpdate();
+            refreshAndReopenProject();
           }
         });
       });
@@ -4969,8 +4980,7 @@ export const UI = {
     if (btnAddLog) {
       btnAddLog.addEventListener('click', () => {
         this.openManagerAddLogModal(projectId, user, () => {
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         });
       });
     }
@@ -4982,8 +4992,7 @@ export const UI = {
     if (btnRework) {
       btnRework.addEventListener('click', () => {
         this.openReworkModal(projectId, user, () => {
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         });
       });
     }
@@ -4993,8 +5002,7 @@ export const UI = {
     if (btnScope) {
       btnScope.addEventListener('click', () => {
         this.openScopeModal(projectId, user, () => {
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         });
       });
     }
@@ -5011,8 +5019,7 @@ export const UI = {
           const prj = await DB.advanceProject(projectId, user.id);
           if (prj) {
             Toast.success('Đã duyệt chuyển giai đoạn thành công!');
-            drawer.close();
-            onUpdate();
+            refreshAndReopenProject();
           }
         } catch (err) {
           Toast.error(err.message);
@@ -5027,8 +5034,7 @@ export const UI = {
         const taskId = btn.getAttribute('data-task');
         await DB.completeSubtask(projectId, taskId, user.id);
         Toast.success('Đã hoàn thành nhiệm vụ.');
-        drawer.close();
-        onUpdate();
+        refreshAndReopenProject();
       });
     });
 
@@ -5038,8 +5044,7 @@ export const UI = {
         e.stopPropagation();
         const taskId = btn.getAttribute('data-task');
         this.openEditSubtaskModal(projectId, taskId, user, () => {
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         });
       });
     });
@@ -5052,8 +5057,7 @@ export const UI = {
         if (confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) {
           DB.deleteSubtask(projectId, taskId, user.id);
           Toast.success('Đã xóa nhiệm vụ.');
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         }
       });
     });
@@ -5066,8 +5070,7 @@ export const UI = {
           btnCompleteProject.disabled = true;
           await DB.completeProject(projectId, user.id);
           Toast.success(`Chúc mừng! Công trình đã chính thức hoàn thành.`);
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         }
       });
     }
@@ -5085,8 +5088,7 @@ export const UI = {
     if (btnAddTask) {
       btnAddTask.addEventListener('click', () => {
         this.openAssignTaskModal(projectId, user, () => {
-          drawer.close();
-          onUpdate();
+          refreshAndReopenProject();
         });
       });
     }
@@ -5096,11 +5098,7 @@ export const UI = {
     if (btnAssignProject) {
       btnAssignProject.addEventListener('click', () => {
         this.openAssignProjectOwnersModal(projectId, user, () => {
-          drawer.close();
-          onUpdate();
-          setTimeout(() => {
-            this.openProjectDetailsDrawer(projectId, user, onUpdate);
-          }, 100);
+          refreshAndReopenProject();
         });
       });
     }
