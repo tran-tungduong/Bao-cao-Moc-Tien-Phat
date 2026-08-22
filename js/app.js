@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260822-assistant-supporting';
-import { UI } from './ui.js?v=20260822-assistant-supporting';
+import { DB } from './db.js?v=20260822-hide-worker-assignment-banner';
+import { UI } from './ui.js?v=20260822-hide-worker-assignment-banner';
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {

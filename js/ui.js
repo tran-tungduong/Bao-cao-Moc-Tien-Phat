@@ -482,23 +482,7 @@ export const UI = {
     );
     if (todayRecord && canShowTodayAssignment) {
       if (todayRecord.status === 'present') {
-        const prjName = todayRecord.workingProjectName || 'Chưa phân công';
-        const workload = todayRecord.dailyWorkload || 'Chưa phân công khối lượng cụ thể';
-        const linkAttr = todayRecord.workingProjectId ? `data-projectid="${todayRecord.workingProjectId}" style="cursor:pointer;" class="btn-goto-work-project"` : '';
-        assignmentBannerHtml = `
-          <div class="material-stats-card fade-in" style="background: linear-gradient(135deg, rgba(197, 168, 128, 0.12) 0%, rgba(0, 0, 0, 0.25) 100%); border: 1px solid var(--primary); border-left: 5px solid var(--primary); margin-bottom: 16px; padding: 16px; border-radius: 16px;">
-            <h4 style="font-family: var(--font-title); font-size: 0.95rem; color: var(--primary); display:flex; align-items:center; gap:6px; margin-bottom: 8px;">
-              <i class="fas fa-hammer"></i> CÔNG VIỆC ĐƯỢC GIAO HÔM NAY
-            </h4>
-            <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; display:flex; flex-direction:column; gap:6px;">
-              <div ${linkAttr}>
-                Công trình: <strong style="text-decoration: ${todayRecord.workingProjectId ? 'underline' : 'none'}; color:var(--primary); font-weight:700;">${prjName}</strong> 
-                ${todayRecord.workingProjectId ? ' <i class="fas fa-external-link-alt" style="font-size:0.7rem; opacity:0.8;"></i>' : ''}
-              </div>
-              <div>Nhiệm vụ thi công: <span style="font-weight: 500; color: var(--text-secondary); background:rgba(0,0,0,0.15); padding:4px 10px; border-radius:8px; display:inline-block; margin-top:2px; line-height: 1.4; border: 1px solid var(--border-color);">${workload}</span></div>
-            </div>
-          </div>
-        `;
+        assignmentBannerHtml = '';
       } else if (todayRecord.status === 'absent') {
         assignmentBannerHtml = `
           <div class="material-stats-card fade-in" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-left: 5px solid var(--status-rejected); margin-bottom: 16px; padding: 14px 16px; border-radius: 16px;">
@@ -689,18 +673,6 @@ export const UI = {
         this.renderWorkerView(user);
       });
     }
-
-    // Bind banner link to project drawer click
-    body.querySelectorAll('.btn-goto-work-project').forEach(link => {
-      link.addEventListener('click', () => {
-        const prjId = link.getAttribute('data-projectid');
-        if (prjId) {
-          this.openProjectDetailsDrawer(prjId, user, () => {
-            this.renderWorkerView(user);
-          });
-        }
-      });
-    });
 
     // Bind click on pending tasks statistics card
     const btnPendingTasks = document.getElementById('stat-pending-tasks-btn');
