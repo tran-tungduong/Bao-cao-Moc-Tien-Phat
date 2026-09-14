@@ -105,59 +105,104 @@ export const DB = {
     return synced;
   },
 
-  withTimeout(promise, timeoutMs, message) {
-    return Promise.race([
-      promise,
-      new Promise((resolve, reject) => {
-        setTimeout(() => reject(new Error(message || 'Yêu cầu máy chủ quá thời gian.')), timeoutMs);
-      })
-    ]);
+  async withTimeout(promise, timeoutMs, message, controller) {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((resolve, reject) => {
+          timer = setTimeout(() => {
+            if (controller) controller.abort();
+            reject(new Error(message || 'Yêu cầu máy chủ quá thời gian.'));
+          }, timeoutMs);
+        })
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  scheduleLiveSync(delay = 500) {
+    if (!this.liveSyncActive) return;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => this.runLiveSync(), delay);
+  },
+
+  async runLiveSync() {
+    if (!this.liveSyncActive || !this.getCurrentUser()) return;
+    const generation = this.liveGeneration;
+    if (document.hidden || navigator.onLine === false || this.activeWriteRequests > 0 ||
+        Date.now() - (this.lastWriteTime || 0) < 4000) {
+      this.scheduleLiveSync(5000);
+      return;
+    }
+    const interval = this.realtimeConnected ? 600000 : 120000;
+    const due = this.needsSync || Date.now() - (this.lastReadAt || 0) >= interval;
+    if (due && Date.now() >= (this.nextSyncAttempt || 0)) {
+      await this.syncWithServer();
+    }
+    if (this.liveSyncActive && generation === this.liveGeneration) {
+      this.scheduleLiveSync(this.needsSync ? 5000 : 15000);
+    }
   },
 
   startLiveSync(onRemoteChange = null, onConnectionReady = null) {
-    if (!supabaseClient || this.syncTimer) return;
-    const refresh = async () => {
-      if (this.activeWriteRequests > 0) return;
-      const synced = await this.syncWithServer(onRemoteChange);
-      this.syncState = synced ? 'online' : 'offline';
+    if (!supabaseClient || !this.getCurrentUser()) return;
+    this.onRemoteChange = onRemoteChange;
+    if (this.liveSyncActive) return;
+    this.liveSyncActive = true;
+    this.liveGeneration = (this.liveGeneration || 0) + 1;
+    const generation = this.liveGeneration;
+    this.needsSync = !this.lastReadAt || Date.now() - this.lastReadAt > 30000;
+    this.nextSyncAttempt = 0;
+    const changed = () => {
+      if (!this.liveSyncActive || generation !== this.liveGeneration) return;
+      this.remoteRevision = (this.remoteRevision || 0) + 1;
+      this.needsSync = true;
+      this.scheduleLiveSync();
     };
-    const scheduleRefresh = () => {
-      clearTimeout(this.realtimeRefreshTimer);
-      this.realtimeRefreshTimer = setTimeout(refresh, 250);
-    };
-
-    // Realtime WebSocket — receives writes from every device instantly (<1s).
-    // This is the PRIMARY sync mechanism; polling below is a safety fallback only.
     this.realtimeChannel = supabaseClient.channel('moc-tien-phat-live-sync');
     ['users', 'projects', 'subtasks', 'daily_logs', 'attendance', 'project_history'].forEach(table => {
-      this.realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
+      this.realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table }, changed);
     });
     this.realtimeChannel.subscribe(status => {
-      this.syncState = status === 'SUBSCRIBED' ? 'online' : (status === 'CHANNEL_ERROR' ? 'offline' : this.syncState);
-      if (status === 'SUBSCRIBED' && onConnectionReady) onConnectionReady();
-    });
-
-    // Polling at 120s — a safety fallback for when Realtime is unavailable
-    // (e.g. after device sleep). Realtime handles all real-time updates;
-    // this only catches edge cases. 120s is safe and reduces egress ~4x vs 30s.
-    this.syncTimer = setInterval(refresh, 120000);
-
-    // Sync on window focus (user switches back to browser tab from another app)
-    window.addEventListener('focus', refresh);
-
-    // Sync on visibility change (mobile: screen unlock, app switcher, etc.)
-    // Debounced to 30s to prevent egress spikes from rapid app-switching.
-    // Realtime already handles instant updates, so this is just a catchup guard.
-    let _lastVisibilitySync = 0;
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        const now = Date.now();
-        if (now - _lastVisibilitySync > 30000) {
-          _lastVisibilitySync = now;
-          refresh();
-        }
+      if (!this.liveSyncActive || generation !== this.liveGeneration) return;
+      const wasConnected = this.realtimeConnected;
+      this.realtimeConnected = status === 'SUBSCRIBED';
+      if (this.realtimeConnected) {
+        if (this.hadRealtimeConnection && !wasConnected) changed();
+        this.hadRealtimeConnection = true;
+        if (onConnectionReady) onConnectionReady();
       }
+      this.scheduleLiveSync();
     });
+    this.onSyncWake = () => {
+      if (document.hidden) return;
+      if (Date.now() - (this.lastReadAt || 0) >= 30000) this.needsSync = true;
+      this.scheduleLiveSync();
+    };
+    this.onSyncOnline = () => { this.needsSync = true; this.onSyncWake(); };
+    window.addEventListener('focus', this.onSyncWake);
+    window.addEventListener('online', this.onSyncOnline);
+    document.addEventListener('visibilitychange', this.onSyncWake);
+    this.scheduleLiveSync();
+  },
+
+  stopLiveSync() {
+    this.liveSyncActive = false;
+    this.liveGeneration = (this.liveGeneration || 0) + 1;
+    this.writeRevision = (this.writeRevision || 0) + 1;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = null;
+    if (this.readController) this.readController.abort();
+    if (this.realtimeChannel) supabaseClient.removeChannel(this.realtimeChannel);
+    this.realtimeChannel = null;
+    this.realtimeConnected = false;
+    this.hadRealtimeConnection = false;
+    window.removeEventListener('focus', this.onSyncWake);
+    window.removeEventListener('online', this.onSyncOnline);
+    document.removeEventListener('visibilitychange', this.onSyncWake);
+    this.onRemoteChange = null;
   },
 
   // Server Sync API Base URL (same host/origin for simplicity, fallback to localhost:8000 for local file testing)
@@ -270,12 +315,23 @@ export const DB = {
 
   // Triggered in app.js on startup and periodically (polling)
   async syncWithServer(onSyncComplete = null) {
-    // Reuse the same in-flight read. iOS may fire focus, visibility and retry
-    // events close together; overlapping six-table reads can falsely time out.
-    if (this.syncPromise) return this.syncPromise;
+    if (this.syncPromise) {
+      const synced = await this.syncPromise;
+      if (synced && onSyncComplete) onSyncComplete(JSON.parse(localStorage.getItem(DB_KEY)));
+      return synced;
+    }
+    // Coalesce rapid manual refreshes without hiding a pending remote change.
+    if (!this.needsSync && !this.activeWriteRequests &&
+        Date.now() - (this.lastReadAt || 0) < 1000 &&
+        (this.lastWriteTime || 0) < this.lastReadAt) return true;
     this.syncPromise = this.performServerSync(onSyncComplete);
     try {
-      return await this.syncPromise;
+      const synced = await this.syncPromise;
+      this.syncState = synced ? 'online' : 'offline';
+      if (!synced) this.needsSync = true;
+      this.syncFailures = synced ? 0 : (this.syncFailures || 0) + 1;
+      this.nextSyncAttempt = synced ? 0 : Date.now() + Math.min(300000, 15000 * 2 ** Math.min(this.syncFailures - 1, 5));
+      return synced;
     } finally {
       this.syncPromise = null;
     }
@@ -291,6 +347,11 @@ export const DB = {
       return false;
     }
     if (supabaseClient) {
+      const revision = this.writeRevision || 0;
+      const remoteRevision = this.remoteRevision || 0;
+      const originalCache = localStorage.getItem(DB_KEY);
+      const controller = new AbortController();
+      this.readController = controller;
       try {
         // Fetch all tables from Supabase in parallel
         const [
@@ -302,19 +363,26 @@ export const DB = {
           { data: history, error: errHistory }
         ] = await this.withTimeout(
           Promise.all([
-            supabaseClient.from('users').select('*'),
-            supabaseClient.from('projects').select('*'),
-            supabaseClient.from('subtasks').select('*'),
-            supabaseClient.from('daily_logs').select('*'),
-            supabaseClient.from('attendance').select('*'),
-            supabaseClient.from('project_history').select('*')
+            supabaseClient.from('users').select('*').abortSignal(controller.signal),
+            supabaseClient.from('projects').select('*').abortSignal(controller.signal),
+            supabaseClient.from('subtasks').select('*').abortSignal(controller.signal),
+            supabaseClient.from('daily_logs').select('*').abortSignal(controller.signal),
+            supabaseClient.from('attendance').select('*').abortSignal(controller.signal),
+            supabaseClient.from('project_history').select('*').abortSignal(controller.signal)
           ]),
           30000,
-          'Không thể tải dữ liệu Supabase trong 30 giây.'
+          'Không thể tải dữ liệu Supabase trong 30 giây.',
+          controller
         );
 
         if (errUsers || errProjects || errSubtasks || errDailyLogs || errAttendance || errHistory) {
           console.warn('Error fetching relational tables from Supabase. Relational tables might not exist yet.');
+          return false;
+        }
+
+        if (controller.signal.aborted || revision !== (this.writeRevision || 0) ||
+            this.activeWriteRequests > 0 || originalCache !== localStorage.getItem(DB_KEY)) {
+          this.needsSync = true;
           return false;
         }
 
@@ -408,6 +476,14 @@ export const DB = {
           p.dailyLogs.sort((a, b) => b.date.localeCompare(a.date));
         });
 
+        if (controller.signal.aborted || revision !== (this.writeRevision || 0) ||
+            this.activeWriteRequests > 0 || originalCache !== localStorage.getItem(DB_KEY)) {
+          this.needsSync = true;
+          return false;
+        }
+
+        this.lastReadAt = Date.now();
+        this.needsSync = remoteRevision !== (this.remoteRevision || 0);
         const oldDbStr = localStorage.getItem(DB_KEY);
         const newDbStr = JSON.stringify(assembledDb);
         if (oldDbStr === newDbStr) {
@@ -419,9 +495,14 @@ export const DB = {
         this.lastSyncedAt = new Date().toISOString();
         console.log('Database synced from Supabase (relational tables).');
         if (onSyncComplete) onSyncComplete(assembledDb);
+        if (this.liveSyncActive && this.onRemoteChange && this.onRemoteChange !== onSyncComplete) {
+          this.onRemoteChange(assembledDb);
+        }
         return true;
       } catch (err) {
         console.error('Relational sync failed:', err);
+      } finally {
+        if (this.readController === controller) this.readController = null;
       }
       return false;
     }
@@ -431,6 +512,7 @@ export const DB = {
   // Relational writes helpers (Background, non-blocking)
   async sbUpdateProject(projectId, fields) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('projects').update(fields).eq('id', projectId);
@@ -445,6 +527,7 @@ export const DB = {
 
   async sbInsertProject(p) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('projects').insert({
@@ -470,6 +553,7 @@ export const DB = {
 
   async sbDeleteProject(projectId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('projects').delete().eq('id', projectId);
@@ -484,6 +568,7 @@ export const DB = {
 
   async sbInsertSubtask(st, projectId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('subtasks').insert({
@@ -507,6 +592,7 @@ export const DB = {
 
   async sbUpdateSubtask(subtaskId, fields) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('subtasks').update(fields).eq('id', subtaskId);
@@ -521,6 +607,7 @@ export const DB = {
 
   async sbDeleteSubtask(subtaskId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('subtasks').delete().eq('id', subtaskId);
@@ -535,6 +622,7 @@ export const DB = {
 
   async sbInsertDailyLog(dl, projectId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('daily_logs').insert({
@@ -564,6 +652,7 @@ export const DB = {
 
   async sbUpdateDailyLog(logId, fields) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const dbFields = { ...fields };
@@ -583,6 +672,7 @@ export const DB = {
 
   async sbDeleteDailyLog(logId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('daily_logs').delete().eq('id', logId);
@@ -597,6 +687,7 @@ export const DB = {
 
   async sbUpsertAttendance(userId, date, fields) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { data } = await supabaseClient
@@ -634,6 +725,7 @@ export const DB = {
 
   async sbInsertHistory(h, projectId) {
     if (!supabaseClient) return;
+    this.writeRevision = (this.writeRevision || 0) + 1;
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const { error } = await supabaseClient.from('project_history').insert({
@@ -743,6 +835,7 @@ export const DB = {
 
   // Save database to localStorage
   save(data) {
+    this.writeRevision = (this.writeRevision || 0) + 1;
     localStorage.setItem(DB_KEY, JSON.stringify(data));
     this.lastWriteTime = Date.now();
   },
@@ -766,6 +859,7 @@ export const DB = {
 
   // Logout
   logout() {
+    this.stopLiveSync();
     localStorage.removeItem('furni_session');
   },
 

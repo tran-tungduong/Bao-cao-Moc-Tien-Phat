@@ -1,5 +1,41 @@
-import { DB } from './db.js?v=20260822-project-modal-continuity';
-import { UI } from './ui.js?v=20260822-project-modal-continuity';
+import { DB } from './db.js?v=20260914-egress-phase1';
+import { Toast } from './components.js?v=20260914-egress-phase1';
+import { UI } from './ui.js?v=20260914-egress-phase1';
+
+let pendingNotificationUrl = new URLSearchParams(window.location.search).has('project')
+  ? window.location.href : null;
+
+async function openPendingNotification() {
+  const user = DB.getCurrentUser();
+  if (!user || !pendingNotificationUrl) return;
+  // Do not replace an open editor or a report form containing unsaved work.
+  if (document.getElementById('app-modal') || document.querySelector('form')) {
+    Toast.info('Có thông báo mới. Hãy hoàn tất nội dung đang nhập trước khi mở công trình.');
+    return;
+  }
+  const target = new URL(pendingNotificationUrl, window.location.href);
+  if (target.origin !== window.location.origin) return;
+  pendingNotificationUrl = null;
+  const projectId = target.searchParams.get('project');
+  if (!projectId) return;
+  if (Date.now() - (DB.lastReadAt || 0) > 30000) await DB.syncWithServer();
+  if (DB.getCurrentUser()?.id !== user.id) return;
+  if (!DB.getProjectsForUser(user).some(project => project.id === projectId)) {
+    Toast.info('Công trình không còn trong danh sách bạn được xem.');
+    return;
+  }
+  if (!document.getElementById('app-modal') && !document.querySelector('form')) {
+    UI.openProjectDetailsDrawer(projectId, user, () => UI.refreshActiveView(user));
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type !== 'OPEN_NOTIFICATION' || typeof event.data.url !== 'string') return;
+    pendingNotificationUrl = event.data.url;
+    openPendingNotification().catch(console.warn);
+  });
+}
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -28,49 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!synced && hasCachedData) {
-      // Has local cache — load the app immediately in offline mode
-      showConnectionBanner();
-      checkSessionAndRoute();
-
-      // Connect Realtime immediately. Outbound writes and new events can still
-      // work while the heavier initial six-table refresh is being retried.
-      DB.startLiveSync(() => {
-        const u = DB.getCurrentUser();
-        if (u) UI.refreshActiveView(u);
-      }, () => {
-        // WebSocket is online; the heavier full refresh can continue silently.
-        removeConnectionBanner();
-      });
-
-      // Retry sequentially so slower iPhones never stack multiple full reads.
-      let retryCount = 0;
-      const retrySync = () => {
-        retryCount++;
-        DB.syncWithServer().then(resynced => {
-          if (resynced) {
-            removeConnectionBanner();
-            const user = DB.getCurrentUser();
-            if (user) UI.refreshActiveView(user);
-          } else if (retryCount >= 20) {
-            updateConnectionBanner('⚠️ Chưa tải được dữ liệu mới nhất — Nhấn nút đồng bộ để thử lại.');
-          } else {
-            setTimeout(retrySync, 15000);
-          }
-        }).catch(() => {
-          if (retryCount < 20) setTimeout(retrySync, 15000);
-        });
-      };
-      setTimeout(retrySync, 3000);
-      return;
-    }
-
-    // Normal online path
+    if (!synced && hasCachedData) showConnectionBanner();
     checkSessionAndRoute();
-    DB.startLiveSync(() => {
-      const user = DB.getCurrentUser();
-      if (user) UI.refreshActiveView(user);
-    });
   }).catch(error => {
     // Last-resort guard for older WebKit/private browsing storage failures.
     console.error('Application initialization failed:', error);
@@ -90,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function checkSessionAndRoute() {
   const user = DB.getCurrentUser();
   if (user) {
+    DB.startLiveSync(() => {
+      const current = DB.getCurrentUser();
+      if (current) UI.refreshActiveView(current);
+      removeConnectionBanner();
+    }, removeConnectionBanner);
     // Render Application Shell
     UI.renderShell(user,
       // On Logout callback
@@ -108,6 +108,7 @@ function checkSessionAndRoute() {
     // Render Login Form
     UI.renderLogin(checkSessionAndRoute);
   }
+  openPendingNotification().catch(console.warn);
 }
 
 // Offline mode banner — shown at top of screen when Supabase is unreachable

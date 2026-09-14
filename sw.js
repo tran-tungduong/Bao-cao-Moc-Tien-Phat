@@ -29,8 +29,11 @@ self.addEventListener('notificationclick', event => {
     : './index.html', self.location.origin).href;
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
     for (const client of clients) {
-      if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-        client.navigate(targetUrl);
+      const appRoot = new URL('./', self.location.href);
+      const clientUrl = new URL(client.url);
+      if (clientUrl.origin === appRoot.origin && clientUrl.pathname.startsWith(appRoot.pathname) && 'focus' in client) {
+        // New clients route in place; older open clients can safely just focus.
+        client.postMessage({ type: 'OPEN_NOTIFICATION', url: targetUrl });
         return client.focus();
       }
     }
