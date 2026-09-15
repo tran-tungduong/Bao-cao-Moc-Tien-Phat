@@ -1,6 +1,6 @@
-import { DB } from './db.js?v=20260914-egress-phase1';
-import { Toast } from './components.js?v=20260914-egress-phase1';
-import { UI } from './ui.js?v=20260914-egress-phase1';
+import { DB } from './db.js?v=20260915-egress-phase2';
+import { Toast } from './components.js?v=20260915-egress-phase2';
+import { UI } from './ui.js?v=20260915-egress-phase2';
 
 let pendingNotificationUrl = new URLSearchParams(window.location.search).has('project')
   ? window.location.href : null;

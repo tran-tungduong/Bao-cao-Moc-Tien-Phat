@@ -1,5 +1,5 @@
-﻿import { DB } from './db.js?v=20260914-egress-phase1';
-import { Toast, Modal, MockImages } from './components.js?v=20260914-egress-phase1';
+﻿import { DB } from './db.js?v=20260915-egress-phase2';
+import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 
 window.showPhotoLightbox = (url) => {
@@ -702,27 +702,7 @@ export const UI = {
       fileInput.click();
     });
 
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (selectedPhotos.length + files.length > 5) {
-        Toast.info('Tải lên tối đa 5 hình ảnh.');
-        return;
-      }
-
-      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
-      for (const file of files) {
-        try {
-          const base64Img = await this.compressImage(file);
-          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
-          selectedPhotos.push(photoUrl);
-        } catch (err) {
-          console.error(err);
-          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
-        }
-      }
-      this.updatePhotoPreviews(selectedPhotos, previewContainer);
-      fileInput.value = ''; // clear value
-    });
+    this.bindPhotoUpload(fileInput, selectedPhotos, () => this.updatePhotoPreviews(selectedPhotos, previewContainer), 5);
 
     // Pre-populate expected completion date
     const expDateInput = document.getElementById('log-expected-completion');
@@ -1222,27 +1202,7 @@ export const UI = {
       fileInput.click();
     });
 
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (selectedPhotos.length + files.length > 5) {
-        Toast.info('Tải lên tối đa 5 hình ảnh.');
-        return;
-      }
-
-      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
-      for (const file of files) {
-        try {
-          const base64Img = await this.compressImage(file);
-          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
-          selectedPhotos.push(photoUrl);
-        } catch (err) {
-          console.error(err);
-          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
-        }
-      }
-      this.updatePhotoPreviews(selectedPhotos, previewContainer);
-      fileInput.value = '';
-    });
+    this.bindPhotoUpload(fileInput, selectedPhotos, () => this.updatePhotoPreviews(selectedPhotos, previewContainer), 5);
 
     // Handle photo removal in modal preview container
     previewContainer.addEventListener('click', (e) => {
@@ -1330,6 +1290,66 @@ export const UI = {
     modal.element.querySelectorAll('.modal-close-btn').forEach(btn => {
       btn.addEventListener('click', () => modal.close());
     });
+  },
+
+  // Failed files stay in this form's queue, outside report data, until retry
+  // or explicit cancellation. Submitting while uploads are pending is blocked.
+  bindPhotoUpload(fileInput, photos, render, maxPhotos = Infinity) {
+    const form = fileInput.closest('form');
+    const queue = [];
+    let busy = false;
+    const status = document.createElement('div');
+    status.style.cssText = 'font-size:0.8rem;margin:8px 0;';
+    const message = document.createElement('span');
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.className = 'btn-secondary'; retry.textContent = 'Thử tải lại ảnh';
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'btn-secondary'; cancel.textContent = 'Bỏ ảnh chưa tải';
+    status.append(message, retry, cancel);
+    fileInput.parentElement.insertAdjacentElement('afterend', status);
+    const updateStatus = () => {
+      status.hidden = !busy && !queue.length;
+      message.textContent = busy ? 'Đang tải và kiểm tra ảnh… ' : `Còn ${queue.length} ảnh chưa tải. Ảnh đang được giữ trong form này. `;
+      retry.hidden = cancel.hidden = busy || !queue.length;
+      fileInput.disabled = busy;
+    };
+    const run = async () => {
+      if (busy) return;
+      busy = true; updateStatus();
+      try {
+        while (queue.length) {
+          const encoded = await this.compressImage(queue[0]);
+          const url = await DB.uploadPhotoToStorage(encoded);
+          photos.push(url);
+          queue.shift();
+          render();
+        }
+      } catch (error) {
+        console.warn('Photo upload pending:', error);
+        Toast.error('Ảnh chưa tải thành công. Hãy thử lại trước khi gửi báo cáo.');
+      } finally {
+        busy = false; updateStatus();
+      }
+    };
+    retry.addEventListener('click', () => run());
+    cancel.addEventListener('click', () => { queue.length = 0; updateStatus(); });
+    fileInput.addEventListener('change', () => {
+      const files = Array.from(fileInput.files || []);
+      if (photos.length + queue.length + files.length > maxPhotos) {
+        Toast.info(`Tải lên tối đa ${maxPhotos} hình ảnh.`);
+        fileInput.value = ''; return;
+      }
+      queue.push(...files);
+      fileInput.value = '';
+      run();
+    });
+    if (form) form.addEventListener('submit', event => {
+      if (busy || queue.length) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        Toast.info('Hãy tải lại hoặc bỏ ảnh chưa tải trước khi gửi.');
+      }
+    }, true);
+    updateStatus();
   },
 
   // 3.3 COMPRESS AND CONVERT IMAGE FILE TO BASE64
@@ -5408,22 +5428,7 @@ export const UI = {
       fileInput.click();
     });
 
-    fileInput.addEventListener('change', async (e) => {
-      const files = e.target.files;
-      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
-      for (const file of files) {
-        try {
-          const base64Img = await this.compressImage(file);
-          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
-          currentPhotos.push(photoUrl);
-        } catch (err) {
-          console.error(err);
-          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
-        }
-      }
-      renderPreviews();
-      fileInput.value = '';
-    });
+    this.bindPhotoUpload(fileInput, currentPhotos, renderPreviews);
 
     modal.element.querySelector('#edit-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -6980,27 +6985,7 @@ export const UI = {
 
     uploader.addEventListener('click', () => fileInput.click());
 
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (selectedPhotos.length + files.length > 5) {
-        Toast.info('Tải lên tối đa 5 hình ảnh.');
-        return;
-      }
-
-      Toast.info('Đang tải ảnh lên, vui lòng chờ...');
-      for (const file of files) {
-        try {
-          const base64Img = await this.compressImage(file);
-          const photoUrl = await DB.uploadPhotoToStorage(base64Img);
-          selectedPhotos.push(photoUrl);
-        } catch (err) {
-          console.error(err);
-          Toast.error('Không thể đọc hoặc xử lý ảnh: ' + file.name);
-        }
-      }
-      this.updatePhotoPreviews(selectedPhotos, previewContainer);
-      fileInput.value = '';
-    });
+    this.bindPhotoUpload(fileInput, selectedPhotos, () => this.updatePhotoPreviews(selectedPhotos, previewContainer), 5);
 
     document.getElementById('manager-add-log-form').addEventListener('submit', (e) => {
       e.preventDefault();

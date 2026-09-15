@@ -64,38 +64,33 @@ export const DB = {
     // See: Storage > daily-photos (Public) — Policies must allow INSERT for anon role.
   },
 
-  // Upload a compressed base64/dataURL image to Supabase Storage.
-  // Returns the public URL on success, or the original dataUrl as a fallback
-  // so the app keeps working even if Storage is unavailable.
+  // Content-addressed uploads are retryable without duplicating photos.
+  // Never embed a failed upload into a report.
   async uploadPhotoToStorage(dataUrl) {
-    if (!supabaseClient || !dataUrl) return dataUrl;
-    // If already a remote URL (http/https), skip re-upload
-    if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) return dataUrl;
-    try {
-      // Convert base64 dataUrl → Blob
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
-      const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-
-      const { error: uploadErr } = await supabaseClient.storage
-        .from('daily-photos')
-        .upload(filename, blob, { contentType: blob.type, upsert: false });
-
-      if (uploadErr) {
-        console.error('Storage upload error:', uploadErr);
-        return dataUrl; // fallback: keep base64, app still works
-      }
-
-      const { data: urlData } = supabaseClient.storage
-        .from('daily-photos')
-        .getPublicUrl(filename);
-
-      return urlData.publicUrl;
-    } catch (e) {
-      console.error('uploadPhotoToStorage failed, using base64 fallback:', e);
-      return dataUrl; // graceful fallback
-    }
+    if (typeof dataUrl === 'string' && /^https?:\/\//.test(dataUrl)) return dataUrl;
+    if (!supabaseClient || !dataUrl) throw new Error('Chưa kết nối được kho ảnh. Vui lòng thử lại.');
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl)) throw new Error('Định dạng ảnh không hợp lệ.');
+    const blob = await (await fetch(dataUrl)).blob();
+    const bytes = await blob.arrayBuffer();
+    const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', value)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    const hash = await digest(bytes);
+    const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+    const filename = `egress-phase2/${hash}.${ext}`;
+    const bucket = supabaseClient.storage.from('daily-photos');
+    const { error } = await this.withTimeout(bucket.upload(filename, blob, {
+      contentType: blob.type, upsert: false, cacheControl: '31536000'
+    }), 30000, 'Tải ảnh quá thời gian. Vui lòng thử lại.');
+    // An existing object is valid only if its bytes match; other upload errors
+    // must also pass verification before the image can be attached.
+    const { data } = bucket.getPublicUrl(filename);
+    const controller = new AbortController();
+    const verified = await this.withTimeout((async () => {
+      const response = await fetch(data.publicUrl, { signal: controller.signal });
+      return response.ok && await digest(await response.arrayBuffer()) === hash;
+    })(), 30000, 'Kiểm tra ảnh quá thời gian. Vui lòng thử lại.', controller);
+    if (!verified) throw new Error(error?.message || 'Chưa xác minh được ảnh đã tải lên. Vui lòng thử lại.');
+    return data.publicUrl;
   },
 
   async initialize() {
@@ -634,7 +629,7 @@ export const DB = {
         reporter_role: dl.reporterRole,
         status: dl.status,
         note: dl.note,
-        photos: dl.photos || [],
+        photos: await Promise.all((dl.photos || []).map(photo => this.uploadPhotoToStorage(photo))),
         // The column is a PostgreSQL DATE; the precise local date-time is kept in items JSON.
         expected_completion_date: dl.expectedCompletionDate ? dl.expectedCompletionDate.split('T')[0] : null,
         items: dl.items || [],
@@ -656,6 +651,9 @@ export const DB = {
     this.activeWriteRequests = (this.activeWriteRequests || 0) + 1;
     try {
       const dbFields = { ...fields };
+      if (Array.isArray(dbFields.photos)) {
+        dbFields.photos = await Promise.all(dbFields.photos.map(photo => this.uploadPhotoToStorage(photo)));
+      }
       // Keep the DATE column valid while items JSON retains the selected hour/minute.
       if (dbFields.expected_completion_date) {
         dbFields.expected_completion_date = dbFields.expected_completion_date.split('T')[0];
