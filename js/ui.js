@@ -1,4 +1,4 @@
-﻿import { DB } from './db.js?v=20260915-egress-phase2';
+import { DB } from './db.js?v=20260915-egress-phase2';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 
@@ -3008,9 +3008,16 @@ export const UI = {
 
       // Map each scope item to its status and its matched subtasks
       const scopeWithSubtasks = virtualScope.map(sc => {
-        const matched = subtasks.filter(st =>
-          st.title && st.title.toLowerCase().includes(sc.item.toLowerCase())
-        );
+        const matched = subtasks.filter(st => {
+          if (!st.title) return false;
+          const t = st.title.toLowerCase();
+          const room = sc.room.toLowerCase();
+          const item = sc.item.toLowerCase();
+          if (t.startsWith(`[${room} - ${item}]:`)) return true;
+          // Legacy titles without a "[room - item]:" prefix: fall back to item-name match
+          if (!/^\[[^\]\-]+\s*-\s*[^\]]+\]:/.test(t)) return t.includes(item);
+          return false;
+        });
         let status = 'not_started'; // 'not_started' | 'in_progress' | 'done'
         if (matched.length > 0) {
           status = matched.every(st => st.status === 'completed') ? 'done' : 'in_progress';
