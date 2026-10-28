@@ -42,7 +42,6 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
       localStorage.setItem('furni_session',JSON.stringify(manager));
       UI.renderGeneralManagement=()=>{document.getElementById('manager-tab-content').innerHTML='<div>Tổng quan</div>';};
       window.opened=[];UI.openLogDetailModal=(log,project)=>opened.push({log:log.id,project:project.id});
-      window.copyJournalImpl=UI.copyJournalText;window.copied=[];UI.copyJournalText=async text=>copied.push(text);
       UI.renderShell(manager,()=>{});UI.renderManagerView(manager);
     });
     await page.locator('#tab-logs-btn').click();
@@ -51,22 +50,20 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     assert.equal(await page.locator('.manager-log-card').count(),2);
     assert.match(await page.locator('#journal-overview').innerText(),/2 báo cáo · 1 công trình · 1 nhân sự/);
     assert.equal(await page.evaluate(()=>UI.getJournalDate(new Date('2026-10-27T18:30:00Z'))),'2026-10-28');
-    const summary=await page.locator('#journal-summary-text').inputValue();
-    assert.match(summary,/Đã lắp khung tủ/);assert.match(summary,/Còn lắp cánh/);assert.match(summary,/Trạng thái: Xong/);
-    assert.doesNotMatch(summary,/Nội dung chưa duyệt|Đã cắt gỗ/);
+    assert.equal(await page.locator('.journal-summary, #journal-copy-summary, #journal-copy-sheet').count(),0);
+    assert.equal(await page.locator('.journal-assigned-task').count(),2);
+    assert.equal(await page.locator('.journal-current-task').count(),2);
+    assert.equal(await page.locator('.journal-done-work').count(),2);
+    assert.match(await page.locator('.journal-assigned-task').first().innerText(),/Lắp tủ bếp/);
+    assert.match(await page.locator('.journal-current-task').first().innerText(),/Phòng bếp/);
+    assert.match(await page.locator('.journal-done-work').first().innerText(),/Đã lắp cánh tủ/);
+    assert.doesNotMatch(await page.locator('#filtered-logs-list').innerText(),/Nội dung chưa duyệt|Đã cắt gỗ/);
+    const independent=await page.evaluate(()=>UI.getJournalRows({items:[{room:'Bàn thờ',item:'Cả phòng',todayWork:'Đã lắp khung',isCompleted:false}]},fixture.projects[0]));
+    assert.equal(independent[0].assignedTask,'');assert.equal(independent[0].task,'Bàn thờ');assert.equal(independent[0].work,'Đã lắp khung');
+    console.log('PASS removed summary, separate assigned/current task and actual work, no fabricated old task');
     await page.locator('[data-view-log="0"]').click();await page.locator('[data-view-log="1"]').click();
     assert.deepEqual(await page.evaluate(()=>opened.map(x=>x.log)),['later','morning']);
     console.log('PASS today in Vietnam, approved reports only, grouped readable items, exact report detail IDs');
-    await page.locator('.journal-summary summary').click();
-    await page.locator('#journal-copy-summary').click();await page.locator('#journal-copy-sheet').click();
-    const copied=await page.evaluate(()=>copied);
-    assert.equal(copied[0],summary);
-    const table=copied[1].split('\n').map(r=>r.split('\t'));
-    assert.equal(table.length,3);assert.ok(table.every(r=>r.length===8));
-    assert.equal(table[1][0],'2026-10-28');assert.equal(table[1][6],'Xong');assert.equal(table[2][7],'Còn lắp cánh');
-    const safe=await page.evaluate(()=>UI.journalSpreadsheetText([{date:'2026-10-28',project:'=HYPERLINK("x")',reporter:'A',work:'Việc 1\nViệc 2\tPhần 3'}]));
-    assert.match(safe,/'=HYPERLINK/);assert.equal(safe.split('\n').length,2);assert.equal(safe.split('\n')[1].split('\t').length,8);
-    console.log('PASS summary and spreadsheet copy match filtered data; eight safe columns without broken rows');
     await page.locator('#filter-log-date').fill('2026-10-27');await page.locator('#filter-log-date').dispatchEvent('change');
     assert.equal(await page.locator('.manager-log-card').count(),1);
     await page.evaluate(()=>UI.refreshActiveView(manager));
@@ -75,7 +72,6 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     assert.equal(await page.locator('#filter-log-date').inputValue(),'2026-10-28');
     await page.locator('#filter-log-project').selectOption('p2');
     assert.equal(await page.locator('.manager-log-card').count(),0);
-    assert.equal(await page.locator('#journal-copy-sheet').isDisabled(),true);
     await page.locator('#filter-log-project').selectOption('all');
     await page.locator('#filter-log-reporter').selectOption('usr_luan');
     assert.equal(await page.locator('.manager-log-card').count(),0);
@@ -100,7 +96,6 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     console.log('PASS journal access for all four accounts; marketing has no delete control');
     await page.setViewportSize({width:1440,height:1100});
     await page.evaluate(()=>document.documentElement.setAttribute('data-theme','light'));
-    await page.locator('.journal-summary').evaluate(el=>el.open=true);
     await page.screenshot({path:path.join(artifactDir,'manager-journal-desktop.png'),fullPage:true});
     for(const width of [320,390,430]) {
       await page.setViewportSize({width,height:844});
@@ -109,25 +104,10 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     }
     await page.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));
     await page.setViewportSize({width:390,height:1800});
-    await page.locator('.journal-summary').evaluate(el=>el.open=false);
     await page.screenshot({path:path.join(artifactDir,'manager-journal-mobile.png'),fullPage:true});
     // A report with no structured items remains readable without inventing completion status.
     const legacy=await page.evaluate(()=>UI.getJournalRows({date:'2026-10-28',reporterName:'A',note:'Ghi chú cũ'},fixture.projects[0]));
     assert.equal(legacy[0].work,'Ghi chú cũ');assert.equal(legacy[0].status,'Chưa ghi trạng thái');
-    // Copy helper fallback remains usable when the Clipboard API is unavailable.
-    const clipboard = await page.evaluate(async()=>{
-      let native='',fallback='';
-      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{native=text;}}});
-      await copyJournalImpl.call(UI,'native copy');
-      navigator.clipboard.writeText=async()=>{throw Error('blocked');};
-      document.execCommand=()=>{fallback=document.querySelector('textarea[style*=fixed]').value;return true;};
-      await copyJournalImpl.call(UI,'fallback copy');
-      document.execCommand=()=>false;
-      let rejected=false;try{await copyJournalImpl.call(UI,'failed copy');}catch{rejected=true;}
-      return {native,fallback,rejected,temporaryInputs:document.querySelectorAll('textarea[style*=fixed]').length};
-    });
-    assert.deepEqual(clipboard,{native:'native copy',fallback:'fallback copy',rejected:true,temporaryInputs:0});
-    console.log('PASS native clipboard, fallback and visible copy failure without false success');
     assert.deepEqual(errors,[]);
     console.log('PASS mobile/desktop and light/dark layouts; legacy notes preserved; no browser exceptions');
   } finally {if(browser) await browser.close();await new Promise(resolve=>server.close(resolve));}

@@ -3812,38 +3812,13 @@ export const UI = {
       return {
         date: log.date || '', project: project.name || '', reporter: log.reporterName || 'Chưa rõ nhân sự',
         room: item?.room || '',
-        task: task?.title?.replace(/^\s*\[.*?\]:\s*/, '') || (item && !this.isWholeRoomItem(item.item) ? item.item : '') || item?.room || 'Báo cáo công việc',
+        assignedTask: task?.title?.replace(/^\s*\[.*?\]:\s*/, '') || '',
+        task: item?.taskTitle || item?.title || [item?.room, item?.item && !this.isWholeRoomItem(item.item) ? item.item : ''].filter(Boolean).join(' · ') || 'Báo cáo công việc',
         work: item ? item.todayWork || '' : this.formatReportNote(log.note),
         status: item ? done ? 'Xong' : 'Chưa xong' : 'Chưa ghi trạng thái',
         remaining: item && !done ? item.pendingNotes || '' : ''
       };
     });
-  },
-
-  journalSpreadsheetText(rows) {
-    // One row per reported item, with no embedded tabs/newlines or executable formulas.
-    const cell = value => {
-      const text = String(value ?? '').replace(/[\t\r\n]+/g, ' ').trim();
-      return /^[=+@-]/.test(text) ? "'" + text : text;
-    };
-    return [['Ngày', 'Công trình', 'Nhân sự', 'Phòng / Hạng mục', 'Nhiệm vụ', 'Công việc đã làm', 'Trạng thái', 'Công việc còn lại'],
-      ...rows.map(r => [r.date, r.project, r.reporter, r.room, r.task, r.work, r.status, r.remaining])]
-      .map(row => row.map(cell).join('\t')).join('\n');
-  },
-
-  async copyJournalText(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (_) {
-      const input = document.createElement('textarea');
-      input.value = text;
-      input.style.cssText = 'position:fixed;left:-9999px;top:0;';
-      document.body.appendChild(input);
-      input.select();
-      const copied = document.execCommand('copy');
-      input.remove();
-      if (!copied) throw new Error('Không sao chép được. Hãy chọn và sao chép nội dung tóm tắt bên dưới.');
-    }
   },
 
   // 7.1 Daily journal shared by manager, engineering, sales and marketing.
@@ -3855,8 +3830,7 @@ export const UI = {
       project: container.querySelector('#filter-log-project').value,
       date: container.querySelector('#filter-log-date').value,
       status: container.querySelector('#filter-log-status').value,
-      followToday: prior.dataset.followToday !== 'false',
-      summaryOpen: container.querySelector('.journal-summary').open
+      followToday: prior.dataset.followToday !== 'false'
     } : null;
     const today = this.getJournalDate();
     const projects = DB.getProjects();
@@ -3877,12 +3851,6 @@ export const UI = {
           <div><label for="filter-log-status">Tiến độ báo cáo</label><select id="filter-log-status" class="form-select"><option value="all">Tất cả tiến độ</option><option value="on_track">Đúng tiến độ</option><option value="delayed">Bị chậm</option></select></div>
         </div>
         <div class="journal-overview" id="journal-overview" aria-live="polite"></div>
-        <details class="journal-summary" ${(retained ? retained.summaryOpen : window.innerWidth >= 700) ? 'open' : ''}><summary>Tóm tắt để nhập hệ thống công việc</summary>
-          <p>Nội dung lấy từ báo cáo đã duyệt, theo bộ lọc hiện tại.</p>
-          <textarea id="journal-summary-text" readonly rows="5" aria-label="Tóm tắt báo cáo"></textarea>
-          <div class="journal-copy-actions"><button type="button" id="journal-copy-summary">Sao chép tóm tắt</button><button type="button" id="journal-copy-sheet">Sao chép bảng cho spreadsheet</button></div>
-          <p>Dán bảng vào một ô trống trên spreadsheet: dữ liệu sẽ chia thành 8 cột.</p>
-        </details>
         <div id="filtered-logs-list" class="journal-project-list"></div>
       </section>`;
     const section = container.querySelector('.manager-journal');
@@ -3896,14 +3864,12 @@ export const UI = {
         select.value = Array.from(select.options).some(o => o.value === value) ? value : 'all';
       }
     }
-    let visibleRows = [];
     const filterAndRender = () => {
       const filtered = allLogs.filter(({ log, project }) =>
         (reporterSelect.value === 'all' || log.reporterId === reporterSelect.value) &&
         (projectSelect.value === 'all' || project.id === projectSelect.value) &&
         (!dateInput.value || log.date === dateInput.value) &&
         (statusSelect.value === 'all' || log.status === statusSelect.value));
-      visibleRows = filtered.flatMap(({ log, project }) => this.getJournalRows(log, project));
       const groups = new Map();
       filtered.forEach((entry, index) => {
         if (!groups.has(entry.project.id)) groups.set(entry.project.id, { project: entry.project, entries: [] });
@@ -3911,11 +3877,6 @@ export const UI = {
       });
       const dayLabel = dateInput.value ? dateInput.value.split('-').reverse().join('/') : 'Tất cả ngày';
       container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} nhân sự`;
-      container.querySelector('#journal-summary-text').value = filtered.length
-        ? `BÁO CÁO CÔNG VIỆC · ${dayLabel}\n\n` + Array.from(groups.values()).map(({ project, entries }) => `${project.name}\n` + entries.flatMap(({ log }) => this.getJournalRows(log, project).map(r =>
-          `- ${r.reporter} | ${r.task}${r.room && r.room !== r.task ? ` (${r.room})` : ''}\n  Đã làm: ${r.work || 'Chưa ghi nội dung'}\n  ${r.status === 'Xong' ? 'Trạng thái: Xong' : r.status === 'Chưa xong' ? `Còn lại: ${r.remaining || 'Chưa ghi phần việc còn lại'}` : 'Trạng thái: Chưa ghi trạng thái'}`)).join('\n')).join('\n\n')
-        : `Không có báo cáo đã duyệt cho ${dayLabel.toLowerCase()} theo bộ lọc hiện tại.`;
-      container.querySelectorAll('.journal-copy-actions button').forEach(btn => { btn.disabled = !filtered.length; });
       const list = container.querySelector('#filtered-logs-list');
       list.innerHTML = Array.from(groups.values()).map(({ project, entries }) => `
         <section class="journal-project"><header><span>Công trình · ${entries.length} báo cáo</span><h3>${escape(project.name)}</h3></header>
@@ -3925,7 +3886,11 @@ export const UI = {
             return `<article class="manager-log-card journal-report" data-log-id="${escape(log.id)}">
               <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong><p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
                 <div class="journal-report-actions"><button type="button" data-view-log="${index}">Chi tiết</button>${canDelete ? `<button type="button" class="btn-delete-log-from-tab" data-delete-log="${index}">Xóa</button>` : ''}</div></div>
-              ${this.getJournalRows(log, project).map(row => `<div class="journal-item"><div class="journal-item-heading"><h4>${escape(row.task)}</h4><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div>${row.room && row.room !== row.task ? `<p class="journal-room">${escape(row.room)}</p>` : ''}<div class="journal-work-columns"><div><label>Đã làm</label><p>${escape(row.work || 'Chưa ghi nội dung')}</p></div>${row.status !== 'Xong' ? `<div><label>Còn lại / Cần xử lý</label><p>${escape(row.remaining || (row.status === 'Chưa xong' ? 'Chưa ghi phần việc còn lại' : 'Chưa ghi trạng thái'))}</p></div>` : ''}</div></div>`).join('')}
+              ${this.getJournalRows(log, project).map(row => `<div class="journal-item">
+                ${row.assignedTask ? `<div class="journal-assigned-task"><label>Nhiệm vụ cũ / Được giao</label><p>${escape(row.assignedTask)}</p></div>` : ''}
+                <div class="journal-current-task"><div class="journal-item-heading"><label>Nhiệm vụ báo cáo hiện tại</label><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div><h4>${escape(row.task)}</h4></div>
+                <div class="journal-work-columns"><div class="journal-done-work"><label>Đã làm gì</label><p>${escape(row.work || 'Chưa ghi nội dung')}</p></div>${row.status !== 'Xong' ? `<div class="journal-remaining-work"><label>Còn lại / Cần xử lý</label><p>${escape(row.remaining || (row.status === 'Chưa xong' ? 'Chưa ghi phần việc còn lại' : 'Chưa ghi trạng thái'))}</p></div>` : ''}</div>
+              </div>`).join('')}
             </article>`;
           }).join('')}
         </section>`).join('') || '<div class="worker-task-empty">Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.</div>';
@@ -3947,12 +3912,6 @@ export const UI = {
     statusSelect.addEventListener('change', filterAndRender);
     dateInput.addEventListener('change', () => { section.dataset.followToday = String(dateInput.value === this.getJournalDate()); filterAndRender(); });
     container.querySelector('#journal-today').addEventListener('click', () => { dateInput.value = this.getJournalDate(); section.dataset.followToday = 'true'; filterAndRender(); });
-    for (const [id, text] of [['journal-copy-summary', () => container.querySelector('#journal-summary-text').value], ['journal-copy-sheet', () => this.journalSpreadsheetText(visibleRows)]]) {
-      container.querySelector('#' + id).addEventListener('click', async () => {
-        try { await this.copyJournalText(text()); Toast.success('Đã sao chép. Có thể dán vào hệ thống công việc.'); }
-        catch (error) { Toast.error(error.message); }
-      });
-    }
     filterAndRender();
   },
 
