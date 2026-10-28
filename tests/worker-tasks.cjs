@@ -10,7 +10,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
 (async () => {
   const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end('<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="toast-container"></div><div class="app-shell"><header class="app-header"><div class="header-title">Mộc Tiên Phát</div><span class="user-role-tag">Nhân sự</span></header><main id="app-body-content" class="app-body"></main></div></body></html>');
+    res.end('<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="toast-container"></div><div id="app"><div class="app-shell"><header class="app-header"><div class="header-title">Mộc Tiên Phát</div><span class="user-role-tag">Nhân sự</span></header><main id="app-body-content" class="app-body"></main></div></div></body></html>');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   let browser;
@@ -25,10 +25,10 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     await page.addStyleTag({content: '.fade-in{animation:none!important;opacity:1!important}#toast-container{display:none!important}'});
     await page.addScriptTag({content: fs.readFileSync('js/db.js', 'utf8').replace('export const DB =', 'const DB =') + '\nwindow.DB=DB;'});
     await page.addScriptTag({content: fs.readFileSync('js/components.js', 'utf8').replaceAll('export const ', 'const ') + '\nwindow.Toast=Toast; window.Modal=Modal;'});
-    await page.addScriptTag({content: "window.PushNotifications={emitEvent:async()=>true};"});
+    await page.addScriptTag({content: "window.PushNotifications={emitEvent:async()=>true,isEnabled:async()=>false,syncExistingSubscription:async()=>false};"});
     await page.addScriptTag({content: fs.readFileSync('js/ui.js', 'utf8').replace(/^import .*;\r?\n/gm, '').replaceAll('export const ', 'const ') + '\nwindow.UI=UI;'});
     await page.evaluate(() => {
-      const users = [{id:'usr_luan',role:'manager',name:'Sếp'},{id:'lead',role:'lead_worker',name:'Anh Cường'},{id:'other',role:'lead_worker',name:'Anh A'},{id:'assistant',role:'assistant_worker',name:'Thợ phụ'}];
+      const users = [{id:'usr_luan',role:'manager',name:'Sếp'},{id:'lead',role:'lead_worker',name:'Trần Nhật Cường (Thợ chính)'},{id:'other',role:'lead_worker',name:'Anh A'},{id:'assistant',role:'assistant_worker',name:'Thợ phụ'}];
       const makeProject = (id,name,subtasks,dailyLogs=[]) => ({id,name,step:3,assignees:['lead','assistant'],isCompleted:false,scope:[{room:'Phòng bếp',item:'Cả phòng'}],subtasks,dailyLogs,history:[]});
       const task = (id,title,assignedTo='lead') => ({id,title,assignedTo,status:'pending',items:[],type:'normal'});
       const fixture = {users,attendance:[],systemLogs:[],projects:[
@@ -44,6 +44,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
       for(const method of ['sbUpdateSubtask','sbInsertSubtask','sbInsertDailyLog','sbInsertHistory']) DB[method]=async(...args)=>{writes.push({method,args});};
       DB.uploadPhotoToStorage=async()=> 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
       UI.compressImage=async()=> 'data:image/jpeg;base64,aW1hZ2U=';
+      UI.renderShell(worker,()=>{});
       UI.renderWorkerView(worker);
     });
     assert.equal(await page.locator('.worker-project-group').count(),2);
@@ -52,6 +53,13 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     assert.equal(await page.getByText('Lắp 3 cánh tủ và đi silicone.',{exact:true}).count(),1);
     assert.equal(await page.locator('.worker-task-card').filter({hasText:'Việc của người khác'}).count(),0);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false);
+    for (const width of [320,360,390,430]) {
+      await page.setViewportSize({width,height:844});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false);
+      assert.equal(await page.locator('.app-header').evaluate(el=>el.scrollWidth>el.clientWidth),false);
+      assert.ok(await page.locator('.worker-task-report-btn').first().evaluate(el=>el.getBoundingClientRect().height)>=44);
+    }
+    await page.setViewportSize({width:390,height:844});
     console.log('PASS mobile groups, assigned tasks, approved cross-worker handover, no overflow');
     await page.setViewportSize({width:390,height:1800});
     await page.screenshot({path:path.join(artifactDir,'worker-tasks-mobile.png'),fullPage:true});
@@ -127,5 +135,3 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     console.log('PASS desktop/light theme and no browser exceptions; all data and network isolated');
   } finally {if(browser) await browser.close(); await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);process.exitCode=1});
-
-

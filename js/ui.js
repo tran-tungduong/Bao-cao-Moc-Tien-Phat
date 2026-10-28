@@ -569,6 +569,7 @@ export const UI = {
       ? DB.getSelectedLeadWorkerForAssistant(user.id)
       : '';
     const isTaskWorker = ['lead_worker', 'assistant_worker'].includes(user.role);
+    body.classList.toggle('worker-view', isTaskWorker);
     const taskProject = taskContext && relevantProjects.find(p => p.id === taskContext.projectId);
     const selectedTask = taskProject && this.getWorkerTasks(taskProject, user).find(t => t.id === taskContext.taskId && t.status !== 'completed');
     if (taskContext && !selectedTask) taskContext = null;
@@ -599,7 +600,7 @@ export const UI = {
 
     body.innerHTML = `
       <div class="welcome-section fade-in">
-        <div class="welcome-user">Chào ${user.name}</div>
+        <div class="welcome-user">Chào ${this.escapeWorkerText(isTaskWorker ? user.name.replace(/\s*\([^)]*\)/g, '').trim() : user.name)}</div>
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
