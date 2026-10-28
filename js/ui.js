@@ -264,7 +264,7 @@ export const UI = {
   },
 
   // 2.1 HELPER FOR DYNAMIC 3-LEVEL CHECKLIST ROW
-  addChecklistItemRow(container, initialData = null, project = null, currentUser = null) {
+  addChecklistItemRow(container, initialData = null, project = null, currentUser = null, lockedTaskId = '') {
     const rowId = 'chk_' + Math.random().toString(36).substr(2, 9);
     const row = document.createElement('div');
     row.id = rowId;
@@ -277,6 +277,7 @@ export const UI = {
     const db = DB.load();
     const hasScope = project && project.scope && project.scope.length > 0;
     const rooms = hasScope ? [...new Set(project.scope.map(s => s.room))] : ['Phòng ngủ 1', 'Phòng khách', 'Phòng bếp', 'Phòng thờ', 'Phòng tắm', 'Khác...'];
+    if (lockedTaskId && initialData?.room && !rooms.includes(initialData.room)) rooms.unshift(initialData.room);
 
     const visibleTasksForRow = project && Array.isArray(project.subtasks)
       ? (currentUser && currentUser.role === 'assistant_worker'
@@ -364,6 +365,15 @@ export const UI = {
     const pendingNotesInput = row.querySelector('.txt-chk-pending-notes');
 
     const updateTasksDropdown = () => {
+      if (lockedTaskId) {
+        const option = document.createElement('option');
+        option.value = lockedTaskId;
+        option.textContent = 'Nhiệm vụ đã chọn';
+        selectTask.replaceChildren(option);
+        selectTask.value = lockedTaskId;
+        row.setAttribute('data-task-id', lockedTaskId);
+        return;
+      }
       if (!project || !project.subtasks) {
         selectTask.innerHTML = `<option value="">-- Báo cáo việc tự phát sinh (Không chọn nhiệm vụ) --</option>`;
         return;
@@ -456,12 +466,98 @@ export const UI = {
 
     updateTasksDropdown();
 
+    if (lockedTaskId) {
+      selectTask.parentElement.hidden = true;
+      selectRoom.disabled = true;
+      row.querySelector('.btn-remove-chk-item').hidden = true;
+    }
+
     row.querySelector('.btn-remove-chk-item').addEventListener('click', () => {
       row.remove();
     });
   },
+  escapeWorkerText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  getWorkerTasks(project, user) {
+    const tasks = DB.getVisibleSubtasksForUser(project, user);
+    return user.role === 'assistant_worker' ? tasks : tasks.filter(t => t.assignedTo === user.id);
+  },
+
+  getWorkerTaskSummary(project, task, user) {
+    const prefix = String(task.title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
+    const scope = prefix ? prefix[1].split(' - ') : [];
+    const room = scope[0] || '';
+    const item = scope.slice(1).join(' - ') || 'Cả phòng';
+    const logs = (project.dailyLogs || []).filter(l => l.items?.some(it => it.taskId === task.id))
+      .slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) ||
+        String(b.createdAt || b.timestamp || '').localeCompare(String(a.createdAt || a.timestamp || '')));
+    const latest = logs.find(l => l.approved !== false);
+    const previous = latest?.items.find(it => it.taskId === task.id);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const ownToday = logs.find(l => l.reporterId === user.id && (
+      l.createdAt || l.timestamp
+        ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(l.createdAt || l.timestamp)) === today
+        : l.date === today));
+    return {
+      title: prefix ? prefix[2] : task.title,
+      room: previous?.room || room || project.scope?.[0]?.room || 'Công việc chung',
+      item: previous?.item || item,
+      latest,
+      pendingNotes: task.status === 'completed' ? '' : (previous?.pendingNotes || task.items?.[0]?.pendingNotes || ''),
+      todayLabel: ownToday ? (ownToday.approved === false ? 'Đã báo cáo hôm nay · Chờ duyệt' : 'Đã báo cáo hôm nay') : 'Hôm nay chưa báo cáo'
+    };
+  },
+
+  renderWorkerTaskBoard(user, onOpen) {
+    const board = document.getElementById('worker-task-board');
+    if (!board) return;
+    const escape = value => this.escapeWorkerText(value);
+    let filter = board.dataset.filter || 'pending';
+    const draw = () => {
+      board.dataset.filter = filter;
+      const groups = DB.getProjectsForUser(user).map(project => ({ project, tasks: this.getWorkerTasks(project, user) }));
+      const pendingCount = groups.reduce((n, g) => n + g.tasks.filter(t => t.status !== 'completed').length, 0);
+      const completedCount = groups.reduce((n, g) => n + g.tasks.filter(t => t.status === 'completed').length, 0);
+      const shown = groups.map(g => ({ ...g, tasks: g.tasks.filter(t => (t.status === 'completed') === (filter === 'completed')) })).filter(g => g.tasks.length);
+      board.innerHTML = `
+        <div class="worker-task-heading"><h2>Nhiệm vụ đang làm</h2><p>${pendingCount} nhiệm vụ đang làm · ${groups.filter(g => g.tasks.some(t => t.status !== 'completed')).length} công trình</p></div>
+        <div class="worker-task-filters" role="group" aria-label="Trạng thái nhiệm vụ">
+          <button type="button" data-filter="pending" aria-pressed="${filter === 'pending'}">Đang làm (${pendingCount})</button>
+          <button type="button" data-filter="completed" aria-pressed="${filter === 'completed'}">Đã xong (${completedCount})</button>
+        </div>
+        <div class="worker-project-groups">${shown.map(({ project, tasks }) => `
+          <section class="worker-project-group"><h3>${escape(project.name)}</h3><div class="worker-task-cards">
+            ${tasks.map(task => {
+              const summary = this.getWorkerTaskSummary(project, task, user);
+              const done = task.status === 'completed';
+              return `<article class="worker-task-card">
+                <div class="worker-task-title"><h4>${escape(summary.title || 'Nhiệm vụ')}</h4><span class="worker-task-status ${done ? 'is-done' : ''}">${done ? 'Đã xong' : task.type === 'rework' ? 'Cần sửa' : summary.latest || task.items?.length ? 'Chưa xong' : 'Chưa có báo cáo'}</span></div>
+                <p class="worker-task-room">${escape(summary.room)}</p>
+                ${summary.pendingNotes ? `<div class="worker-task-remaining"><strong>Công việc còn lại</strong><p>${escape(summary.pendingNotes)}</p></div>` : ''}
+                <p class="worker-task-report-state">${escape(summary.todayLabel)}</p>
+                <button type="button" class="worker-task-report-btn" data-project="${escape(project.id)}" data-task="${escape(task.id)}">${done ? 'Xem báo cáo' : 'Báo cáo nhiệm vụ'}</button>
+              </article>`;
+            }).join('')}
+          </div></section>`).join('') || `<div class="worker-task-empty">${user.role === 'assistant_worker' && !DB.getSelectedLeadWorkerForAssistant(user.id) ? 'Chọn thợ chính đồng hành hoặc làm độc lập để xem nhiệm vụ.' : filter === 'completed' ? 'Chưa có nhiệm vụ đã hoàn thành.' : 'Bạn chưa có nhiệm vụ đang làm.'}</div>`}</div>`;
+      board.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => { filter = btn.dataset.filter; draw(); }));
+      board.querySelectorAll('.worker-task-report-btn').forEach(btn => btn.addEventListener('click', () => {
+        const project = DB.getProjectsForUser(user).find(p => p.id === btn.dataset.project);
+        const task = project && this.getWorkerTasks(project, user).find(t => t.id === btn.dataset.task);
+        if (!task) return;
+        if (task.status === 'completed') {
+          const latest = this.getWorkerTaskSummary(project, task, user).latest;
+          if (latest) this.openLogDetailModal(latest, project);
+          else Toast.info('Nhiệm vụ đã hoàn thành, chưa có báo cáo chi tiết.');
+        } else onOpen({ projectId: project.id, taskId: task.id });
+      }));
+    };
+    draw();
+  },
+
   // 3. RENDER WORKER VIEWS (DAILY WORK LOGS & ASSIGNED PROJECTS)
-  renderWorkerView(user) {
+  renderWorkerView(user, taskContext = null) {
     const body = document.getElementById('app-body-content');
     const projects = DB.getProjects();
     const db = DB.load();
@@ -472,6 +568,10 @@ export const UI = {
     const selectedAssistantMode = user.role === 'assistant_worker'
       ? DB.getSelectedLeadWorkerForAssistant(user.id)
       : '';
+    const isTaskWorker = ['lead_worker', 'assistant_worker'].includes(user.role);
+    const taskProject = taskContext && relevantProjects.find(p => p.id === taskContext.projectId);
+    const selectedTask = taskProject && this.getWorkerTasks(taskProject, user).find(t => t.id === taskContext.taskId && t.status !== 'completed');
+    if (taskContext && !selectedTask) taskContext = null;
 
     const todayRecord = DB.getUserAttendanceToday(user.id);
     let assignmentBannerHtml = '';
@@ -499,7 +599,7 @@ export const UI = {
 
     body.innerHTML = `
       <div class="welcome-section fade-in">
-        <div class="welcome-user">Chào ${user.name} 🛠️</div>
+        <div class="welcome-user">Chào ${user.name}</div>
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
@@ -516,7 +616,7 @@ export const UI = {
 
       ${assignmentBannerHtml}
 
-      <div class="stats-grid fade-in" style="display:grid; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
+      <div class="stats-grid fade-in" style="display:${isTaskWorker ? 'none' : 'grid'}; grid-template-columns: ${['kts', 'sales', 'marketing'].includes(user.role) ? '1fr 1fr 1fr' : '1fr 1fr'}; gap:12px;">
         <div class="stat-mini-card" id="stat-projects-btn" style="cursor:pointer; border-color:var(--primary); transition:all var(--transition-fast);">
           <span class="stat-mini-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span>${user.role === 'assistant_worker' ? (selectedAssistantMode === 'independent' ? 'Công trình của tôi' : 'Công trình làm cùng') : 'Công trình phụ trách'}</span>
@@ -558,13 +658,14 @@ export const UI = {
       <!-- Tabs for worker daily report / edit reports -->
       <div class="tabs-container fade-in" style="display:flex; border-bottom:2px solid var(--border-color); margin-top:20px; margin-bottom:16px;">
         <button class="tab-btn active" id="tab-create-report" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--primary); border-bottom:2px solid var(--primary); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
-          <i class="fas fa-edit"></i> Báo Cáo Cuối Ngày
+          ${isTaskWorker ? 'Nhiệm vụ của tôi' : '<i class="fas fa-edit"></i> Báo Cáo Cuối Ngày'}
         </button>
         <button class="tab-btn" id="tab-edit-reports" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
-          <i class="fas fa-history"></i> Lịch Sử & Sửa Báo Cáo
+          Lịch Sử & Sửa Báo Cáo
         </button>
       </div>
 
+      ${isTaskWorker ? '<div id="worker-task-board"></div>' : ''}
       <!-- Tab Content: Create Report -->
       <div id="tab-content-create-report" class="fade-in">
         <div class="material-stats-card" style="margin-bottom: 28px; background-color: var(--bg-secondary); padding:16px; border-radius:16px; border:1px solid var(--border-color);">
@@ -647,6 +748,8 @@ export const UI = {
       </div>
     `;
 
+    body.scrollTop = 0;
+
     // Bind click on assigned projects card
     const btnAssignedProjects = document.getElementById('stat-projects-btn');
     if (btnAssignedProjects) {
@@ -716,6 +819,7 @@ export const UI = {
     const selectLogProject = document.getElementById('log-project-id');
     const checklistList = document.getElementById('checklist-items-list');
     const reportFieldsWrapper = document.getElementById('report-form-fields-wrapper');
+    if (taskContext && selectedTask) selectLogProject.value = taskContext.projectId;
 
     const getSelectedProject = () => {
       if (!selectLogProject || !selectLogProject.value) return null;
@@ -730,7 +834,11 @@ export const UI = {
       if (checklistList) {
         checklistList.innerHTML = '';
         if (currentPrj) {
-          this.addChecklistItemRow(checklistList, null, currentPrj, user);
+          const summary = selectedTask && taskContext ? this.getWorkerTaskSummary(currentPrj, selectedTask, user) : null;
+          this.addChecklistItemRow(checklistList, summary ? {
+            taskId: selectedTask.id, room: summary.room, item: summary.item,
+            todayWork: '', pendingNotes: ''
+          } : null, currentPrj, user, summary ? selectedTask.id : '');
         }
       }
     };
@@ -739,6 +847,7 @@ export const UI = {
     updateReportFormVisibility();
 
     const btnAddChecklistItem = document.getElementById('btn-add-checklist-item');
+    if (taskContext && btnAddChecklistItem) btnAddChecklistItem.hidden = true;
     if (btnAddChecklistItem && checklistList) {
       btnAddChecklistItem.addEventListener('click', () => {
         const currentPrj = getSelectedProject();
@@ -759,6 +868,17 @@ export const UI = {
     document.getElementById('daily-log-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const prjId = document.getElementById('log-project-id').value;
+      if (!selectedPhotos.length) {
+        Toast.error('Yêu cầu bắt buộc đính kèm tối thiểu 1 ảnh thực tế.');
+        return;
+      }
+      if (taskContext) {
+        const accessible = DB.getProjectsForUser(user).find(p => p.id === prjId);
+        if (!accessible || !this.getWorkerTasks(accessible, user).some(t => t.id === taskContext.taskId && t.status !== 'completed')) {
+          Toast.error('Nhiệm vụ đã thay đổi. Vui lòng quay lại danh sách để kiểm tra.');
+          return;
+        }
+      }
       const status = 'on_track';
       const expEl = document.getElementById('log-expected-completion');
       let expectedDate = expEl ? expEl.value : '';
@@ -782,6 +902,7 @@ export const UI = {
         }
 
         let hasError = false;
+        const taskWrites = [];
         rows.forEach(row => {
           const selectRoom = row.querySelector('.select-chk-room').value;
           const customRoom = row.querySelector('.txt-chk-custom-room').value;
@@ -789,7 +910,9 @@ export const UI = {
 
           const selectItem = row.querySelector('.select-chk-item').value;
           const customItem = row.querySelector('.txt-chk-custom-item').value;
-          const item = selectItem === 'Khác...' ? customItem.trim() : selectItem;
+          const item = taskContext && selectedTask
+            ? this.getWorkerTaskSummary(loadedProj, selectedTask, user).item
+            : selectItem === 'Khác...' ? customItem.trim() : selectItem;
 
           const todayWork = row.querySelector('.txt-chk-today-work').value.trim();
           const progress = parseInt(row.querySelector('.select-chk-progress').value) || 50;
@@ -799,7 +922,7 @@ export const UI = {
 
           const selectedTaskId = row.querySelector('.select-chk-task').value;
 
-          if (!room || !item || !todayWork) {
+          if (!room || !item || !todayWork || (!isCompleted && !pendingNotes)) {
             hasError = true;
           }
 
@@ -824,11 +947,11 @@ export const UI = {
               }];
 
               // Sync with Supabase
-              DB.sbUpdateSubtask(selectedTaskId, {
+              taskWrites.push(() => DB.sbUpdateSubtask(selectedTaskId, {
                 status: existingTask.status,
                 completed_at: existingTask.completedAt,
                 items: existingTask.items
-              });
+              }));
             }
           } else {
             // Auto-create spontaneous task
@@ -850,7 +973,7 @@ export const UI = {
             finalTaskId = subtaskId;
 
             // Sync with Supabase
-            DB.sbInsertSubtask(newSt, prjId);
+            taskWrites.push(() => DB.sbInsertSubtask(newSt, prjId));
 
             const hist = {
               timestamp: new Date().toISOString(),
@@ -858,7 +981,7 @@ export const UI = {
               user: user.name
             };
             loadedProj.history.push(hist);
-            DB.sbInsertHistory(hist, prjId);
+            taskWrites.push(() => DB.sbInsertHistory(hist, prjId));
           }
 
           items.push({
@@ -874,7 +997,7 @@ export const UI = {
         });
 
         if (hasError) {
-          Toast.error('Vui lòng nhập đầy đủ thông tin phòng, nội thất và công việc đã làm.');
+          Toast.error('Vui lòng nhập công việc đã làm và phần việc còn lại nếu chưa xong.');
           return;
         }
 
@@ -885,6 +1008,7 @@ export const UI = {
 
         // Save local DB
         DB.save(loadedDb);
+        taskWrites.forEach(write => write().catch(error => console.error('Task report sync failed:', error)));
 
         // Generate text note summary for old compatibility
         note = items.map(it => {
@@ -1060,6 +1184,59 @@ export const UI = {
 
         renderWorkerHistoryReports();
       });
+    }
+
+    if (isTaskWorker) {
+      const board = document.getElementById('worker-task-board');
+      const navigation = tabCreate.parentElement;
+      navigation.classList.add('worker-history-navigation');
+      board.insertAdjacentElement('afterend', navigation);
+      navigation.hidden = !!taskContext;
+      tabCreate.hidden = true;
+      tabCreate.textContent = '← Nhiệm vụ của tôi';
+      const openTask = context => this.renderWorkerView(user, context);
+      this.renderWorkerTaskBoard(user, openTask);
+      this.refreshWorkerTaskBoard = () => {
+        if (document.getElementById('worker-task-board') === board && !taskContext) this.renderWorkerTaskBoard(user, openTask);
+      };
+      board.hidden = !!taskContext;
+      contentCreate.hidden = !taskContext;
+      tabCreate.addEventListener('click', () => {
+        board.hidden = !!taskContext;
+        tabCreate.hidden = true;
+        tabEdit.hidden = false;
+      });
+      tabEdit.addEventListener('click', () => {
+        board.hidden = true;
+        tabCreate.hidden = false;
+        tabEdit.hidden = true;
+      });
+      const approvals = document.getElementById('lead-approval-container');
+      if (approvals) {
+        body.appendChild(approvals);
+        approvals.hidden = !!taskContext;
+      }
+      if (taskContext && selectedTask) {
+        const leadSelector = document.getElementById('worker-lead-selector');
+        if (leadSelector) leadSelector.parentElement.hidden = true;
+        const summary = this.getWorkerTaskSummary(taskProject, selectedTask, user);
+        const escape = value => this.escapeWorkerText(value);
+        selectLogProject.parentElement.hidden = true;
+        selectLogProject.disabled = true;
+        contentCreate.insertAdjacentHTML('afterbegin', `
+          <div class="worker-report-context">
+            <button type="button" id="worker-back-to-tasks" class="worker-back-btn">← Danh sách nhiệm vụ</button>
+            <h2>${escape(summary.title)}</h2><p>${escape(taskProject.name)} · ${escape(summary.room)}</p>
+            ${summary.pendingNotes ? `<div class="worker-task-remaining"><strong>Công việc còn lại từ lần trước</strong><p>${escape(summary.pendingNotes)}</p></div>` : ''}
+          </div>`);
+        document.getElementById('worker-back-to-tasks').addEventListener('click', () => {
+          const hasDraft = selectedPhotos.length || checklistList.querySelector('.txt-chk-today-work')?.value.trim() ||
+            checklistList.querySelector('.txt-chk-pending-notes')?.value.trim() || checklistList.querySelector('.chk-item-completed')?.checked ||
+            previewContainer.parentElement.querySelector('.photo-upload-status:not([hidden])');
+          if (hasDraft && !confirm('Báo cáo chưa gửi. Quay lại danh sách và bỏ nội dung đang nhập?')) return;
+          this.renderWorkerView(user);
+        });
+      }
     }
 
     // Populate pending logs list for lead worker review
@@ -1299,6 +1476,7 @@ export const UI = {
     const queue = [];
     let busy = false;
     const status = document.createElement('div');
+    status.className = 'photo-upload-status';
     status.style.cssText = 'font-size:0.8rem;margin:8px 0;';
     const message = document.createElement('span');
     const retry = document.createElement('button');
@@ -6556,6 +6734,7 @@ export const UI = {
         this.renderManagerDashboard();
       }
     } else {
+      if (['lead_worker', 'assistant_worker'].includes(user.role) && this.refreshWorkerTaskBoard) this.refreshWorkerTaskBoard();
       let relevantProjects = DB.getProjectsForUser(user);
 
       const statProjects = document.getElementById('stat-projects-btn');
