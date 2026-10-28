@@ -2178,6 +2178,7 @@ export const UI = {
   // 7. RENDER MANAGER PORTAL
   renderManagerView(user) {
     const body = document.getElementById('app-body-content');
+    body.classList.remove('worker-view');
     const roleTitle = user.role === 'manager' ? 'Sếp' : user.role === 'kts' ? 'KTS' : user.role === 'sales' ? 'Sale' : 'MKT';
     const roleIcon = user.role === 'manager' ? '💼' : user.role === 'kts' ? '📐' : user.role === 'sales' ? '🤝' : '📢';
 
@@ -2194,8 +2195,8 @@ export const UI = {
         ${user.role !== 'marketing' ? `
           <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Theo Dõi</button>
           <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
-          <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
         ` : ''}
+        <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
       </div>
 
       <!-- Content sections -->
@@ -3795,189 +3796,163 @@ export const UI = {
       });
     });
   },
-  // 7.1 RENDER LOGS LIST WITH FILTERS (MANAGER TAB)
+  getJournalDate(value = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(value);
+    const fields = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${fields.year}-${fields.month}-${fields.day}`;
+  },
+
+  getJournalRows(log, project) {
+    const items = Array.isArray(log.items) && log.items.length ? log.items : [null];
+    return items.map(item => {
+      const task = item?.taskId && project.subtasks?.find(t => t.id === item.taskId);
+      const done = item && (item.isCompleted === true || item.isCompleted === 'true' || Number(item.progress) === 100);
+      return {
+        date: log.date || '', project: project.name || '', reporter: log.reporterName || 'Chưa rõ nhân sự',
+        room: item?.room || '',
+        task: task?.title?.replace(/^\s*\[.*?\]:\s*/, '') || (item && !this.isWholeRoomItem(item.item) ? item.item : '') || item?.room || 'Báo cáo công việc',
+        work: item ? item.todayWork || '' : this.formatReportNote(log.note),
+        status: item ? done ? 'Xong' : 'Chưa xong' : 'Chưa ghi trạng thái',
+        remaining: item && !done ? item.pendingNotes || '' : ''
+      };
+    });
+  },
+
+  journalSpreadsheetText(rows) {
+    // One row per reported item, with no embedded tabs/newlines or executable formulas.
+    const cell = value => {
+      const text = String(value ?? '').replace(/[\t\r\n]+/g, ' ').trim();
+      return /^[=+@-]/.test(text) ? "'" + text : text;
+    };
+    return [['Ngày', 'Công trình', 'Nhân sự', 'Phòng / Hạng mục', 'Nhiệm vụ', 'Công việc đã làm', 'Trạng thái', 'Công việc còn lại'],
+      ...rows.map(r => [r.date, r.project, r.reporter, r.room, r.task, r.work, r.status, r.remaining])]
+      .map(row => row.map(cell).join('\t')).join('\n');
+  },
+
+  async copyJournalText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const input = document.createElement('textarea');
+      input.value = text;
+      input.style.cssText = 'position:fixed;left:-9999px;top:0;';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      if (!copied) throw new Error('Không sao chép được. Hãy chọn và sao chép nội dung tóm tắt bên dưới.');
+    }
+  },
+
+  // 7.1 Daily journal shared by manager, engineering, sales and marketing.
   renderManagerLogs(user) {
     const container = document.getElementById('manager-tab-content');
+    const prior = container.querySelector('.manager-journal');
+    const retained = prior?.dataset.user === user.id ? {
+      reporter: container.querySelector('#filter-log-reporter').value,
+      project: container.querySelector('#filter-log-project').value,
+      date: container.querySelector('#filter-log-date').value,
+      status: container.querySelector('#filter-log-status').value,
+      followToday: prior.dataset.followToday !== 'false',
+      summaryOpen: container.querySelector('.journal-summary').open
+    } : null;
+    const today = this.getJournalDate();
     const projects = DB.getProjects();
-    const db = DB.load();
-    const workers = db.users.filter(u => u.role !== 'manager');
-
-    // Aggregate all daily logs from all projects
-    let allLogs = [];
-    projects.forEach(p => {
-      p.dailyLogs.forEach(l => {
-        if (l.approved !== false) {
-          allLogs.push({
-            ...l,
-            projectId: p.id,
-            projectName: p.name
-          });
-        }
-      });
-    });
-
-    // Sort all logs by date descending
-    allLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
-
+    const users = DB.load().users;
+    const escape = value => this.escapeWorkerText(value);
+    let allLogs = projects.flatMap(project => (project.dailyLogs || [])
+      .filter(log => log.approved !== false).map(log => ({ log, project })));
+    allLogs.sort((a, b) => String(b.log.date || '').localeCompare(String(a.log.date || '')) ||
+      String(b.log.createdAt || b.log.timestamp || '').localeCompare(String(a.log.createdAt || a.log.timestamp || '')));
+    const canDelete = ['manager', 'kts', 'sales'].includes(user.role);
     container.innerHTML = `
-      <div class="fade-in" style="display:flex; flex-direction:column; gap:16px;">
-        <div style="background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px;">
-          <h4 style="font-family:var(--font-title); font-size:0.9rem; font-weight:600;"><i class="fas fa-filter"></i> Bộ Lọc Báo Cáo</h4>
-          
-          <div style="display:flex; flex-direction:column; gap:10px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <div>
-                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Lọc theo Nhân sự</label>
-                <select id="filter-log-reporter" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
-                  <option value="all">Tất cả nhân sự</option>
-                  ${workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-                </select>
-              </div>
-              <div>
-                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Lọc theo Công trình</label>
-                <select id="filter-log-project" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
-                  <option value="all">Tất cả công trình</option>
-                  ${projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                </select>
-              </div>
-            </div>
-            
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <div>
-                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Ngày báo cáo</label>
-                <input type="date" id="filter-log-date" class="form-input" style="font-size:0.8rem; padding:8px 12px; padding-left:14px; height:40px;">
-              </div>
-              <div>
-                <label class="form-label" style="font-size:0.7rem; margin-bottom:4px;">Trạng thái</label>
-                <select id="filter-log-status" class="form-select" style="font-size:0.8rem; padding:8px 12px; height:auto;">
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="on_track">Đúng tiến độ ✅</option>
-                  <option value="delayed">Bị chậm ⚠️</option>
-                </select>
-              </div>
-            </div>
-          </div>
+      <section class="manager-journal" data-user="${escape(user.id)}" data-follow-today="${retained?.followToday !== false}">
+        <div class="journal-heading"><div><h2>Nhật ký báo cáo</h2><p>Xem công việc đã làm và phần còn lại theo từng công trình.</p></div></div>
+        <div class="journal-filters">
+          <div class="journal-date-filter"><label for="filter-log-date">Ngày báo cáo</label><div><input type="date" id="filter-log-date" class="form-input"><button type="button" id="journal-today">Hôm nay</button></div></div>
+          <div><label for="filter-log-project">Công trình</label><select id="filter-log-project" class="form-select"><option value="all">Tất cả công trình</option>${projects.map(p => `<option value="${escape(p.id)}">${escape(p.name)}</option>`).join('')}</select></div>
+          <div><label for="filter-log-reporter">Nhân sự</label><select id="filter-log-reporter" class="form-select"><option value="all">Tất cả nhân sự</option>${users.map(w => `<option value="${escape(w.id)}">${escape(w.name)}</option>`).join('')}</select></div>
+          <div><label for="filter-log-status">Tiến độ báo cáo</label><select id="filter-log-status" class="form-select"><option value="all">Tất cả tiến độ</option><option value="on_track">Đúng tiến độ</option><option value="delayed">Bị chậm</option></select></div>
         </div>
-
-        <div class="report-list" id="filtered-logs-list">
-          <!-- Render logs dynamically -->
-        </div>
-      </div>
-    `;
-
-    const logsList = document.getElementById('filtered-logs-list');
-    const reporterSelect = document.getElementById('filter-log-reporter');
-    const projectSelect = document.getElementById('filter-log-project');
-    const dateInput = document.getElementById('filter-log-date');
-    const statusSelect = document.getElementById('filter-log-status');
-
-    const filterAndRender = () => {
-      const selectedReporter = reporterSelect.value;
-      const selectedProject = projectSelect.value;
-      const selectedDate = dateInput.value;
-      const selectedStatus = statusSelect.value;
-
-      const filtered = allLogs.filter(l => {
-        const matchReporter = selectedReporter === 'all' || l.reporterId === selectedReporter;
-        const matchProject = selectedProject === 'all' || l.projectId === selectedProject;
-        const matchDate = !selectedDate || l.date === selectedDate;
-        const matchStatus = selectedStatus === 'all' || l.status === selectedStatus;
-        return matchReporter && matchProject && matchDate && matchStatus;
-      });
-
-      if (filtered.length === 0) {
-        logsList.innerHTML = `
-          <div style="text-align:center; padding: 40px; color:var(--text-muted); background-color:var(--bg-secondary); border-radius:20px; border:1px solid var(--border-color)">
-            <i class="fas fa-folder-open" style="font-size:2rem; margin-bottom:12px;"></i>
-            <p>Không tìm thấy báo cáo nào khớp với bộ lọc.</p>
-          </div>
-        `;
-        return;
+        <div class="journal-overview" id="journal-overview" aria-live="polite"></div>
+        <details class="journal-summary" ${(retained ? retained.summaryOpen : window.innerWidth >= 700) ? 'open' : ''}><summary>Tóm tắt để nhập hệ thống công việc</summary>
+          <p>Nội dung lấy từ báo cáo đã duyệt, theo bộ lọc hiện tại.</p>
+          <textarea id="journal-summary-text" readonly rows="5" aria-label="Tóm tắt báo cáo"></textarea>
+          <div class="journal-copy-actions"><button type="button" id="journal-copy-summary">Sao chép tóm tắt</button><button type="button" id="journal-copy-sheet">Sao chép bảng cho spreadsheet</button></div>
+          <p>Dán bảng vào một ô trống trên spreadsheet: dữ liệu sẽ chia thành 8 cột.</p>
+        </details>
+        <div id="filtered-logs-list" class="journal-project-list"></div>
+      </section>`;
+    const section = container.querySelector('.manager-journal');
+    const reporterSelect = container.querySelector('#filter-log-reporter');
+    const projectSelect = container.querySelector('#filter-log-project');
+    const dateInput = container.querySelector('#filter-log-date');
+    const statusSelect = container.querySelector('#filter-log-status');
+    dateInput.value = retained && !retained.followToday ? retained.date : today;
+    if (retained) {
+      for (const [select, value] of [[reporterSelect, retained.reporter], [projectSelect, retained.project], [statusSelect, retained.status]]) {
+        select.value = Array.from(select.options).some(o => o.value === value) ? value : 'all';
       }
-
-      logsList.innerHTML = filtered.map(l => {
-        const roleDisplay = l.reporterRole === 'lead_worker' ? 'Thợ chính' : l.reporterRole === 'assistant_worker' ? 'Thợ phụ' : l.reporterRole === 'kts' ? 'Thiết kế' : l.reporterRole === 'sales' ? 'Sale' : 'Khác';
-        return `
-          <div class="report-card manager-log-card" data-project="${l.projectId}" data-date="${l.date}" data-reporter="${l.reporterName}" style="cursor:pointer; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:16px; padding:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div>
-                <strong style="font-size:0.85rem; color:var(--text-primary);">${l.reporterName}</strong>
-                <div style="font-size:0.7rem; color:var(--text-muted);">${roleDisplay} • ${l.date}</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="status-badge ${l.status === 'on_track' ? 'approved' : 'rejected'}" style="margin-right:0;">
-                  ${l.status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}
-                </span>
-                ${['manager', 'kts', 'sales'].includes(user.role) ? `
-                  <button class="btn-delete-log-from-tab" data-project="${l.projectId}" data-log-id="${l.id}" style="background:none; border:none; padding:4px 6px; color:var(--status-rejected); cursor:pointer; font-size:0.85rem;" title="Xóa báo cáo này"><i class="fas fa-trash-alt"></i></button>
-                ` : ''}
-              </div>
-            </div>
-            
-            <p style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:4px;"><i class="fas fa-building"></i> ${l.projectName}</p>
-            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">${this.formatReportNote(l.note)}</p>
-            
-            ${l.photos && l.photos.length > 0 ? `
-              <div style="display:flex; gap:6px; margin-top:8px; overflow-x:auto;">
-                ${l.photos.map(pUrl => `<img src="${pUrl}" style="width:50px; height:38px; object-fit:cover; border-radius:4px; border:1px solid var(--border-color);">`).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }).join('');
-
-      // Add click listener to open detailed log modal
-      logsList.querySelectorAll('.manager-log-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const prjId = card.getAttribute('data-project');
-          const date = card.getAttribute('data-date');
-          const reporter = card.getAttribute('data-reporter');
-          const prj = projects.find(p => p.id === prjId);
-          if (prj) {
-            const log = prj.dailyLogs.find(dl => dl.date === date && dl.reporterName === reporter);
-            if (log) {
-              this.openLogDetailModal(log, prj);
-            }
-          }
-        });
+    }
+    let visibleRows = [];
+    const filterAndRender = () => {
+      const filtered = allLogs.filter(({ log, project }) =>
+        (reporterSelect.value === 'all' || log.reporterId === reporterSelect.value) &&
+        (projectSelect.value === 'all' || project.id === projectSelect.value) &&
+        (!dateInput.value || log.date === dateInput.value) &&
+        (statusSelect.value === 'all' || log.status === statusSelect.value));
+      visibleRows = filtered.flatMap(({ log, project }) => this.getJournalRows(log, project));
+      const groups = new Map();
+      filtered.forEach((entry, index) => {
+        if (!groups.has(entry.project.id)) groups.set(entry.project.id, { project: entry.project, entries: [] });
+        groups.get(entry.project.id).entries.push({ ...entry, index });
       });
-
-      // Add delete log click listener
-      logsList.querySelectorAll('.btn-delete-log-from-tab').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent opening detail modal
-          const prjId = btn.getAttribute('data-project');
-          const logId = btn.getAttribute('data-log-id');
-          if (confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này khỏi hệ thống không?\nHành động này không thể khôi phục!')) {
-            DB.deleteDailyLog(prjId, logId, user.id);
-            Toast.success('Đã xóa báo cáo thi công thành công.');
-
-            // Delete from local memory list dynamically so filterAndRender doesn't reload deleted item
-            const projObj = projects.find(p => p.id === prjId);
-            if (projObj && projObj.dailyLogs) {
-              const dlIdx = projObj.dailyLogs.findIndex(dl => dl.id === logId);
-              if (dlIdx > -1) {
-                projObj.dailyLogs.splice(dlIdx, 1);
-              }
-            }
-            const logIdx = allLogs.findIndex(al => al.id === logId);
-            if (logIdx > -1) {
-              allLogs.splice(logIdx, 1);
-            }
-
-            filterAndRender(); // Re-render the logs tab
-          }
-        });
-      });
+      const dayLabel = dateInput.value ? dateInput.value.split('-').reverse().join('/') : 'Tất cả ngày';
+      container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} nhân sự`;
+      container.querySelector('#journal-summary-text').value = filtered.length
+        ? `BÁO CÁO CÔNG VIỆC · ${dayLabel}\n\n` + Array.from(groups.values()).map(({ project, entries }) => `${project.name}\n` + entries.flatMap(({ log }) => this.getJournalRows(log, project).map(r =>
+          `- ${r.reporter} | ${r.task}${r.room && r.room !== r.task ? ` (${r.room})` : ''}\n  Đã làm: ${r.work || 'Chưa ghi nội dung'}\n  ${r.status === 'Xong' ? 'Trạng thái: Xong' : r.status === 'Chưa xong' ? `Còn lại: ${r.remaining || 'Chưa ghi phần việc còn lại'}` : 'Trạng thái: Chưa ghi trạng thái'}`)).join('\n')).join('\n\n')
+        : `Không có báo cáo đã duyệt cho ${dayLabel.toLowerCase()} theo bộ lọc hiện tại.`;
+      container.querySelectorAll('.journal-copy-actions button').forEach(btn => { btn.disabled = !filtered.length; });
+      const list = container.querySelector('#filtered-logs-list');
+      list.innerHTML = Array.from(groups.values()).map(({ project, entries }) => `
+        <section class="journal-project"><header><span>Công trình · ${entries.length} báo cáo</span><h3>${escape(project.name)}</h3></header>
+          ${entries.map(({ log, index }) => {
+            const stamp = log.createdAt || log.timestamp;
+            const time = stamp && !Number.isNaN(Date.parse(stamp)) ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '';
+            return `<article class="manager-log-card journal-report" data-log-id="${escape(log.id)}">
+              <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong><p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
+                <div class="journal-report-actions"><button type="button" data-view-log="${index}">Chi tiết</button>${canDelete ? `<button type="button" class="btn-delete-log-from-tab" data-delete-log="${index}">Xóa</button>` : ''}</div></div>
+              ${this.getJournalRows(log, project).map(row => `<div class="journal-item"><div class="journal-item-heading"><h4>${escape(row.task)}</h4><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div>${row.room && row.room !== row.task ? `<p class="journal-room">${escape(row.room)}</p>` : ''}<div class="journal-work-columns"><div><label>Đã làm</label><p>${escape(row.work || 'Chưa ghi nội dung')}</p></div>${row.status !== 'Xong' ? `<div><label>Còn lại / Cần xử lý</label><p>${escape(row.remaining || (row.status === 'Chưa xong' ? 'Chưa ghi phần việc còn lại' : 'Chưa ghi trạng thái'))}</p></div>` : ''}</div></div>`).join('')}
+            </article>`;
+          }).join('')}
+        </section>`).join('') || '<div class="worker-task-empty">Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.</div>';
+      list.querySelectorAll('[data-view-log]').forEach(btn => btn.addEventListener('click', () => {
+        const entry = filtered[Number(btn.dataset.viewLog)];
+        this.openLogDetailModal(entry.log, entry.project);
+      }));
+      list.querySelectorAll('[data-delete-log]').forEach(btn => btn.addEventListener('click', () => {
+        const entry = filtered[Number(btn.dataset.deleteLog)];
+        if (!confirm('Bạn có chắc chắn muốn XÓA BÁO CÁO này khỏi hệ thống?\nHành động này không thể khôi phục!')) return;
+        if (!DB.deleteDailyLog(entry.project.id, entry.log.id, user.id)) return;
+        allLogs = allLogs.filter(e => e.project.id !== entry.project.id || e.log.id !== entry.log.id);
+        Toast.success('Đã xóa báo cáo.');
+        filterAndRender();
+      }));
     };
-
-    // Attach filter listeners
     reporterSelect.addEventListener('change', filterAndRender);
     projectSelect.addEventListener('change', filterAndRender);
-    dateInput.addEventListener('change', filterAndRender);
     statusSelect.addEventListener('change', filterAndRender);
-
-    // Initial render
+    dateInput.addEventListener('change', () => { section.dataset.followToday = String(dateInput.value === this.getJournalDate()); filterAndRender(); });
+    container.querySelector('#journal-today').addEventListener('click', () => { dateInput.value = this.getJournalDate(); section.dataset.followToday = 'true'; filterAndRender(); });
+    for (const [id, text] of [['journal-copy-summary', () => container.querySelector('#journal-summary-text').value], ['journal-copy-sheet', () => this.journalSpreadsheetText(visibleRows)]]) {
+      container.querySelector('#' + id).addEventListener('click', async () => {
+        try { await this.copyJournalText(text()); Toast.success('Đã sao chép. Có thể dán vào hệ thống công việc.'); }
+        catch (error) { Toast.error(error.message); }
+      });
+    }
     filterAndRender();
   },
 
