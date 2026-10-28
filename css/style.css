@@ -11,12 +11,14 @@
 .worker-task-filters button[aria-pressed="true"] { background: var(--bg-primary); color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 .worker-project-groups { display: grid; gap: 18px; padding-bottom: 18px; }
 .worker-project-group { min-width: 0; border: 1.5px solid var(--primary); border-radius: 12px; background: var(--bg-secondary); overflow: hidden; }
-.worker-project-group > h3 { margin: 0; padding: 12px 14px; background: transparent; color: var(--primary); border-bottom: 1px solid var(--border-color); font-size: .9rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
-.worker-task-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0; padding: 0; }
+.worker-project-heading { padding: 13px 14px 14px; background: rgba(197,168,128,.06); border-bottom: 1px solid var(--primary); }
+.worker-project-heading > span { display: block; margin-bottom: 4px; color: var(--primary); font-size: .62rem; font-weight: 700; line-height: 1.4; letter-spacing: 1.2px; text-transform: uppercase; }
+.worker-project-heading > h3 { margin: 0; color: var(--text-primary); font-size: 1.2rem; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.worker-task-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 0; padding: 0 0 0 10px; }
 .worker-task-card { min-width: 0; padding: 14px; border: 0; border-radius: 0; background: transparent; display: flex; flex-direction: column; }
 .worker-task-card + .worker-task-card { border-left: 1px solid var(--border-color); }
 .worker-task-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.worker-task-title h4 { font-size: 1rem; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.worker-task-title h4 { font-size: .94rem; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
 .worker-task-status { flex-shrink: 0; max-width: 45%; padding: 4px 8px; border-radius: 8px; background: rgba(217,119,6,.14); color: var(--status-pending); font-size: .72rem; font-weight: 700; }
 .worker-task-status.is-done { background: rgba(16,185,129,.12); color: var(--status-approved); }
 .worker-task-remaining { margin: 12px 0 4px; padding: 10px 12px; background: rgba(197,168,128,.07); border-left: 2px solid var(--primary); border-radius: 0 6px 6px 0; overflow-wrap: anywhere; }

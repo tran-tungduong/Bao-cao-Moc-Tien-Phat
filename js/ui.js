@@ -528,7 +528,7 @@ export const UI = {
           <button type="button" data-filter="completed" aria-pressed="${filter === 'completed'}">Đã xong (${completedCount})</button>
         </div>
         <div class="worker-project-groups">${shown.map(({ project, tasks }) => `
-          <section class="worker-project-group"><h3>${escape(project.name)}</h3><div class="worker-task-cards">
+          <section class="worker-project-group"><header class="worker-project-heading"><span>Công trình</span><h3>${escape(project.name)}</h3></header><div class="worker-task-cards">
             ${tasks.map(task => {
               const summary = this.getWorkerTaskSummary(project, task, user);
               const done = task.status === 'completed';
