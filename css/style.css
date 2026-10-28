@@ -75,10 +75,14 @@
 .journal-report-actions .btn-delete-log-from-tab { color: var(--status-rejected); }
 .journal-item { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
 .journal-item label { display: block; font-size: .68rem; font-weight: 700; line-height: 1.5; text-transform: uppercase; letter-spacing: .5px; }
-.journal-assigned-task { padding: 10px 12px; margin-bottom: 14px; border-left: 2px solid var(--border-color); border-radius: 0 6px 6px 0; background: var(--bg-input); }
-.journal-assigned-task label { color: var(--text-secondary); }
-.journal-assigned-task p { margin-top: 4px; color: var(--text-secondary); font-size: .86rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.journal-previous-report { padding: 10px 12px; margin-bottom: 14px; border-left: 2px solid var(--border-color); border-radius: 0 6px 6px 0; background: var(--bg-input); }
+.journal-previous-report label { color: var(--text-secondary); }
+.journal-previous-report p { margin-top: 4px; color: var(--text-secondary); font-size: .86rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .journal-current-task label { color: var(--primary); }
+.journal-report-scope { margin-top: 6px; color: var(--text-secondary); font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.journal-report-scope strong { font-weight: 600; }
+.journal-previous-report { margin-top: 12px; }
+.journal-previous-report small { color: var(--text-secondary); font-size: .72rem; }
 .journal-item .journal-current-task h4 { margin-top: 5px; font-size: 1.05rem; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
 .journal-item-heading > span { flex-shrink: 0; padding: 3px 8px; border-radius: 6px; font-size: .72rem; font-weight: 600; color: var(--status-pending); background: rgba(217,119,6,.09); }
 .journal-item-heading > .is-done { color: var(--status-approved); background: rgba(16,185,129,.09); }

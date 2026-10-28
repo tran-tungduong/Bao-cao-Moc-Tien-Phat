@@ -51,16 +51,34 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     assert.match(await page.locator('#journal-overview').innerText(),/2 báo cáo · 1 công trình · 1 nhân sự/);
     assert.equal(await page.evaluate(()=>UI.getJournalDate(new Date('2026-10-27T18:30:00Z'))),'2026-10-28');
     assert.equal(await page.locator('.journal-summary, #journal-copy-summary, #journal-copy-sheet').count(),0);
-    assert.equal(await page.locator('.journal-assigned-task').count(),2);
+    assert.equal(await page.locator('.journal-assigned-task').count(),0);
     assert.equal(await page.locator('.journal-current-task').count(),2);
     assert.equal(await page.locator('.journal-done-work').count(),2);
-    assert.match(await page.locator('.journal-assigned-task').first().innerText(),/Lắp tủ bếp/);
-    assert.match(await page.locator('.journal-current-task').first().innerText(),/Phòng bếp/);
+    assert.match(await page.locator('.journal-current-task').first().innerText(),/Lắp tủ bếp/);
+    assert.match(await page.locator('.journal-report-scope').first().innerText(),/Phòng bếp/);
     assert.match(await page.locator('.journal-done-work').first().innerText(),/Đã lắp cánh tủ/);
-    assert.doesNotMatch(await page.locator('#filtered-logs-list').innerText(),/Nội dung chưa duyệt|Đã cắt gỗ/);
+    assert.equal(await page.locator('.journal-previous-report').count(),1);
+    assert.match(await page.locator('.journal-previous-report').innerText(),/Còn lắp cánh/);
+    assert.doesNotMatch(await page.locator('#filtered-logs-list').innerText(),/Nội dung chưa duyệt|Đã cắt gỗ|Nhiệm vụ cũ|báo cáo hiện tại/);
     const independent=await page.evaluate(()=>UI.getJournalRows({items:[{room:'Bàn thờ',item:'Cả phòng',todayWork:'Đã lắp khung',isCompleted:false}]},fixture.projects[0]));
-    assert.equal(independent[0].assignedTask,'');assert.equal(independent[0].task,'Bàn thờ');assert.equal(independent[0].work,'Đã lắp khung');
-    console.log('PASS removed summary, separate assigned/current task and actual work, no fabricated old task');
+    assert.equal(independent[0].task,'Báo cáo công việc');assert.equal(independent[0].room,'Bàn thờ');assert.equal(independent[0].work,'Đã lắp khung');
+    const screenshotCase=await page.evaluate(()=>UI.getJournalRows({id:'now',date:'2026-10-23',items:[{taskId:'install',room:'lắp ráp hoàn thiện tại công trình',item:'Cả phòng',todayWork:'lắp ráp tủ cầu thang, vệ sinh',isCompleted:true}]},{subtasks:[{id:'install',title:'lắp ráp'}],dailyLogs:[]}));
+    assert.equal(screenshotCase[0].task,'lắp ráp');assert.equal(screenshotCase[0].room,'lắp ráp hoàn thiện tại công trình');assert.equal(screenshotCase[0].previousRemaining,'');
+    const historyCases=await page.evaluate(()=>{
+      const project={subtasks:[{id:'x',title:'Nhiệm vụ thật'}],dailyLogs:[
+        {id:'other',date:'2026-10-20',approved:true,items:[{taskId:'other',room:'Cùng phòng',pendingNotes:'Sai nhiệm vụ'}]},
+        {id:'pending',date:'2026-10-21',approved:false,items:[{taskId:'x',pendingNotes:'Chưa được duyệt'}]},
+        {id:'finished',date:'2026-10-22',approved:true,items:[{taskId:'x',pendingNotes:'Nội dung thừa đã xong',isCompleted:true}]}
+      ]};
+      const current={id:'now',date:'2026-10-23',items:[{taskId:'x',room:'Cùng phòng',todayWork:'Đang làm tiếp'}]};
+      const finished=UI.getJournalRows(current,project)[0].previousRemaining;
+      project.dailyLogs=project.dailyLogs.filter(l=>l.id!=='finished');
+      const unrelated=UI.getJournalRows(current,project)[0].previousRemaining;
+      project.dailyLogs=[{id:'unknown-order',date:'2026-10-23',items:[{taskId:'x',pendingNotes:'Không rõ thứ tự cùng ngày'}]}];
+      return {finished,unrelated,unknownOrder:UI.getJournalRows(current,project)[0].previousRemaining};
+    });
+    assert.deepEqual(historyCases,{finished:'',unrelated:'',unknownOrder:''});
+    console.log('PASS task identity separate from room; prior remaining work only from an earlier approved report of the same task');
     await page.locator('[data-view-log="0"]').click();await page.locator('[data-view-log="1"]').click();
     assert.deepEqual(await page.evaluate(()=>opened.map(x=>x.log)),['later','morning']);
     console.log('PASS today in Vietnam, approved reports only, grouped readable items, exact report detail IDs');

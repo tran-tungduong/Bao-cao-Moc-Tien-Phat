@@ -3809,11 +3809,26 @@ export const UI = {
     return items.map(item => {
       const task = item?.taskId && project.subtasks?.find(t => t.id === item.taskId);
       const done = item && (item.isCompleted === true || item.isCompleted === 'true' || Number(item.progress) === 100);
+      // A linked task is not an old version of the room/category in this report.
+      // Only show handover text from an actually earlier approved report of this task.
+      const previousLog = item?.taskId ? (project.dailyLogs || []).filter(candidate => {
+        if (candidate.id === log.id || candidate.approved === false || !candidate.items?.some(it => it.taskId === item.taskId)) return false;
+        if (candidate.date < log.date) return true;
+        if (candidate.date !== log.date) return false;
+        const before = Date.parse(candidate.createdAt || candidate.timestamp);
+        const current = Date.parse(log.createdAt || log.timestamp);
+        return Number.isFinite(before) && Number.isFinite(current) && before < current;
+      }).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) ||
+        (Date.parse(b.createdAt || b.timestamp) || 0) - (Date.parse(a.createdAt || a.timestamp) || 0))[0] : null;
+      const previousItem = previousLog?.items.find(it => it.taskId === item.taskId);
+      const previousDone = previousItem && (previousItem.isCompleted === true || previousItem.isCompleted === 'true' || Number(previousItem.progress) === 100);
       return {
         date: log.date || '', project: project.name || '', reporter: log.reporterName || 'Chưa rõ nhân sự',
-        room: item?.room || '',
-        assignedTask: task?.title?.replace(/^\s*\[.*?\]:\s*/, '') || '',
-        task: item?.taskTitle || item?.title || [item?.room, item?.item && !this.isWholeRoomItem(item.item) ? item.item : ''].filter(Boolean).join(' · ') || 'Báo cáo công việc',
+        room: [item?.room, item?.item && !this.isWholeRoomItem(item.item) ? item.item : ''].filter(Boolean).join(' · '),
+        task: (item?.taskTitle || item?.title || task?.title || '').replace(/^\s*\[.*?\]:\s*/, '') || 'Báo cáo công việc',
+        previousRemaining: previousItem && !previousDone ? previousItem.pendingNotes || '' : '',
+        previousDate: previousLog?.date || '',
+        previousReporter: previousLog?.reporterName || '',
         work: item ? item.todayWork || '' : this.formatReportNote(log.note),
         status: item ? done ? 'Xong' : 'Chưa xong' : 'Chưa ghi trạng thái',
         remaining: item && !done ? item.pendingNotes || '' : ''
@@ -3887,8 +3902,9 @@ export const UI = {
               <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong><p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
                 <div class="journal-report-actions"><button type="button" data-view-log="${index}">Chi tiết</button>${canDelete ? `<button type="button" class="btn-delete-log-from-tab" data-delete-log="${index}">Xóa</button>` : ''}</div></div>
               ${this.getJournalRows(log, project).map(row => `<div class="journal-item">
-                ${row.assignedTask ? `<div class="journal-assigned-task"><label>Nhiệm vụ cũ / Được giao</label><p>${escape(row.assignedTask)}</p></div>` : ''}
-                <div class="journal-current-task"><div class="journal-item-heading"><label>Nhiệm vụ báo cáo hiện tại</label><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div><h4>${escape(row.task)}</h4></div>
+                <div class="journal-current-task"><div class="journal-item-heading"><label>Nhiệm vụ</label><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div><h4>${escape(row.task)}</h4></div>
+                ${row.room ? `<p class="journal-report-scope"><strong>Phòng / Hạng mục:</strong> ${escape(row.room)}</p>` : ''}
+                ${row.previousRemaining ? `<div class="journal-previous-report"><label>Còn lại từ lần trước · ${escape(row.previousDate.split('-').reverse().join('/'))}</label><p>${escape(row.previousRemaining)}</p>${row.previousReporter ? `<small>${escape(row.previousReporter)}</small>` : ''}</div>` : ''}
                 <div class="journal-work-columns"><div class="journal-done-work"><label>Đã làm gì</label><p>${escape(row.work || 'Chưa ghi nội dung')}</p></div>${row.status !== 'Xong' ? `<div class="journal-remaining-work"><label>Còn lại / Cần xử lý</label><p>${escape(row.remaining || (row.status === 'Chưa xong' ? 'Chưa ghi phần việc còn lại' : 'Chưa ghi trạng thái'))}</p></div>` : ''}</div>
               </div>`).join('')}
             </article>`;
