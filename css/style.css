@@ -1660,7 +1660,7 @@ body, input, button, select, textarea, .form-label, .modal-title, h1, h2, h3, h4
 
 .general-stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 

@@ -2906,7 +2906,6 @@ export const UI = {
             { key: 'projects', label: 'Công trình đang chạy', value: projects.length, icon: 'fa-building', color: 'var(--primary)' },
             { key: 'attention', label: 'Cần chú ý', value: attentionCount, icon: 'fa-exclamation-triangle', color: attentionCount ? 'var(--status-rejected)' : 'var(--status-approved)' },
             { key: 'tasks', label: 'Task chưa xong', value: pendingTasksCount, icon: 'fa-tasks', color: '#60A5FA' },
-            { key: 'attendance', label: 'Nhân sự đi làm', value: `${presentCount}/${workers.length}`, icon: 'fa-users', color: 'var(--status-approved)' },
             { key: 'approvals', label: 'Báo cáo chờ duyệt', value: pendingApprovals, icon: 'fa-file-signature', color: pendingApprovals ? 'var(--status-pending)' : 'var(--text-muted)' }
           ].map(stat => `
             <button type="button" class="general-stat-card" data-stat="${stat.key}" aria-label="Xem chi tiết ${stat.label}" style="--stat-color:${stat.color};">
