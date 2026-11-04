@@ -1,7 +1,7 @@
-import { DB } from './db.js?v=20261104-dispatch17';
+import { DB } from './db.js?v=20261104-dispatch22';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
-import { DispatchView, loadTodayDispatch } from './dispatch.js?v=20261104-dispatch17';
+import { DispatchView, DispatchStore, loadTodayDispatch } from './dispatch.js?v=20261104-dispatch22';
 
 window.showPhotoLightbox = (url) => {
   const lightbox = document.createElement('div');
@@ -30,9 +30,9 @@ export const DEFAULT_SCOPE_TEMPLATE = {
   'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
 };
 
-// Accounts that see the "Tổng hợp báo cáo" tab at the top of the worker view.
+// Accounts whose "Báo cáo" tab shows the whole crew's work (with a day picker).
 const CREW_SUMMARY_USER_IDS = ['usr_minhnhat'];
-// Workers shown as one box each in that tab, in this order.
+// Crew members shown on that board, in this order.
 const CREW_SUMMARY_MEMBER_IDS = ['usr_cuong', 'usr_ut', 'usr_minhnhat'];
 
 export const UI = {
@@ -508,7 +508,7 @@ export const UI = {
     this.workerDispatchAt = now;
     this.workerDispatchDate = DB.vnToday();
     const before = JSON.stringify(DB.getDispatchFor(user.id));
-    loadTodayDispatch(user.id).then(() => {
+    loadTodayDispatch(CREW_SUMMARY_USER_IDS.includes(user.id) ? null : user.id).then(() => {
       this.workerDispatchLoaded = true;
       const after = JSON.stringify(DB.getDispatchFor(user.id));
       if (before !== after || !document.querySelector('#worker-today-box[data-ready]')) {
@@ -587,9 +587,168 @@ export const UI = {
     };
   },
 
+  // "Báo cáo" tab for crew accounts (Minh Nhật): the crew's work for one day, own
+  // jobs highlighted, each job with that day's report lines. Today = report from
+  // here; earlier days = read-only review (replaces the old "Tổng hợp" tab).
+  // Today: every open task of the crew (so old backlog can be reported too), with
+  // the jobs Nhật Long dispatched today tagged "Hôm nay". Earlier days: the jobs
+  // dispatched that day plus anything reported that day.
+  renderCrewTodayBoard(user, board) {
+    const escape = value => this.escapeWorkerText(value);
+    const short = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim() || 'Chưa rõ';
+    const today = this.getJournalDate();
+    const date = this.crewBoardDate && this.crewBoardDate < today ? this.crewBoardDate : today;
+    const isToday = date === today;
+    const header = extra => `
+      <div class="worker-task-heading crew-day-head"><h2>${isToday ? 'Việc hôm nay của cả nhóm' : `Công việc ngày ${escape(date.split('-').reverse().join('/'))}`}</h2>
+        <div class="crew-day-date"><input type="date" class="form-input" id="crew-day-date" value="${escape(date)}" max="${escape(today)}" aria-label="Chọn ngày xem">
+          <button type="button" id="crew-day-today" ${isToday ? 'disabled' : ''}>Hôm nay</button></div>
+        ${extra || ''}</div>`;
+    const bindHeader = () => {
+      const input = board.querySelector('#crew-day-date');
+      input?.addEventListener('change', () => { this.crewBoardDate = input.value && input.value < today ? input.value : null; this.renderCrewTodayBoard(user, board); });
+      board.querySelector('#crew-day-today')?.addEventListener('click', () => { this.crewBoardDate = null; this.renderCrewTodayBoard(user, board); });
+    };
+
+    // Plan of the day: today from the live plan, earlier days loaded once (one small read).
+    let planFor;
+    if (isToday) planFor = id => DB.getDispatchFor(id);
+    else {
+      const cached = this.crewBoardPlan && this.crewBoardPlan.date === date ? this.crewBoardPlan : null;
+      if (!cached) {
+        board.innerHTML = header('<p class="crew-day-sub">Đang tải…</p>');
+        bindHeader();
+        const done = workers => { this.crewBoardPlan = { date, workers: workers || {} }; if (board.isConnected) this.renderCrewTodayBoard(user, board); };
+        DispatchStore.load(date).then(d => done(d.workers)).catch(() => done({}));
+        return;
+      }
+      planFor = id => cached.workers[id] || null;
+    }
+
+    const db = DB.load();
+    const usersById = new Map(db.users.map(u => [u.id, u]));
+    const members = CREW_SUMMARY_MEMBER_IDS.filter(id => usersById.has(id));
+    const allProjects = db.projects || [];
+    const taskInfo = new Map();
+    allProjects.forEach(p => (p.subtasks || []).forEach(t => taskInfo.set(t.id, { project: p, task: t })));
+    const dayOf = iso => iso && !Number.isNaN(Date.parse(iso)) ? this.getJournalDate(new Date(iso)) : '';
+    const timeOf = log => { const s = log.createdAt || log.timestamp; return s ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(s)) : ''; };
+    const isDone = it => it && (it.isCompleted === true || it.isCompleted === 'true' || Number(it.progress) === 100);
+
+    // That day's reports by the crew (incl. reports sent on their behalf).
+    const dayLogs = allProjects.flatMap(p => (p.dailyLogs || []).filter(l => l.date === date && members.includes(l.reporterId)).map(log => ({ log, project: p })));
+
+    const jobs = new Map();
+    const free = [];
+    const dispatched = new Set();
+    const add = (taskId, memberId) => {
+      const info = taskInfo.get(taskId);
+      if (!info) return;
+      if (!jobs.has(taskId)) jobs.set(taskId, { ...info, people: new Set() });
+      jobs.get(taskId).people.add(memberId);
+    };
+    members.forEach(id => {
+      const plan = planFor(id);
+      if (plan && plan.attendance === 'Nghỉ') return;
+      (plan?.rows || []).filter(r => r.taskId).forEach(r => { add(r.taskId, id); dispatched.add(r.taskId); });
+      (plan?.rows || []).filter(r => !r.taskId && r.task).forEach(r => free.push({ who: id, text: r.task, project: r.project }));
+    });
+    // All open (or finished-today) tasks owned by the crew, in every running project.
+    if (isToday) allProjects.filter(p => !p.isCompleted).forEach(p => (p.subtasks || []).forEach(t => {
+      if (members.includes(t.assignedTo) && (t.status !== 'completed' || dayOf(t.completedAt) === date)) add(t.id, t.assignedTo);
+    }));
+    const otherLines = [];
+    dayLogs.forEach(({ log, project }) => {
+      const items = Array.isArray(log.items) && log.items.length ? log.items : [null];
+      items.forEach(it => { if (it?.taskId && taskInfo.has(it.taskId)) add(it.taskId, log.reporterId); else otherLines.push({ log, project, it }); });
+    });
+
+    const lineHtml = (log, it, project) => {
+      const who = short(log.reporterName || usersById.get(log.reporterId)?.name);
+      const proxy = it?.submittedById && it.submittedById !== log.reporterId ? ` <span class="crew-day-tag">✍ ${escape(short(it.submittedByName || usersById.get(it.submittedById)?.name))} báo thay</span>` : '';
+      const lead = log.approverId && log.approverId !== log.reporterId && log.approverId !== 'independent' ? usersById.get(log.approverId) : null;
+      const withTag = lead ? ` <span class="crew-day-tag">🤝 làm cùng ${escape(short(lead.name))}</span>` : '';
+      const text = it ? (it.todayWork || '') : this.formatReportNote(log.note);
+      const state = it ? (isDone(it) ? ' <b class="crew-day-ok">✓ Xong</b>' : it.pendingNotes ? `<br><span class="crew-day-left">Còn: ${escape(it.pendingNotes)}</span>` : '') : '';
+      const photos = (log.photos || []).length;
+      return `<li><span class="crew-day-time">${escape(timeOf(log))}</span> <b>${escape(who)}</b>${proxy}${withTag}: ${escape(text || 'Chưa ghi nội dung')}${state}
+        ${photos ? `<button type="button" class="crew-day-photo" data-log="${escape(log.id)}" data-project="${escape(project.id)}">📷 ${photos}</button>` : ''}</li>`;
+    };
+
+    const list = [...jobs.values()].map(j => ({ ...j, mine: j.people.has(user.id) || j.task.assignedTo === user.id, today: dispatched.has(j.task.id) }));
+    const byProject = new Map();
+    list.forEach(j => { if (!byProject.has(j.project.id)) byProject.set(j.project.id, { project: j.project, jobs: [] }); byProject.get(j.project.id).jobs.push(j); });
+    const rank = g => (g.jobs.some(j => j.mine) ? 2 : 0) + (g.jobs.some(j => j.today) ? 1 : 0);
+    const groups = [...byProject.values()].sort((a, b) => (rank(b) - rank(a)) || a.project.name.localeCompare(b.project.name, 'vi'));
+    const mineCount = list.filter(j => j.mine).length;
+    const todayCount = list.filter(j => j.today).length;
+    const reporters = new Set(dayLogs.map(x => x.log.reporterId));
+    const crewState = members.map(id => {
+      const plan = planFor(id);
+      const off = plan && plan.attendance === 'Nghỉ';
+      return `<span class="crew-day-chip ${off ? 'is-off' : reporters.has(id) ? 'is-ok' : ''}">${off ? '😴' : reporters.has(id) ? '✅' : '⏳'} ${escape(short(usersById.get(id)?.name))}</span>`;
+    }).join('');
+
+    const card = j => {
+      const t = j.task;
+      const m = String(t.title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
+      const name = m ? m[2] : t.title;
+      const room = m ? m[1].split(' - ').filter(x => !this.isWholeRoomItem(x)).join(' · ') : '';
+      const owner = usersById.get(t.assignedTo);
+      const others = [...j.people].filter(id => id !== t.assignedTo).map(id => short(usersById.get(id)?.name));
+      const lines = dayLogs.flatMap(({ log, project }) => (log.items || []).filter(it => it.taskId === t.id).map(it => ({ log, it, project })))
+        .sort((a, b) => String(a.log.createdAt || '').localeCompare(String(b.log.createdAt || '')));
+      const finished = lines.some(l => isDone(l.it)) || (t.status === 'completed' && dayOf(t.completedAt) === date);
+      const state = finished ? '<span class="crew-day-state is-done">✅ Xong</span>'
+        : lines.length ? '<span class="crew-day-state is-part">🟡 Đã báo cáo · còn việc</span>'
+        : `<span class="crew-day-state">${isToday ? '⏳ Chưa báo cáo' : '— Không có báo cáo'}</span>`;
+      const ownerIsMe = t.assignedTo === user.id;
+      const firstPerson = t.assignedTo || [...j.people][0] || '';
+      const buttons = !isToday || t.status === 'completed' ? '' : j.mine
+        ? `<button type="button" class="crew-day-btn is-primary" data-act="self" data-project="${escape(j.project.id)}" data-task="${escape(t.id)}" data-with="${ownerIsMe ? '' : escape(t.assignedTo || '')}">Báo cáo</button>`
+        : `<button type="button" class="crew-day-btn" data-act="with" data-project="${escape(j.project.id)}" data-task="${escape(t.id)}" data-with="${escape(firstPerson)}">Tôi làm cùng</button>
+           <button type="button" class="crew-day-btn" data-act="for" data-project="${escape(j.project.id)}" data-task="${escape(t.id)}" data-for="${escape(firstPerson)}">Báo cáo thay ${escape(short(usersById.get(firstPerson)?.name))}</button>`;
+      return `<article class="crew-day-card ${j.mine ? 'is-mine' : ''}">
+        ${j.mine || j.today ? `<div class="crew-day-tags">${j.mine ? '<span class="crew-day-mine">📌 Việc của bạn</span>' : ''}${j.today ? '<span class="crew-day-today">📍 Hôm nay</span>' : ''}</div>` : ''}
+        <h4>${escape(name)}</h4>
+        <p class="crew-day-meta">${room ? `${escape(room)} · ` : ''}Phụ trách: <b>${escape(short(owner?.name))}</b>${others.length ? ` · Cùng làm: ${escape(others.join(', '))}` : ''}</p>
+        ${state}
+        ${lines.length ? `<ul class="crew-day-lines">${lines.map(l => lineHtml(l.log, l.it, l.project)).join('')}</ul>` : ''}
+        ${buttons ? `<div class="crew-day-actions">${buttons}</div>` : ''}
+      </article>`;
+    };
+
+    board.innerHTML = header(`<p class="crew-day-sub">${list.length} việc${todayCount ? ` · 📍 ${todayCount} điều phối hôm nay` : ''} · <span class="crew-day-legend">📌 ${mineCount} việc của bạn</span></p>
+        <div class="crew-day-chips">${crewState}</div>`) + `
+      <div class="worker-project-groups">
+        ${groups.map(g => `<section class="worker-project-group"><header class="worker-project-heading"><span>Công trình</span><h3>${escape(g.project.name)}</h3></header>
+          <div class="worker-task-cards">${g.jobs.sort((a, b) => (b.mine - a.mine) || (b.today - a.today)).map(card).join('')}</div></section>`).join('')
+          || `<div class="worker-task-empty">${isToday ? 'Hôm nay chưa có việc nào được giao cho nhóm.' : 'Ngày này không có việc hay báo cáo nào.'}</div>`}
+        ${free.length || otherLines.length ? `<section class="worker-project-group"><header class="worker-project-heading"><span>Việc chung</span><h3>Xưởng / việc khác</h3></header>
+          <div class="worker-task-cards">
+            ${free.map(f => `<article class="crew-day-card ${f.who === user.id ? 'is-mine' : ''}">${f.who === user.id ? '<span class="crew-day-mine">📌 Việc của bạn</span>' : ''}<h4>${escape(f.text)}</h4><p class="crew-day-meta">${escape(short(usersById.get(f.who)?.name))}</p></article>`).join('')}
+            ${otherLines.length ? `<article class="crew-day-card"><h4>Báo cáo khác</h4><ul class="crew-day-lines">${otherLines.map(o => lineHtml(o.log, o.it, o.project)).join('')}</ul></article>` : ''}
+          </div></section>` : ''}
+      </div>`;
+    bindHeader();
+
+    const refresh = () => this.renderCrewTodayBoard(user, board);
+    board.querySelectorAll('.crew-day-btn').forEach(btn => btn.addEventListener('click', () => {
+      const { act, project, task } = btn.dataset;
+      if (act === 'for') this.openCrewReportModal(user, project, task, btn.dataset.for, refresh);
+      else this.openCrewReportModal(user, project, task, user.id, refresh, { withId: btn.dataset.with || '' });
+    }));
+    board.querySelectorAll('.crew-day-photo').forEach(btn => btn.addEventListener('click', () => {
+      const project = DB.load().projects.find(p => p.id === btn.dataset.project);
+      const log = project?.dailyLogs?.find(l => l.id === btn.dataset.log);
+      if (log) this.openLogDetailModal(log, project);
+    }));
+  },
+
   renderWorkerTaskBoard(user, onOpen) {
     const board = document.getElementById('worker-task-board');
     if (!board) return;
+    if (CREW_SUMMARY_USER_IDS.includes(user.id)) { this.renderCrewTodayBoard(user, board); return; }
     const escape = value => this.escapeWorkerText(value);
     let filter = board.dataset.filter || 'pending';
     const draw = () => {
@@ -686,7 +845,7 @@ export const UI = {
         <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
-      ${user.role === 'assistant_worker' ? `
+      ${user.role === 'assistant_worker' && !CREW_SUMMARY_USER_IDS.includes(user.id) ? `
         <div class="material-stats-card fade-in" style="margin-bottom: 16px; background-color: var(--bg-secondary); padding: 14px 16px; border-radius:16px; border:1px solid var(--border-color);">
           <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc:</label>
           <select id="worker-lead-selector" class="form-select">
@@ -1284,8 +1443,9 @@ export const UI = {
       const openTask = context => this.renderWorkerView(user, context);
       board.insertAdjacentHTML('beforebegin', '<section id="worker-today-box" class="worker-today" hidden></section>');
       const todayBox = document.getElementById('worker-today-box');
-      this.renderWorkerToday(user, openTask);
+      if (!CREW_SUMMARY_USER_IDS.includes(user.id)) this.renderWorkerToday(user, openTask);
       this.refreshWorkerToday = () => {
+        if (CREW_SUMMARY_USER_IDS.includes(user.id)) return;
         if (document.getElementById('worker-today-box') === todayBox && !taskContext) this.renderWorkerToday(user, openTask);
       };
       todayBox.hidden = todayBox.hidden || !!taskContext;
@@ -1396,163 +1556,9 @@ export const UI = {
       }
     }
 
-    this.mountCrewSummaryTabs(user, body, taskContext);
   },
 
-  // Two top-level tabs for crew summary accounts: own report work / daily crew summary.
-  mountCrewSummaryTabs(user, body, taskContext) {
-    this.refreshCrewSummary = null;
-    if (!CREW_SUMMARY_USER_IDS.includes(user.id)) return;
-    this.crewViewer = user;
-    const welcome = body.querySelector('.welcome-section');
-    if (!welcome) return;
-    const reportPane = document.createElement('div');
-    reportPane.id = 'worker-report-pane';
-    while (welcome.nextSibling) reportPane.appendChild(welcome.nextSibling);
-    const tabs = document.createElement('div');
-    tabs.className = 'crew-top-tabs';
-    tabs.setAttribute('role', 'tablist');
-    tabs.innerHTML = `
-      <button type="button" role="tab" data-crew-tab="report"><i class="fas fa-edit"></i> Báo cáo</button>
-      <button type="button" role="tab" data-crew-tab="summary"><i class="fas fa-users"></i> Tổng hợp báo cáo</button>`;
-    const summaryPane = document.createElement('div');
-    summaryPane.id = 'crew-summary-pane';
-    welcome.after(tabs, reportPane, summaryPane);
-    if (taskContext) this.workerTopTab = 'report';
-    const show = tab => {
-      this.workerTopTab = tab;
-      tabs.querySelectorAll('[data-crew-tab]').forEach(btn => btn.setAttribute('aria-selected', String(btn.dataset.crewTab === tab)));
-      reportPane.hidden = tab !== 'report';
-      summaryPane.hidden = tab !== 'summary';
-      if (tab === 'summary') this.renderCrewSummary(summaryPane);
-    };
-    tabs.querySelectorAll('[data-crew-tab]').forEach(btn => btn.addEventListener('click', () => show(btn.dataset.crewTab)));
-    this.refreshCrewSummary = () => {
-      if (document.getElementById('crew-summary-pane') === summaryPane && !summaryPane.hidden) this.renderCrewSummary(summaryPane);
-    };
-    show(this.workerTopTab === 'summary' ? 'summary' : 'report');
-  },
-
-  // One box per worker for the chosen day, built around their tasks. Tasks are not tied to a day:
-  // a task counts as reported for the day when any report that day covers it. A report an assistant
-  // files while working with a lead (log.approverId = that lead) lands on the lead's task and is
-  // also listed as one short line in the assistant's own box.
-  renderCrewSummary(pane) {
-    const escape = value => this.escapeWorkerText(value);
-    const shortName = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim() || 'Chưa rõ';
-    const today = this.getJournalDate();
-    const date = this.crewSummaryDate || today;
-    const db = DB.load();
-    const workerRoles = ['lead_worker', 'assistant_worker'];
-    const usersById = new Map(db.users.map(u => [u.id, u]));
-    const isLead = id => usersById.get(id)?.role === 'lead_worker';
-    const senderName = log => shortName(log.reporterName || usersById.get(log.reporterId)?.name);
-    const isItemDone = it => it && (it.isCompleted === true || it.isCompleted === 'true' || Number(it.progress) === 100);
-    const vnDay = iso => iso && !Number.isNaN(Date.parse(iso)) ? this.getJournalDate(new Date(iso)) : '';
-    const timeOf = log => {
-      const stamp = log.createdAt || log.timestamp;
-      return stamp && !Number.isNaN(Date.parse(stamp)) ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '';
-    };
-    const splitTitle = title => {
-      const m = String(title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
-      return m ? { name: m[2], room: m[1].split(' - ').filter(part => !this.isWholeRoomItem(part)).join(' · ') } : { name: title, room: '' };
-    };
-    const dayLogs = (db.projects || []).flatMap(project => (project.dailyLogs || [])
-      .filter(log => log.date === date && (workerRoles.includes(usersById.get(log.reporterId)?.role) || workerRoles.includes(log.reporterRole)))
-      .map(log => ({ log, project, companionId: log.approverId && log.approverId !== log.reporterId && isLead(log.approverId) ? log.approverId : '' })))
-      .sort((a, b) => String(a.log.createdAt || a.log.timestamp || '').localeCompare(String(b.log.createdAt || b.log.timestamp || '')));
-    const viewer = this.crewViewer || DB.getCurrentUser();
-    const canReport = date === today && viewer;
-    const entryRefs = [];
-    const refOf = entry => entryRefs.push(entry) - 1;
-    const photoBtn = entry => `<button type="button" class="crew-photo-btn" data-entry="${refOf(entry)}">Ảnh${(entry.log.photos || []).length ? ` (${entry.log.photos.length})` : ''}</button>`;
-
-    // Only the current crew gets boxes (edit CREW_SUMMARY_MEMBER_IDS when workers join or leave).
-    const boxes = CREW_SUMMARY_MEMBER_IDS.filter(id => usersById.has(id)).map(id => {
-      const member = usersById.get(id);
-      const taskIds = new Set();
-      const tasks = (db.projects || []).flatMap(project => (project.subtasks || [])
-        .filter(t => t.assignedTo === id)
-        .map(task => {
-          const lines = dayLogs.flatMap(entry => entry.project.id !== project.id ? [] :
-            (entry.log.items || []).filter(it => it.taskId === task.id).map(item => ({ entry, item })));
-          return { task, project, lines, done: lines.some(l => isItemDone(l.item)) };
-        })
-        // Open on the chosen day: still open, finished on/after that day, or reported that day.
-        .filter(({ task, lines }) => lines.length || (!project.isCompleted && (task.status !== 'completed' || (vnDay(task.completedAt) && vnDay(task.completedAt) >= date)))));
-      tasks.forEach(t => taskIds.add(t.task.id));
-      // The member's own report items that are not on one of their tasks (e.g. helping a lead).
-      const otherLines = dayLogs.filter(e => e.log.reporterId === id).flatMap(entry => {
-        const items = Array.isArray(entry.log.items) && entry.log.items.length ? entry.log.items : [null];
-        return items.filter(it => !it || !taskIds.has(it.taskId)).map(item => ({ entry, item }));
-      });
-      const reported = tasks.filter(t => t.lines.length).length;
-      const hasReport = reported > 0 || otherLines.length > 0;
-      const state = tasks.length ? (reported === tasks.length ? 'ok' : hasReport ? 'partial' : 'missing') : (hasReport ? 'ok' : 'idle');
-      const badge = tasks.length ? `${reported}/${tasks.length} đã báo cáo` : hasReport ? 'Đã báo cáo' : 'Không có nhiệm vụ';
-      return { member, tasks, otherLines, state, badge, hasReport };
-    });
-    const withReport = boxes.filter(b => b.hasReport).length;
-    const missingTasks = boxes.reduce((n, b) => n + b.tasks.filter(t => !t.lines.length).length, 0);
-    const dayText = date.split('-').reverse().join('/');
-
-    const lineHtml = ({ entry, item }, memberId) => {
-      const by = entry.log.reporterId === memberId ? '' : `<b class="crew-by">${escape(senderName(entry.log))}</b> `;
-      const submitter = DB.getLogSubmitter(entry.log);
-      const proxy = submitter ? `<span class="crew-proxy">✍ ${escape(shortName(submitter.name || usersById.get(submitter.id)?.name))} báo cáo thay</span> ` : '';
-      const work = item ? item.todayWork : this.formatReportNote(entry.log.note);
-      const remaining = item && !isItemDone(item) && item.pendingNotes ? ` <span class="crew-left">Còn: ${escape(item.pendingNotes)}</span>` : '';
-      return `<p class="crew-line">${proxy}${by}<span class="crew-time">${escape(timeOf(entry.log))}</span> ${escape(work || 'Chưa ghi nội dung')}${remaining} ${photoBtn(entry)}</p>`;
-    };
-
-    pane.innerHTML = `
-      <section class="crew-summary">
-        <div class="crew-summary-head">
-          <div class="crew-summary-date"><input type="date" id="crew-summary-date" class="form-input" aria-label="Chọn ngày xem" value="${escape(date)}" max="${escape(today)}"><button type="button" id="crew-summary-today" ${date === today ? 'disabled' : ''}>Hôm nay</button></div>
-          <p class="crew-summary-overview" aria-live="polite"><strong>${escape(dayText)}</strong> · ${withReport}/${boxes.length} thợ có báo cáo${missingTasks ? ` · <span class="crew-warn">${missingTasks} nhiệm vụ chưa báo cáo</span>` : ''}</p>
-        </div>
-        <div class="crew-summary-grid">
-          ${boxes.map(({ member, tasks, otherLines, state, badge }) => `<article class="crew-member-box is-${state}" data-member="${escape(member.id)}">
-            <header><h3>${escape(shortName(member.name))} <small>${member.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ'}</small></h3><span class="crew-member-status">${badge}</span></header>
-            ${tasks.map(({ task, project, lines, done }) => {
-              const t = splitTitle(task.title);
-              const st = !lines.length ? ['missing', 'Chưa báo cáo'] : done ? ['done', 'Xong'] : ['reported', 'Đã báo cáo'];
-              return `<div class="crew-task is-${st[0]}">
-                <div class="crew-task-head"><h4>${escape(t.name || 'Nhiệm vụ')}</h4><span>${st[1]}</span></div>
-                <p class="crew-task-place">${escape(project.name)}${t.room ? ` · ${escape(t.room)}` : ''}</p>
-                ${lines.map(l => lineHtml(l, member.id)).join('')}
-                ${!lines.length && canReport ? `<button type="button" class="crew-report-btn" data-report-project="${escape(project.id)}" data-report-task="${escape(task.id)}" data-report-for="${escape(member.id)}">${member.id === viewer.id ? 'Báo cáo' : `Báo cáo thay ${escape(shortName(member.name))}`}</button>` : ''}
-              </div>`;
-            }).join('')}
-            ${otherLines.length ? `<div class="crew-task is-reported crew-other">
-              ${otherLines.map(({ entry, item }) => {
-                const lead = entry.companionId ? shortName(usersById.get(entry.companionId)?.name) : '';
-                const t = splitTitle(item ? (item.taskTitle || item.title || entry.project.subtasks?.find(s => s.id === item.taskId)?.title || '') : '');
-                return `<p class="crew-line"><span class="crew-time">${escape(timeOf(entry.log))}</span> ${lead ? `Làm cùng <b>${escape(lead)}</b>: ` : ''}${escape(t.name || (item ? item.todayWork : this.formatReportNote(entry.log.note)) || 'Báo cáo')} <span class="crew-task-place">· ${escape(entry.project.name)}</span> ${photoBtn(entry)}</p>`;
-              }).join('')}
-            </div>` : ''}
-            ${!tasks.length && !otherLines.length ? `<p class="crew-member-empty">${date === today ? 'Chưa báo cáo hôm nay' : 'Chưa báo cáo ngày này'}</p>` : ''}
-          </article>`).join('')}
-        </div>
-      </section>`;
-    const input = pane.querySelector('#crew-summary-date');
-    input.addEventListener('change', () => {
-      this.crewSummaryDate = input.value && input.value !== today ? input.value : null;
-      this.renderCrewSummary(pane);
-    });
-    pane.querySelector('#crew-summary-today').addEventListener('click', () => { this.crewSummaryDate = null; this.renderCrewSummary(pane); });
-    pane.querySelectorAll('[data-entry]').forEach(btn => btn.addEventListener('click', () => {
-      const entry = entryRefs[Number(btn.dataset.entry)];
-      this.openLogDetailModal(entry.log, entry.project);
-    }));
-    pane.querySelectorAll('[data-report-task]').forEach(btn => btn.addEventListener('click', () => {
-      this.openCrewReportModal(viewer, btn.dataset.reportProject, btn.dataset.reportTask, btn.dataset.reportFor, () => this.renderCrewSummary(pane));
-    }));
-  },
-
-  // Report one task from the crew summary. When the task belongs to someone else the report is
-  // filed as theirs (it counts for their task) and marked with who actually wrote it.
-  openCrewReportModal(viewer, projectId, taskId, assigneeId, onDone) {
+  openCrewReportModal(viewer, projectId, taskId, assigneeId, onDone, opts = {}) {
     const escape = value => this.escapeWorkerText(value);
     const db = DB.load();
     const project = db.projects.find(p => p.id === projectId);
@@ -1560,16 +1566,18 @@ export const UI = {
     const assignee = db.users.find(u => u.id === assigneeId);
     if (!project || !task || !assignee) { Toast.error('Không tìm thấy nhiệm vụ.'); return; }
     const onBehalf = assignee.id !== viewer.id;
+    const withUser = !onBehalf && opts.withId ? db.users.find(u => u.id === opts.withId && u.id !== viewer.id) : null;
     const short = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim();
     const prefix = String(task.title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
     const [room = 'Công việc chung', ...rest] = prefix ? prefix[1].split(' - ') : [];
     const item = rest.join(' - ') || 'Cả phòng';
     const taskName = prefix ? prefix[2] : task.title;
     const photos = [];
-    const modal = Modal.create(onBehalf ? `Báo cáo thay ${escape(short(assignee.name))}` : 'Báo cáo nhiệm vụ', `
+    const modal = Modal.create(onBehalf ? `Báo cáo thay ${escape(short(assignee.name))}` : withUser ? `Báo cáo · làm cùng ${escape(short(withUser.name))}` : 'Báo cáo nhiệm vụ', `
       <form id="crew-report-form" class="crew-report-form">
         <div class="crew-report-form-task"><h4>${escape(taskName)}</h4><p>${escape(project.name)} · ${escape(this.isWholeRoomItem(item) ? room : `${room} · ${item}`)}</p></div>
         ${onBehalf ? `<p class="crew-proxy-note">✍ Báo cáo này được tính cho <b>${escape(short(assignee.name))}</b> và ghi rõ <b>${escape(short(viewer.name))} báo cáo thay</b>.</p>` : ''}
+        ${withUser ? `<p class="crew-proxy-note">🤝 Báo cáo của bạn, ghi là <b>làm cùng ${escape(short(withUser.name))}</b>.</p>` : ''}
         <label class="form-label" for="crew-rf-work">Đã làm hôm nay</label>
         <textarea id="crew-rf-work" class="form-textarea" rows="3" placeholder="Nhập công việc đã làm..." required></textarea>
         <label class="crew-rf-done"><input type="checkbox" id="crew-rf-done"> Đã xong nhiệm vụ này</label>
@@ -1613,7 +1621,7 @@ export const UI = {
       const items = [{ room, item, todayWork, progress, isCompleted, pendingNotes, expectedCompletionDate: '', taskId: task.id }];
       const note = `${this.formatScopeTitle(room, item)}: ${todayWork}\n` + (isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${pendingNotes}`);
       try {
-        const log = DB.submitDailyLog(project.id, 'on_track', note, photos.slice(), assignee.id, '', items, '', viewer.id);
+        const log = DB.submitDailyLog(project.id, 'on_track', note, photos.slice(), assignee.id, '', items, withUser ? withUser.id : '', viewer.id);
         if (log) PushNotifications.emitEvent('report_created', { log_id: log.id, project_id: project.id, actor_id: viewer.id });
         Toast.success(onBehalf ? `Đã báo cáo thay ${short(assignee.name)}.` : 'Đã gửi báo cáo.');
         modal.close();

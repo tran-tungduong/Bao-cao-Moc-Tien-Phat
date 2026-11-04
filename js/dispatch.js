@@ -7,7 +7,7 @@
 // Storage: one row per day in `crew_dispatch_days`, read on demand by date
 // (a few KB) instead of joining the full-table live sync. Until that table
 // exists the tab runs in "thử nghiệm" mode and keeps data in this browser only.
-import { DB } from './db.js?v=20261104-dispatch17';
+import { DB } from './db.js?v=20261104-dispatch22';
 import { Toast, Modal } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 
@@ -71,6 +71,8 @@ const splitTaskTitle = title => { const t = parseTaskTitle(title); return t.scop
 // or hand-written work (kind 'free'). `joint` = working on someone else's task today.
 const emptyRow = () => ({ projectId: '', project: '', room: '', kind: '', taskId: '', task: '', joint: false, savedAt: '' });
 const rowHasWork = r => !!(r && (r.taskId || r.task || r.projectId));
+// A row is locked (read-only) once a task is given or hand-written work is saved.
+const rowIsDone = r => !!(r && (r.taskId || (r.kind === 'free' && String(r.task || '').trim())));
 const emptyDay = date => ({ date, workers: {}, report: { status: 'Chưa gửi', rows: [], note: '' }, version: 0 });
 
 function normalizeRow(r) {
@@ -282,8 +284,11 @@ function readAppData(date) {
         const prev = taskReports.get(key) || { done: false, pending: '' };
         taskReports.set(key, { done: prev.done || isItemDone(item), pending: isItemDone(item) ? prev.pending : (item.pendingNotes || prev.pending) });
       }
+      const companion = log.approverId && log.approverId !== log.reporterId && log.approverId !== 'independent' ? usersById.get(log.approverId) : null;
       reports.get(project.id).lines.push({
         key: `log:${log.id}:${idx}`,
+        proxyBy: item?.submittedById && item.submittedById !== log.reporterId ? shortName(item.submittedByName || usersById.get(item.submittedById)?.name) : '',
+        withWho: companion ? shortName(companion.name) : '',
         taskId: item ? (item.taskId || '') : '',
         who: shortName(log.reporterName || usersById.get(log.reporterId)?.name),
         whoId: log.reporterId,
@@ -346,6 +351,7 @@ function draftForLine(l, date) {
 export async function loadTodayDispatch(userId) {
   const date = vnDate();
   const client = DB.getClient();
+  // userId empty = whole day (crew-summary accounts see everyone's jobs, ~1-2 KB).
   if (client && DispatchStore.mode !== 'local' && /^[\w-]+$/.test(userId || '')) {
     const { data, error } = await client.from(TABLE).select(`w:data->workers->${userId}`).eq('date', date).maybeSingle();
     if (!error) {
@@ -374,6 +380,7 @@ export const DispatchView = {
   pendingAssign: null, // { projectId, workerId } set by Tiến Độ "Giao việc"
   hideGiven: (() => { try { return localStorage.getItem('mtp_dispatch_hide_given') === '1'; } catch { return false; } })(),
   taskDrafts: {},      // `${workerId}|${row}` -> typed name not yet created
+  editingRows: new Set(), // rows unlocked with "Sửa" (`${workerId}|${row}`)
   newRoomFor: null,    // row showing the "new room" text box
 
   async render(container, user) {
@@ -421,6 +428,7 @@ export const DispatchView = {
   },
 
   async reload() {
+    if (this.editingDate !== this.date) { this.editingRows.clear(); this.editingDate = this.date; }
     try {
       this.day = await DispatchStore.load(this.date);
       this.lastLoadAt = Date.now();
@@ -512,7 +520,7 @@ export const DispatchView = {
         last = r.project;
         return {
           key: r.key, projectId: r.projectId, project: r.project, firstOfProject: first, archived: true,
-          line: r.who ? { who: r.who, time: r.time, done: r.done, photos: r.photos, taskId: '' } : null,
+          line: r.who ? { who: r.who, time: r.time, done: r.done, photos: r.photos, taskId: '', proxyBy: r.proxyBy || '', withWho: r.withWho || '' } : null,
           result: r.result, rating: r.rating, reason: r.reason, action: r.action,
           draft: { result: '', rating: '', reason: '' }
         };
@@ -649,14 +657,41 @@ export const DispatchView = {
           </div></div>`;
       }
 
-      const rows = w.rows.map((r, i) => `<div class="dsp-row ${rowHasWork(r) ? 'is-filled' : ''}" data-w="${esc(u.id)}" data-r="${i}">
+      const lockedView = (r, i) => {
+        const linked = r.taskId ? app.taskById.get(r.taskId)?.task : null;
+        const project = app.projects.find(p => p.id === r.projectId);
+        const room = r.projectId === WORKSHOP ? '—' : linked ? taskRoom(linked.title) : (r.room || '—');
+        const name = linked ? parseTaskTitle(linked.title).name : (r.task || '');
+        let note = '';
+        if (linked && r.joint) {
+          const owner = app.usersById.get(linked.assignedTo);
+          note = `<small class="dsp-joint">Làm cùng · phụ trách: ${owner ? esc(shortName(owner.name)) : 'chưa rõ'}</small>`;
+        } else if (r.taskId && !linked) note = '<small class="dsp-muted">Nhiệm vụ đã bị xoá khỏi Tiến Độ</small>';
+        return `
+          <div class="dsp-cell dsp-ro" data-label="Công trình">${r.projectId === WORKSHOP ? '🏭 ' : ''}${esc(project?.name || r.project || '')}</div>
+          <div class="dsp-cell dsp-ro" data-label="Phòng">${esc(room)}</div>
+          <div class="dsp-cell dsp-c-task dsp-ro" data-label="Nhiệm vụ"><b>${esc(name)}</b>${r.kind === 'free' ? ' <small class="dsp-muted">(ghi tay)</small>' : ''}${note}</div>`;
+      };
+      const rows = w.rows.map((r, i) => {
+        const key = `${u.id}|${i}`;
+        const locked = rowIsDone(r) && !this.editingRows.has(key);
+        const editing = rowIsDone(r) && this.editingRows.has(key);
+        const actions = !editable ? '' : locked
+          ? `<button type="button" class="dsp-icon-btn dsp-edit" data-editrow title="Sửa dòng này" aria-label="Sửa dòng này"><i class="fas fa-pen"></i></button>
+             <button type="button" class="dsp-icon-btn" data-delrow title="Xoá dòng" aria-label="Xoá dòng"><i class="fas fa-times"></i></button>`
+          : editing
+            ? `<button type="button" class="dsp-icon-btn" data-canceledit title="Huỷ sửa" aria-label="Huỷ sửa"><i class="fas fa-rotate-left"></i></button>`
+            : (w.rows.length > 1 || rowHasWork(r) ? `<button type="button" class="dsp-icon-btn" data-delrow title="${w.rows.length > 1 ? 'Xoá dòng' : 'Xoá nội dung dòng'}" aria-label="Xoá dòng"><i class="fas fa-times"></i></button>` : '');
+        return `<div class="dsp-row ${rowHasWork(r) ? 'is-filled' : ''} ${locked ? 'is-locked' : ''} ${editing ? 'is-editing' : ''}" data-w="${esc(u.id)}" data-r="${i}">
           ${i === 0 ? workerCell + attCell : '<div class="dsp-cell dsp-c-worker"></div><div class="dsp-cell dsp-c-att"></div>'}
+          ${locked ? lockedView(r, i) : `
           <div class="dsp-cell" data-label="Công trình">${projectSelect(r)}</div>
           <div class="dsp-cell" data-label="Phòng">${roomCell(u, r, i)}</div>
-          <div class="dsp-cell dsp-c-task" data-label="Nhiệm vụ">${taskCell(u, r, i)}</div>
+          <div class="dsp-cell dsp-c-task" data-label="Nhiệm vụ">${taskCell(u, r, i)}</div>`}
           <div class="dsp-cell dsp-c-status" data-label="Trạng thái">${statusCell(u, r)}</div>
-          <div class="dsp-cell dsp-c-del">${editable && (w.rows.length > 1 || rowHasWork(r)) ? `<button type="button" class="dsp-icon-btn" data-delrow title="${w.rows.length > 1 ? 'Xoá dòng' : 'Xoá nội dung dòng'}" aria-label="Xoá dòng"><i class="fas fa-times"></i></button>` : ''}</div>
-        </div>`).join('');
+          <div class="dsp-cell dsp-c-del">${actions}</div>
+        </div>`;
+      }).join('');
       const addRow = editable ? `<button type="button" class="dsp-addrow" data-addrow="${esc(u.id)}"><i class="fas fa-plus"></i> Thêm dòng cho ${esc(shortName(u.name))}</button>` : '';
       return `<div class="dsp-worker ${cls}">${rows}${addRow}</div>`;
     }).join('');
@@ -684,6 +719,7 @@ export const DispatchView = {
       const projectCell = l
         ? `${r.firstOfProject ? `<b>${esc(r.project)}</b>` : ''}
           <span class="dsp-who"><b>${esc(l.who)}</b> · ${esc(l.time)}${l.photos ? ` · ${l.photos} ảnh` : ''}</span>
+          ${l.proxyBy ? `<span class="dsp-tag">✍ ${esc(l.proxyBy)} báo thay</span>` : ''}${l.withWho ? `<span class="dsp-tag">🤝 làm cùng ${esc(l.withWho)}</span>` : ''}
           ${l.done ? '<span class="dsp-ok">✓ Xong</span>' : '<span class="dsp-left">Chưa xong</span>'}${outside(l) ? ' <span class="dsp-tag">ngoài điều phối</span>' : ''}`
         : (!editable || sent ? `<b>${esc(r.project)}</b>` : `<input class="dsp-in" data-rf="project" list="dsp-projects" value="${esc(r.project)}" placeholder="Tên công trình" ${repDis}>`)
           + (!r.projectId && r.project ? '<small class="dsp-muted">Chưa có trong app</small>' : '');
@@ -803,11 +839,29 @@ export const DispatchView = {
       const row = el.closest('[data-w]');
       return { id: row.dataset.w, i: Number(row.dataset.r) };
     };
-    const setRow = (id, i, fields) => this.save(day => {
-      const w = ensureWorker(day, id);
-      while (w.rows.length <= i) w.rows.push(emptyRow());
-      Object.assign(w.rows[i], fields, { savedAt: new Date().toISOString() });
-    });
+    const setRow = (id, i, fields) => {
+      if (fields.taskId || (fields.kind === 'free' && String(fields.task || '').trim())) this.editingRows.delete(`${id}|${i}`);
+      return this.save(day => {
+        const w = ensureWorker(day, id);
+        while (w.rows.length <= i) w.rows.push(emptyRow());
+        Object.assign(w.rows[i], fields, { savedAt: new Date().toISOString() });
+      });
+    };
+
+    root.querySelectorAll('[data-editrow]').forEach(btn => btn.addEventListener('click', () => {
+      const { id, i } = rowOf(btn);
+      this.editingRows.add(`${id}|${i}`);
+      this.draw();
+      this.focusTask(id, i);
+    }));
+
+    root.querySelectorAll('[data-canceledit]').forEach(btn => btn.addEventListener('click', () => {
+      const { id, i } = rowOf(btn);
+      this.editingRows.delete(`${id}|${i}`);
+      delete this.taskDrafts[`${id}|${i}`];
+      if (this.newRoomFor === `${id}|${i}`) this.newRoomFor = null;
+      this.draw();
+    }));
 
     root.querySelectorAll('.dsp-coord [data-f="attendance"]').forEach(el => el.addEventListener('change', () => {
       const { id } = rowOf(el);
@@ -919,9 +973,15 @@ export const DispatchView = {
       btn.addEventListener('click', () => commitTask(btn, true));
     });
 
-    root.querySelectorAll('[data-delrow]').forEach(btn => btn.addEventListener('click', () => {
+    root.querySelectorAll('[data-delrow]').forEach(btn => btn.addEventListener('click', async () => {
       const { id, i } = rowOf(btn);
+      const row = this.day.workers[id]?.rows?.[i];
+      if (rowIsDone(row)) {
+        const label = row.taskId ? parseTaskTitle(app.taskById.get(row.taskId)?.task?.title || row.task).name : row.task;
+        if (!await this.ask(`Xoá "${label}" khỏi lịch của ${shortName(app.usersById.get(id)?.name)}?${row.taskId ? ' Nhiệm vụ trong Tiến Độ vẫn giữ nguyên.' : ''}`, 'Xoá dòng')) return;
+      }
       Object.keys(this.taskDrafts).forEach(k => { if (k.startsWith(`${id}|`)) delete this.taskDrafts[k]; });
+      [...this.editingRows].forEach(k => { if (k.startsWith(`${id}|`)) this.editingRows.delete(k); });
       this.save(day => {
         const w = ensureWorker(day, id);
         if (w.rows.length > 1) w.rows.splice(i, 1);
@@ -1008,6 +1068,7 @@ export const DispatchView = {
             rows: fresh.map(view => ({
               key: view.key, projectId: view.projectId || '', project: view.project || '',
               who: view.line?.who || '', time: view.line?.time || '', done: !!view.line?.done, photos: view.line?.photos || 0,
+              proxyBy: view.line?.proxyBy || '', withWho: view.line?.withWho || '',
               result: val(view, 'result'), rating: val(view, 'rating'), reason: val(view, 'reason'), action: val(view, 'action')
             }))
           };
@@ -1096,6 +1157,7 @@ export const DispatchView = {
     const { task, project } = info;
     const dup = (this.day.workers[workerId]?.rows || []).some((r, j) => r.taskId === taskId && j !== rowIndex);
     if (dup) { Toast.info(`${shortName(worker.name)} đã có nhiệm vụ này trong ngày.`); this.draw(); return; }
+    if (rowIndex !== null) this.editingRows.delete(`${workerId}|${rowIndex}`);
     const apply = joint => this.save(day => {
       const fields = { projectId: project.id, project: project.name, room: taskRoom(task.title), kind: 'task', taskId, task: taskLabel(task.title), joint };
       if (rowIndex === null) { placeInRow(day, workerId, fields); return; }
@@ -1195,7 +1257,8 @@ export const DispatchView = {
     [...byProject].forEach(([project, list], n) => {
       out.push('', LINE, `🏠 ${n + 1}. ${project.toLocaleUpperCase('vi-VN')}`, LINE);
       list.forEach(r => {
-        const who = r.line?.who ? `${r.line.who} — ` : '';
+        const extra = [r.line?.withWho ? `làm cùng ${r.line.withWho}` : '', r.line?.proxyBy ? `${r.line.proxyBy} báo thay` : ''].filter(Boolean).join(', ');
+        const who = r.line?.who ? `${r.line.who}${extra ? ` (${extra})` : ''} — ` : '';
         out.push(`${iconOf(r)} ${who}${val(r, 'result') || 'Chưa ghi nội dung'}`);
         const rating = val(r, 'rating');
         if (rating === 'Chậm tiến độ' || rating === 'Thay đổi kế hoạch' || rating === 'Vượt tiến độ') out.push(`   • Đánh giá: ${rating}`);

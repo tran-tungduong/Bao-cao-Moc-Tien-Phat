@@ -27,7 +27,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     await page.addScriptTag({content: fs.readFileSync('js/components.js', 'utf8').replaceAll('export const ', 'const ') + '\nwindow.Toast=Toast; window.Modal=Modal;'});
     await page.addScriptTag({content: "window.PushNotifications={emitEvent:async()=>true,isEnabled:async()=>false,syncExistingSubscription:async()=>false};"});
     // Dispatch module stubs: no plan for today unless a test sets DB.dispatchGrants.
-    await page.addScriptTag({content: "window.loadTodayDispatch=async()=>null; window.DispatchView={render(){},refresh(){}};"});
+    await page.addScriptTag({content: "window.loadTodayDispatch=async()=>null; window.DispatchView={render(){},refresh(){}}; window.DispatchStore={load:async d=>({date:d,workers:{},report:{rows:[]}})};"});
     await page.addScriptTag({content: fs.readFileSync('js/ui.js', 'utf8').replace(/^import .*;\r?\n/gm, '').replaceAll('export const ', 'const ') + '\nwindow.UI=UI;'});
     await page.evaluate(() => {
       const users = [{id:'usr_luan',role:'manager',name:'Sếp'},{id:'lead',role:'lead_worker',name:'Trần Nhật Cường (Thợ chính)'},{id:'other',role:'lead_worker',name:'Anh A'},{id:'assistant',role:'assistant_worker',name:'Thợ phụ'}];
@@ -144,63 +144,51 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
           log('u1','usr_ut','','l1','Út thay ray','10:00'),
           log('t1','usr_tai','independent','l1','Tài lau dọn','10:30')])]};
       localStorage.setItem('furni_report_db',JSON.stringify(db));
-      window.crewDb=db; window.worker=crew[3]; DB.setSelectedLeadWorkerForAssistant(worker.id,'independent'); UI.workerTopTab='report'; UI.crewSummaryDate=null; UI.renderWorkerView(worker);
+      window.crewDb=db; window.worker=crew[3]; DB.setSelectedLeadWorkerForAssistant(worker.id,'independent'); UI.crewBoardDate=null; UI.renderWorkerView(worker);
     });
-    assert.equal(await page.locator('.crew-top-tabs [role=tab]').count(),2);
-    assert.equal(await page.locator('#worker-report-pane').isVisible(),true);
-    assert.equal(await page.locator('#crew-summary-pane').isVisible(),false);
-    await page.locator('[data-crew-tab=summary]').click();
-    assert.equal(await page.locator('#worker-report-pane').isVisible(),false);
-    // Today: only the fixed crew; every open task is unreported
-    const box=id=>page.locator(`.crew-member-box[data-member=${id}]`);
-    const h3=async()=> (await page.locator('.crew-member-box h3').allInnerTexts()).map(t=>t.replace(/\s*Thợ (chính|phụ)$/,''));
-    assert.deepEqual(await h3(),['Trần Nhật Cường','Út Út','Minh Nhật']);
-    assert.equal(await page.locator('.crew-member-box.is-missing').count(),3);
-    assert.equal(await page.locator('.crew-task.is-missing').count(),4);
-    assert.match(await page.locator('.crew-summary-overview').innerText(),/0\/3 thợ có báo cáo · 4 nhiệm vụ chưa báo cáo/);
-    await page.locator('#crew-summary-date').fill('2026-10-28');
-    await page.locator('#crew-summary-date').dispatchEvent('change');
-    // Tài has left: no box, and his own report is not shown anywhere
-    assert.deepEqual(await h3(),['Trần Nhật Cường','Út Út','Minh Nhật']);
-    assert.match(await page.locator('.crew-summary-overview').innerText(),/28\/10\/2026 · 3\/3 thợ có báo cáo · 2 nhiệm vụ chưa báo cáo/);
-    // Cường's box: each task with that day's report lines; assistants are named on their lines
-    assert.equal(await box('usr_cuong').locator('.crew-member-status').innerText(),'1/2 đã báo cáo');
-    assert.match(await box('usr_cuong').getAttribute('class'),/is-partial/);
-    assert.deepEqual(await box('usr_cuong').locator('.crew-task').evaluateAll(els=>els.map(e=>e.className.replace('crew-task ',''))),['is-reported','is-missing']);
-    const k1=box('usr_cuong').locator('.crew-task').first();
-    assert.deepEqual(await k1.locator('.crew-by').allInnerTexts(),['Minh Nhật','Bom']);
-    assert.match(await k1.innerText(),/Lắp tủ bếp dưới[\s\S]*Đã báo cáo[\s\S]*NHÀ ANH MINH · Phòng bếp[\s\S]*Minh Nhật lắp khung tủ[\s\S]*Còn: Còn cánh tủ/);
-    assert.equal(await k1.locator('.crew-photo-btn').count(),2);
-    assert.match(await box('usr_cuong').locator('.crew-task').nth(1).innerText(),/Lắp kệ tivi[\s\S]*Chưa báo cáo[\s\S]*NHÀ ANH MINH · Phòng khách/);
-    // Út reported his own task (no name on own lines); Tài's line on Út's task still names Tài
-    assert.equal(await box('usr_ut').locator('.crew-member-status').innerText(),'1/1 đã báo cáo');
-    assert.match(await box('usr_ut').getAttribute('class'),/is-ok/);
-    assert.deepEqual(await box('usr_ut').locator('.crew-by').allInnerTexts(),['Tài']);
-    // Minh Nhật: his own open task, plus one short line for the work he reported with Cường
-    assert.deepEqual(await box('usr_minhnhat').locator('.crew-task h4').allInnerTexts(),['Dán cạnh']);
-    assert.match(await box('usr_minhnhat').locator('.crew-other').innerText(),/Làm cùng Trần Nhật Cường: Lắp tủ bếp dưới · NHÀ ANH MINH/);
-    await box('usr_minhnhat').locator('.crew-other .crew-photo-btn').click();
+    // No "Tổng hợp báo cáo" tab any more: the "Báo cáo" board shows the crew's day, with a day picker
+    assert.equal(await page.locator('.crew-top-tabs').count(),0);
+    assert.equal(await page.locator('#worker-lead-selector').count(),0);
+    const cards=page.locator('.crew-day-card');
+    const card=name=>cards.filter({hasText:name});
+    // Today, no dispatch plan: each crew member's open tasks; Bom/Tài are not in the crew
+    assert.equal(await cards.count(),4);
+    assert.equal(await page.locator('.crew-day-card.is-mine').count(),1);
+    assert.match(await page.locator('.crew-day-card.is-mine').innerText(),/Việc của bạn[\s\S]*Dán cạnh/);
+    assert.match(await card('Lắp tủ bếp dưới').innerText(),/Phụ trách: Trần Nhật Cường[\s\S]*Chưa báo cáo/);
+    assert.equal(await card('Dán cạnh').locator('.crew-day-btn').innerText(),'Báo cáo');
+    assert.deepEqual(await card('Lắp kệ tivi').locator('.crew-day-btn').allInnerTexts(),['Tôi làm cùng','Báo cáo thay Trần Nhật Cường']);
+    assert.deepEqual(await page.locator('.crew-day-chip').allInnerTexts(),['⏳ Trần Nhật Cường','⏳ Út Út','⏳ Minh Nhật']);
+    // With today's dispatch plan, old backlog is still listed; dispatched jobs are tagged "Hôm nay"
+    await page.evaluate(()=>{ DB.setDispatchGrants(DB.vnToday(),{usr_cuong:{attendance:'Có làm',rows:[{projectId:'pm',kind:'task',taskId:'k2',task:'Lắp kệ tivi'}]}}); UI.renderWorkerView(worker); });
+    assert.equal(await cards.count(),4);
+    assert.equal(await page.locator('.crew-day-today').count(),1);
+    assert.match(await card('Lắp kệ tivi').innerText(),/Hôm nay/);
+    assert.match(await card('Thay ray ngăn kéo').innerText(),/Phụ trách: Út Út/);
+    await page.evaluate(()=>{ DB.dispatchGrants=null; UI.renderWorkerView(worker); });
+    // Earlier day: read-only, the jobs reported that day with their lines
+    await page.locator('#crew-day-date').fill('2026-10-28');
+    await page.locator('#crew-day-date').dispatchEvent('change');
+    await page.waitForFunction(()=>/28\/10\/2026/.test(document.querySelector('.crew-day-head h2')?.textContent||''));
+    assert.equal(await page.locator('.crew-day-btn').count(),0);
+    assert.equal(await cards.count(),2);
+    const k1=card('Lắp tủ bếp dưới');
+    assert.match(await k1.getAttribute('class'),/is-mine/);
+    assert.match(await k1.innerText(),/Đã báo cáo · còn việc[\s\S]*Minh Nhật[\s\S]*làm cùng Trần Nhật Cường[\s\S]*Minh Nhật lắp khung tủ[\s\S]*Còn: Còn cánh tủ/);
+    assert.doesNotMatch(await k1.innerText(),/Bom bắn vít/);
+    assert.match(await card('Thay ray ngăn kéo').innerText(),/Út Út[\s\S]*Út thay ray/);
+    assert.deepEqual(await page.locator('.crew-day-chip').allInnerTexts(),['⏳ Trần Nhật Cường','✅ Út Út','✅ Minh Nhật']);
+    await k1.locator('.crew-day-photo').click();
     assert.equal(await page.locator('.modal-drawer').isVisible(),true);
-    await page.keyboard.press('Escape');
     await page.evaluate(()=>document.querySelectorAll('.modal-overlay, .modal-drawer').forEach(e=>e.remove()));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false);
-    // Cường then reports himself and finishes the task: kept on refresh, task shows Xong
-    await page.evaluate(()=>{ const db=DB.load(); db.projects[0].dailyLogs.push({id:'c1',date:'2026-10-28',createdAt:'2026-10-28T11:00:00Z',reporterId:'usr_cuong',reporterName:'Trần Nhật Cường (Thợ chính)',reporterRole:'lead_worker',approverId:'',approved:true,photos:[],items:[{taskId:'k1',todayWork:'Cường lắp cánh',isCompleted:true}]}); DB.save(db); UI.renderWorkerView(worker); });
-    assert.equal(await page.locator('#crew-summary-pane').isVisible(),true);
-    assert.equal(await page.locator('#crew-summary-date').inputValue(),'2026-10-28');
-    assert.match(await box('usr_cuong').locator('.crew-task').first().innerText(),/Xong/);
-    assert.equal(await box('usr_cuong').locator('.crew-task').first().locator('.crew-line').count(),3);
-    await page.locator('#crew-summary-today').click();
-    assert.equal(await page.locator('.crew-member-box.is-missing').count(),3);
-    // Past days have no report buttons; today every unreported task has one
-    assert.equal(await page.locator('.crew-report-btn').count(),4);
-    assert.equal(await box('usr_minhnhat').locator('.crew-report-btn').innerText(),'Báo cáo');
-    const proxyBtn=box('usr_cuong').locator('.crew-task').filter({hasText:'Lắp kệ tivi'}).locator('.crew-report-btn');
-    assert.equal(await proxyBtn.innerText(),'Báo cáo thay Trần Nhật Cường');
+    // Back to today: report on behalf of Cường
+    await page.locator('#crew-day-today').click();
+    const proxyBtn=card('Lắp kệ tivi').locator('.crew-day-btn',{hasText:'Báo cáo thay'});
     await proxyBtn.click();
     assert.match(await page.locator('#modal-dialog-title').innerText(),/Báo cáo thay Trần Nhật Cường/);
     await page.locator('#crew-report-form button[type=submit]').click();
-    assert.equal(await page.evaluate(()=>DB.load().projects[0].dailyLogs.length),3);
+    assert.equal(await page.evaluate(()=>DB.load().projects[0].dailyLogs.length),2);
     await page.locator('#crew-rf-work').fill('Bắt vít kệ tivi');
     await page.locator('#crew-rf-left').fill('Còn lắp kính');
     await page.locator('#crew-rf-photos').setInputFiles({name:'k.png',mimeType:'image/png',buffer:Buffer.from('k')});
@@ -213,15 +201,20 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     assert.equal(proxied.log.items[0].submittedById,'usr_minhnhat');
     assert.equal(proxied.task.status,'pending');
     assert.equal(proxied.task.items[0].pendingNotes,'Còn lắp kính');
-    const k2=box('usr_cuong').locator('.crew-task').filter({hasText:'Lắp kệ tivi'});
-    assert.match(await k2.getAttribute('class'),/is-reported/);
-    assert.match(await k2.locator('.crew-proxy').innerText(),/Minh Nhật báo cáo thay/);
-    assert.equal(await k2.locator('.crew-report-btn').count(),0);
-    assert.match(await box('usr_cuong').locator('.crew-member-status').innerText(),/1\/2 đã báo cáo/);
-    await page.locator('[data-crew-tab=report]').click();
-    assert.equal(await page.locator('#worker-task-board').isVisible(),true);
-    await page.evaluate(()=>{ UI.workerTopTab='report'; UI.crewSummaryDate=null; });
-    console.log('PASS crew summary: tasks per worker with report lines of the day, assistants named, lam-cung line in assistant box, state kept on refresh');
+    assert.match(await card('Lắp kệ tivi').innerText(),/Đã báo cáo · còn việc[\s\S]*Trần Nhật Cường[\s\S]*Minh Nhật báo thay[\s\S]*Bắt vít kệ tivi/);
+    // "Tôi làm cùng" on Út's task: Minh Nhật's own report, recorded with Út
+    await card('Thay ray ngăn kéo').locator('.crew-day-btn',{hasText:'Tôi làm cùng'}).click();
+    assert.match(await page.locator('#modal-dialog-title').innerText(),/làm cùng Út Út/);
+    await page.locator('#crew-rf-work').fill('Phụ thay ray');
+    await page.locator('#crew-rf-done').check();
+    await page.locator('#crew-rf-photos').setInputFiles({name:'r.png',mimeType:'image/png',buffer:Buffer.from('r')});
+    await page.waitForFunction(()=>document.querySelector('#crew-rf-preview img'));
+    await page.locator('#crew-report-form button[type=submit]').click();
+    const withLog=await page.evaluate(()=>DB.load().projects[1].dailyLogs[0]);
+    assert.equal(withLog.reporterId,'usr_minhnhat');
+    assert.equal(withLog.approverId,'usr_ut');
+    assert.equal(withLog.items[0].taskId,'l1');
+    console.log('PASS crew board: whole crew per day, own jobs highlighted, day picker review, report / làm cùng / báo cáo thay');
     await page.setViewportSize({width:1440,height:1000});
     await page.evaluate(()=>{window.worker=fixture.users[1];UI.renderWorkerView(worker);document.documentElement.setAttribute('data-theme','light');});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false);
