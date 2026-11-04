@@ -1,6 +1,6 @@
-import { DB } from './db.js?v=20261104-crew-summary7';
+import { DB } from './db.js?v=20261104-dispatch17';
 import { Toast } from './components.js?v=20260915-egress-phase2';
-import { UI } from './ui.js?v=20261104-crew-summary7';
+import { UI } from './ui.js?v=20261104-dispatch17';
 
 let pendingNotificationUrl = new URLSearchParams(window.location.search).has('project')
   ? window.location.href : null;

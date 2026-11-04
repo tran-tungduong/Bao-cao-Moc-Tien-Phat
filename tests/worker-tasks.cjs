@@ -26,6 +26,8 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || runtime + 'playwrigh
     await page.addScriptTag({content: fs.readFileSync('js/db.js', 'utf8').replace('export const DB =', 'const DB =') + '\nwindow.DB=DB;'});
     await page.addScriptTag({content: fs.readFileSync('js/components.js', 'utf8').replaceAll('export const ', 'const ') + '\nwindow.Toast=Toast; window.Modal=Modal;'});
     await page.addScriptTag({content: "window.PushNotifications={emitEvent:async()=>true,isEnabled:async()=>false,syncExistingSubscription:async()=>false};"});
+    // Dispatch module stubs: no plan for today unless a test sets DB.dispatchGrants.
+    await page.addScriptTag({content: "window.loadTodayDispatch=async()=>null; window.DispatchView={render(){},refresh(){}};"});
     await page.addScriptTag({content: fs.readFileSync('js/ui.js', 'utf8').replace(/^import .*;\r?\n/gm, '').replaceAll('export const ', 'const ') + '\nwindow.UI=UI;'});
     await page.evaluate(() => {
       const users = [{id:'usr_luan',role:'manager',name:'Sếp'},{id:'lead',role:'lead_worker',name:'Trần Nhật Cường (Thợ chính)'},{id:'other',role:'lead_worker',name:'Anh A'},{id:'assistant',role:'assistant_worker',name:'Thợ phụ'}];

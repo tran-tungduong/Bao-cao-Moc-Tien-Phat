@@ -839,6 +839,12 @@ export const DB = {
   },
 
   // Get current user session
+  // Raw Supabase client for modules that read their own small tables on demand
+  // (e.g. crew dispatch), outside the full-table live sync.
+  getClient() {
+    return supabaseClient;
+  },
+
   getCurrentUser() {
     const session = localStorage.getItem('furni_session');
     return session ? JSON.parse(session) : null;
@@ -868,7 +874,48 @@ export const DB = {
   },
 
   // Get projects for a specific user role and assigned tasks
+  // ---- Today's crew dispatch (Điều phối thợ), loaded on demand by the worker view.
+  // A worker may see and report a task they were dispatched to today even when
+  // someone else owns it ("làm cùng hôm nay"). Grants expire at the end of the day.
+  dispatchGrants: null,
+
+  vnToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  },
+
+  setDispatchGrants(date, workers) {
+    const byWorker = {};
+    Object.entries(workers || {}).forEach(([id, w]) => {
+      byWorker[id] = { attendance: w.attendance || '', rows: (w.rows || []).filter(r => r && (r.taskId || r.task)) };
+    });
+    this.dispatchGrants = { date, byWorker };
+  },
+
+  getDispatchFor(userId) {
+    const g = this.dispatchGrants;
+    if (!g || g.date !== this.vnToday()) return null;
+    return g.byWorker[userId] || { attendance: '', rows: [] };
+  },
+
+  getDispatchTaskIds(userId) {
+    const d = this.getDispatchFor(userId);
+    if (!d || d.attendance === 'Nghỉ') return new Set();
+    return new Set(d.rows.filter(r => r.taskId).map(r => r.taskId));
+  },
+
   getProjectsForUser(user) {
+    if (!user) return [];
+    const base = this.getBaseProjectsForUser(user);
+    if (!['lead_worker', 'assistant_worker'].includes(user.role)) return base;
+    // Add projects of tasks dispatched to this worker today.
+    const taskIds = this.getDispatchTaskIds(user.id);
+    if (!taskIds.size) return base;
+    const baseIds = new Set(base.map(p => p.id));
+    const extra = this.load().projects.filter(p => !p.isCompleted && !baseIds.has(p.id) && (p.subtasks || []).some(st => taskIds.has(st.id)));
+    return extra.length ? base.concat(extra) : base;
+  },
+
+  getBaseProjectsForUser(user) {
     if (!user) return [];
     const db = this.load();
     const projects = db.projects;
@@ -903,7 +950,7 @@ export const DB = {
       }
 
       const leadUser = db.users.find(u => u.id === selectedLeadId && u.role === 'lead_worker');
-      return leadUser ? this.getProjectsForUser(leadUser) : [];
+      return leadUser ? this.getBaseProjectsForUser(leadUser) : [];
     } else if (user.role === 'lead_worker') {
       // Get today's working project assignment via attendance
       const today = new Date().toISOString().split('T')[0];
@@ -1016,7 +1063,7 @@ export const DB = {
       return project.subtasks.filter(st => st.assignedTo === user.id);
     }
 
-    const isVisibleLeadProject = this.getProjectsForUser(user).some(p => p.id === project.id);
+    const isVisibleLeadProject = this.getBaseProjectsForUser(user).some(p => p.id === project.id);
     return isVisibleLeadProject ? project.subtasks : [];
   },
 
@@ -1033,7 +1080,7 @@ export const DB = {
     delete project.completedAt;
     const hist = {
       timestamp: new Date().toISOString(),
-      action: `Đưa công trình ra khỏi kho lưu trữ, tiếp tục tại Giai đoạn ${preservedStep}`,
+      action: 'Đưa công trình ra khỏi kho lưu trữ, trở lại bảng tiến độ',
       user: user ? user.name : 'Sếp'
     };
     project.history.push(hist);

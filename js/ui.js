@@ -1,6 +1,7 @@
-import { DB } from './db.js?v=20261104-crew-summary7';
+import { DB } from './db.js?v=20261104-dispatch17';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
+import { DispatchView, loadTodayDispatch } from './dispatch.js?v=20261104-dispatch17';
 
 window.showPhotoLightbox = (url) => {
   const lightbox = document.createElement('div');
@@ -20,13 +21,6 @@ window.showPhotoLightbox = (url) => {
   };
   lightbox.addEventListener('click', close);
 };
-
-export const STEPS = [
-  { num: 1, title: 'Thiết Kế', icon: 'fa-drafting-compass', desc: 'Lên phương án phối cảnh 2D/3D & chốt báo giá' },
-  { num: 2, title: 'Gia Công Tại Xưởng', icon: 'fa-industry', desc: 'Sản xuất, cắt CNC, dán cạnh và ráp thử tại xưởng' },
-  { num: 3, title: 'Lắp Ráp Tại Công Trình', icon: 'fa-truck-moving', desc: 'Vận chuyển & lắp ráp hoàn thiện tại công trình' },
-  { num: 4, title: 'Đã Bàn Giao', icon: 'fa-file-signature', desc: 'Vệ sinh, nghiệm thu bàn giao cho chủ nhà' }
-];
 
 export const DEFAULT_SCOPE_TEMPLATE = {
   'Phòng ngủ': ['Tủ áo', 'Bàn trang điểm', 'Giường', 'Tủ đầu giường', 'Vách trang trí', 'Khác...'],
@@ -487,7 +481,84 @@ export const UI = {
 
   getWorkerTasks(project, user) {
     const tasks = DB.getVisibleSubtasksForUser(project, user);
-    return user.role === 'assistant_worker' ? tasks : tasks.filter(t => t.assignedTo === user.id);
+    const own = user.role === 'assistant_worker' ? tasks : tasks.filter(t => t.assignedTo === user.id);
+    // Tasks the coordinator dispatched to this worker today (may be owned by someone else).
+    const dispatched = DB.getDispatchTaskIds(user.id);
+    if (!dispatched.size) return own;
+    const extra = (project.subtasks || []).filter(t => dispatched.has(t.id) && !own.includes(t));
+    return extra.length ? own.concat(extra) : own;
+  },
+
+  // Load today's dispatch for a worker: one tiny read, at most every 3 minutes
+  // while the app is open (plans change rarely), and again when the worker comes
+  // back to the app. Never while the app is in the background.
+  ensureWorkerDispatch(user, force = false) {
+    if (!['lead_worker', 'assistant_worker'].includes(user.role)) return;
+    this.workerDispatchUser = user;
+    if (!this.workerDispatchVisibility) {
+      this.workerDispatchVisibility = () => {
+        const u = this.workerDispatchUser;
+        if (!document.hidden && u && DB.getCurrentUser()?.id === u.id && Date.now() - (this.workerDispatchAt || 0) > 60000) this.ensureWorkerDispatch(u, true);
+      };
+      document.addEventListener('visibilitychange', this.workerDispatchVisibility);
+    }
+    if (document.hidden) return;
+    const now = Date.now();
+    if (!force && this.workerDispatchAt && now - this.workerDispatchAt < 180000 && this.workerDispatchDate === DB.vnToday()) return;
+    this.workerDispatchAt = now;
+    this.workerDispatchDate = DB.vnToday();
+    const before = JSON.stringify(DB.getDispatchFor(user.id));
+    loadTodayDispatch(user.id).then(() => {
+      this.workerDispatchLoaded = true;
+      const after = JSON.stringify(DB.getDispatchFor(user.id));
+      if (before !== after || !document.querySelector('#worker-today-box[data-ready]')) {
+        if (this.refreshWorkerToday) this.refreshWorkerToday();
+        if (this.refreshWorkerTaskBoard) this.refreshWorkerTaskBoard();
+      }
+    }).catch(err => console.warn('Không tải được điều phối hôm nay:', err));
+  },
+
+  // "Hôm nay" box at the top of the worker screen: what the coordinator planned today.
+  renderWorkerToday(user, onOpen) {
+    const box = document.getElementById('worker-today-box');
+    if (!box) return;
+    const escape = value => this.escapeWorkerText(value);
+    const plan = DB.getDispatchFor(user.id);
+    box.dataset.ready = this.workerDispatchLoaded ? '1' : '';
+    if (!plan) { box.hidden = true; return; }
+    box.hidden = false;
+    const today = DB.vnToday().split('-').slice(1).reverse().join('/');
+    if (plan.attendance === 'Nghỉ') {
+      box.innerHTML = `<header><h2>Hôm nay ${today}</h2></header><p class="worker-today-empty">Hôm nay bạn được ghi <b>Nghỉ</b>.</p>`;
+      return;
+    }
+    if (!plan.rows.length) {
+      box.innerHTML = `<header><h2>Hôm nay ${today}</h2></header><p class="worker-today-empty">Hôm nay chưa có điều phối. Bạn báo cáo theo nhiệm vụ của mình bên dưới.</p>`;
+      return;
+    }
+    const db = DB.load();
+    const items = plan.rows.map(r => {
+      if (r.kind !== 'task' || !r.taskId) {
+        return `<li class="worker-today-item is-free"><div><strong>${escape(r.task || 'Việc chung')}</strong><span>${escape(r.project || 'Xưởng / việc chung')}</span></div></li>`;
+      }
+      const project = db.projects.find(p => p.id === r.projectId);
+      const task = project?.subtasks?.find(t => t.id === r.taskId);
+      if (!project || !task) {
+        return `<li class="worker-today-item is-free"><div><strong>${escape(r.task)}</strong><span>${escape(r.project)} · nhiệm vụ đã bị xoá</span></div></li>`;
+      }
+      const summary = this.getWorkerTaskSummary(project, task, user);
+      const done = task.status === 'completed';
+      const owner = r.joint ? db.users.find(u => u.id === task.assignedTo) : null;
+      const state = done ? '<span class="worker-today-state is-done">✅ Đã xong</span>'
+        : summary.reportedToday ? '<span class="worker-today-state is-part">🟡 Đã báo cáo hôm nay</span>'
+        : '<span class="worker-today-state">⏳ Chưa báo cáo</span>';
+      return `<li class="worker-today-item">
+        <div><strong>${escape(summary.title)}</strong><span>${escape(project.name)} · ${escape(summary.room)}${owner ? ` · làm cùng ${escape(owner.name.replace(/\s*\([^)]*\)/g, '').trim())}` : ''}</span>${state}</div>
+        ${done ? '' : `<button type="button" class="worker-today-report" data-project="${escape(project.id)}" data-task="${escape(task.id)}">Báo cáo</button>`}
+      </li>`;
+    }).join('');
+    box.innerHTML = `<header><h2>Hôm nay ${today}</h2><span>Nhật Long điều phối</span></header><ul>${items}</ul>`;
+    box.querySelectorAll('.worker-today-report').forEach(btn => btn.addEventListener('click', () => onOpen({ projectId: btn.dataset.project, taskId: btn.dataset.task })));
   },
 
   getWorkerTaskSummary(project, task, user) {
@@ -523,6 +594,7 @@ export const UI = {
     let filter = board.dataset.filter || 'pending';
     const draw = () => {
       board.dataset.filter = filter;
+      const todayIds = DB.getDispatchTaskIds(user.id);
       const groups = DB.getProjectsForUser(user).map(project => ({ project, tasks: this.getWorkerTasks(project, user) }));
       const pendingCount = groups.reduce((n, g) => n + g.tasks.filter(t => t.status !== 'completed').length, 0);
       const completedCount = groups.reduce((n, g) => n + g.tasks.filter(t => t.status === 'completed').length, 0);
@@ -540,7 +612,9 @@ export const UI = {
             ${tasks.map(task => {
               const summary = this.getWorkerTaskSummary(project, task, user);
               const done = task.status === 'completed';
-              return `<article class="worker-task-card">
+              const isToday = todayIds.has(task.id);
+              return `<article class="worker-task-card ${isToday ? 'is-today' : ''}">
+                ${isToday ? `<span class="worker-task-today">📍 Hôm nay${task.assignedTo !== user.id ? ' · làm cùng' : ''}</span>` : ''}
                 <div class="worker-task-title"><h4>${escape(summary.title || 'Nhiệm vụ')}</h4><span class="worker-task-status ${done ? 'is-done' : ''}">${done ? 'Đã xong' : task.type === 'rework' ? 'Cần sửa' : summary.latest || task.items?.length ? 'Chưa xong' : 'Chưa có báo cáo'}</span></div>
                 <p class="worker-task-room">${escape(summary.room)}</p>
                 ${summary.pendingNotes ? `<div class="worker-task-remaining"><strong>Công việc còn lại</strong><p>${escape(summary.pendingNotes)}</p></div>` : ''}
@@ -1208,6 +1282,14 @@ export const UI = {
       tabEdit.innerHTML = '<i class="fas fa-history"></i> Lịch Sử & Sửa Báo Cáo';
       contentEdit.insertAdjacentHTML('afterbegin', '<div class="worker-task-heading"><h2>Lịch sử báo cáo</h2><p>Các báo cáo bạn đã gửi. Bấm Sửa để chỉnh lại.</p></div>');
       const openTask = context => this.renderWorkerView(user, context);
+      board.insertAdjacentHTML('beforebegin', '<section id="worker-today-box" class="worker-today" hidden></section>');
+      const todayBox = document.getElementById('worker-today-box');
+      this.renderWorkerToday(user, openTask);
+      this.refreshWorkerToday = () => {
+        if (document.getElementById('worker-today-box') === todayBox && !taskContext) this.renderWorkerToday(user, openTask);
+      };
+      todayBox.hidden = todayBox.hidden || !!taskContext;
+      this.ensureWorkerDispatch(user);
       this.renderWorkerTaskBoard(user, openTask);
       this.refreshWorkerTaskBoard = () => {
         if (document.getElementById('worker-task-board') === board && !taskContext) this.renderWorkerTaskBoard(user, openTask);
@@ -1216,11 +1298,13 @@ export const UI = {
       contentCreate.hidden = !taskContext;
       tabCreate.addEventListener('click', () => {
         board.hidden = !!taskContext;
+        if (!taskContext) this.renderWorkerToday(user, openTask);
         tabCreate.hidden = true;
         tabEdit.hidden = false;
       });
       tabEdit.addEventListener('click', () => {
         board.hidden = true;
+        todayBox.hidden = true;
         tabCreate.hidden = false;
         tabEdit.hidden = true;
       });
@@ -1843,7 +1927,6 @@ export const UI = {
     }
 
     listContainer.innerHTML = projects.map(p => {
-      const stepInfo = STEPS.find(s => s.num === p.step) || STEPS[0];
       const pendingSubtasks = p.subtasks.filter(st => st.status === 'pending');
       const mySubtasks = p.subtasks.filter(st => {
         const isAssignedToMe = st.assignedTo === user.id;
@@ -1852,7 +1935,7 @@ export const UI = {
       });
 
       // Check deadline
-      const isOverdue = new Date(p.deadline) < new Date() && p.step < 4;
+      const isOverdue = new Date(p.deadline) < new Date() && !p.isCompleted;
 
       return `
         <div class="report-card" style="border-left: 1px solid var(--border-color);">
@@ -1864,12 +1947,6 @@ export const UI = {
                 ${p.isSmallScope ? ' <span class="status-badge" style="background-color:rgba(210, 144, 98, 0.15); color:var(--status-pending); font-size:0.7rem; padding: 2px 6px;">[PHÁT SINH NHỎ]</span>' : ''}
               </div>
             </div>
-            <div style="text-align:right;">
-              <span class="status-badge approved" style="font-weight: 700;">
-                <i class="fas ${stepInfo.icon}"></i> GĐ ${p.step}/4
-              </span>
-              <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-top:4px;">${stepInfo.title}</div>
-            </div>
           </div>
 
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
@@ -1879,15 +1956,6 @@ export const UI = {
           <!-- Actions Board: Báo Hàng Lỗi & Phát Sinh Thêm -->
           <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:12px;">
             
-            <!-- Advance step for management -->
-            ${isManagementRole ? `
-              <button class="btn-advance-step btn-action" data-project="${p.id}" 
-                style="background: ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) ? '#333' : 'linear-gradient(135deg, #4F46E5, #4338CA)'}; color:white; border:none; font-weight:700; grid-column: span 2; padding:10px; border-radius:10px;"
-                ${(p.isRework && pendingSubtasks.some(st => st.type === 'rework')) || p.step >= 4 ? 'disabled' : ''}>
-                <i class="fas fa-arrow-circle-right"></i> Qua Giai Đoạn Tiếp Theo
-              </button>
-            ` : ''}
-
             <!-- Rework -->
             <button class="btn-rework-modal btn-action" data-project="${p.id}" style="background:linear-gradient(135deg, #EF4444, #B91C1C); color:white; border:none; font-weight:700; grid-column: span ${isManagementRole ? 1 : 2}; padding:12px 10px; border-radius:10px; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
               <i class="fas fa-exclamation-triangle"></i> Báo Hàng Lỗi
@@ -1951,26 +2019,6 @@ export const UI = {
           DB.deleteSubtask(prjId, stId, user.id);
           Toast.success('Đã xóa nhiệm vụ.');
           if (onUpdate) onUpdate(); else this.renderWorkerView(user);
-        }
-      });
-    });
-
-    listContainer.querySelectorAll('.btn-advance-step').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const prjId = btn.getAttribute('data-project');
-        try {
-          btn.disabled = true;
-          const originalHtml = btn.innerHTML;
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-          const prj = await DB.advanceProject(prjId, user.id);
-          if (prj) {
-            Toast.success(`Chúc mừng! Công trình đã sang giai đoạn ${prj.step}: ${STEPS.find(s => s.num === prj.step).title}`);
-            if (onUpdate) onUpdate(); else this.renderWorkerView(user);
-          }
-        } catch (err) {
-          Toast.error(err.message);
-        } finally {
-          btn.disabled = false;
         }
       });
     });
@@ -2430,9 +2478,11 @@ export const UI = {
       <!-- Manager Tab Buttons -->
       <div class="manager-tabs fade-in" style="overflow-x:auto; white-space:nowrap; gap:4px; padding:4px;">
         <button class="tab-btn active" id="tab-general-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-chart-pie"></i> Quản Lý Chung</button>
+        ${['kts', 'manager'].includes(user.role) ? `
+          <button class="tab-btn" id="tab-dispatch-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-people-arrows"></i> Điều Phối Thợ</button>
+        ` : ''}
         <button class="tab-btn" id="tab-progress-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-tasks"></i> Tiến Độ</button>
         ${user.role !== 'marketing' ? `
-          <button class="tab-btn" id="tab-kanban-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-columns"></i> Bảng Theo Dõi</button>
           <button class="tab-btn" id="tab-completed-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-archive"></i> Đã Hoàn Thành</button>
         ` : ''}
         <button class="tab-btn" id="tab-logs-btn" style="flex:none; padding:8px 16px;"><i class="fas fa-history"></i> Nhật Ký</button>
@@ -2440,7 +2490,7 @@ export const UI = {
 
       <!-- Content sections -->
       <div id="manager-tab-content">
-        <!-- Will render either Kanban, Logs, Attendance, or Dashboard dynamically -->
+        <!-- Renders the active tab dynamically -->
       </div>
     `;
 
@@ -2464,8 +2514,6 @@ export const UI = {
             loadGeneral();
           } else if (btnProgress && btnProgress.classList.contains('active')) {
             loadProgressBoard();
-          } else if (btnKanban && btnKanban.classList.contains('active')) {
-            loadKanban();
           } else if (btnCompleted && btnCompleted.classList.contains('active')) {
             loadCompleted();
           } else if (btnLogs && btnLogs.classList.contains('active')) {
@@ -2478,14 +2526,14 @@ export const UI = {
     // Tab clicks
     const btnGeneral = document.getElementById('tab-general-btn');
     const btnProgress = document.getElementById('tab-progress-btn');
-    const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
     const btnLogs = document.getElementById('tab-logs-btn');
     const btnAttendance = document.getElementById('tab-attendance-btn');
     const btnDashboard = document.getElementById('tab-dashboard-btn');
+    const btnDispatch = document.getElementById('tab-dispatch-btn');
 
     const setActiveTab = (activeBtn) => {
-      [btnGeneral, btnProgress, btnKanban, btnCompleted, btnLogs, btnAttendance, btnDashboard].filter(Boolean).forEach(btn => {
+      [btnGeneral, btnProgress, btnCompleted, btnLogs, btnAttendance, btnDashboard, btnDispatch].filter(Boolean).forEach(btn => {
         btn.classList.remove('active');
       });
       if (activeBtn) activeBtn.classList.add('active');
@@ -2499,11 +2547,6 @@ export const UI = {
     const loadProgressBoard = () => {
       setActiveTab(btnProgress);
       this.renderProgressBoard(user);
-    };
-
-    const loadKanban = () => {
-      setActiveTab(btnKanban);
-      this.renderManagerKanban(user);
     };
 
     const loadCompleted = () => {
@@ -2530,11 +2573,15 @@ export const UI = {
 
     if (btnGeneral) btnGeneral.addEventListener('click', loadGeneral);
     if (btnProgress) btnProgress.addEventListener('click', loadProgressBoard);
-    if (btnKanban) btnKanban.addEventListener('click', loadKanban);
     if (btnCompleted) btnCompleted.addEventListener('click', loadCompleted);
     if (btnLogs) btnLogs.addEventListener('click', loadLogs);
     if (btnAttendance) btnAttendance.addEventListener('click', loadAttendance);
     if (btnDashboard) btnDashboard.addEventListener('click', loadDashboard);
+    if (btnDispatch) btnDispatch.addEventListener('click', () => {
+      setActiveTab(btnDispatch);
+      const container = document.getElementById('manager-tab-content');
+      if (container) DispatchView.render(container, user);
+    });
 
     // Initial load: General Management is the default view for all office roles.
     loadGeneral();
@@ -2551,12 +2598,6 @@ export const UI = {
     const projects = DB.getProjectsForUser(user).filter(p => !p.isCompleted);
     const workers = db.users.filter(u => ['lead_worker', 'assistant_worker'].includes(u.role));
     const attendance = DB.getAttendance(today);
-    const stageNames = {
-      1: 'Thiết kế',
-      2: 'Gia công tại xưởng',
-      3: 'Lắp ráp công trình',
-      4: 'Bàn giao'
-    };
     const workPeriodValues = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'];
     const canManageAttendance = user.role === 'manager' || user.role === 'kts' || user.id === 'usr_hai' || user.username === 'hai.ta';
 
@@ -2827,7 +2868,6 @@ export const UI = {
             <span class="general-project-health">${escapeHtml(item.healthLabel)}</span>
           </div>
           <div class="general-project-card__meta">
-            <span class="general-project-stage"><i class="fas fa-layer-group"></i>${escapeHtml(stageNames[p.step] || `Giai đoạn ${p.step || '?'}`)}</span>
             <span class="general-project-deadline"><i class="fas fa-clock"></i>${escapeHtml(deadlineText)}</span>
           </div>
           <div class="general-project-priority ${priorityTask ? '' : 'is-clear'}">
@@ -2902,7 +2942,7 @@ export const UI = {
           projectId: item.project.id,
           icon: 'fa-building', color: item.healthColor,
           title: item.project.name,
-          meta: `${stageNames[item.project.step] || `Giai đoạn ${item.project.step || '?'}`} • ${item.healthLabel}`
+          meta: item.healthLabel
         }))
       },
       attention: {
@@ -2986,7 +3026,7 @@ export const UI = {
       }).join('');
       const hasProjectLinks = detail.rows.some(row => Boolean(row.projectId));
       const modalDescriptions = {
-        projects: 'Theo dõi giai đoạn và tình trạng của từng công trình',
+        projects: 'Theo dõi tình trạng của từng công trình',
         attention: 'Các công trình cần ưu tiên xử lý trước',
         tasks: 'Danh sách nhiệm vụ chưa hoàn thành và người phụ trách',
         approvals: 'Các báo cáo đang chờ xác nhận'
@@ -3989,7 +4029,14 @@ export const UI = {
     // Bind KTS buttons
     container.querySelectorAll('.btn-board-assign-task').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.openAssignTaskModal(btn.getAttribute('data-project'), user, () => this.renderProgressBoard(user));
+        const projectId = btn.getAttribute('data-project');
+        const dispatchBtn = document.getElementById('tab-dispatch-btn');
+        // Tasks are now given out from "Điều Phối Thợ"; fall back to the old dialog without it.
+        if (!dispatchBtn) { this.openAssignTaskModal(projectId, user, () => this.renderProgressBoard(user)); return; }
+        this.openDispatchWorkerPicker(projectId, worker => {
+          DispatchView.pendingAssign = { projectId, workerId: worker.id };
+          dispatchBtn.click();
+        });
       });
     });
     // Bind card click on empty space to open project details drawer
@@ -4340,155 +4387,6 @@ export const UI = {
     });
   },
 
-  // 8. RENDER KANBAN PIPELINE FOR MANAGER
-  renderManagerKanban(user, activeStep = 'all') {
-    const container = document.getElementById('manager-tab-content');
-    const projects = DB.getProjects().filter(p => !p.isCompleted);
-
-    container.innerHTML = `
-      <!-- Column selector list for Mobile viewport -->
-      <div class="fade-in" style="margin-bottom:16px;">
-        <label class="form-label" style="font-size:0.75rem;">Xem nhanh theo bước tiến độ:</label>
-        <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; white-space:nowrap;" id="kanban-step-filters">
-          <button class="tab-btn ${activeStep === 'all' ? 'active' : ''}" data-step="all" style="padding:6px 12px; font-size:0.8rem;">Tất cả (${projects.length})</button>
-          ${STEPS.map(s => {
-      const count = projects.filter(p => p.step === s.num).length;
-      const isActive = String(activeStep) === String(s.num);
-      return `<button class="tab-btn ${isActive ? 'active' : ''}" data-step="${s.num}" style="padding:6px 12px; font-size:0.8rem; white-space:nowrap;">${s.num}. ${s.title} (${count})</button>`;
-    }).join('')}
-        </div>
-      </div>
-
-      <div class="report-list fade-in" id="kanban-cards-container">
-        <!-- Dynamically rendered filtered projects -->
-      </div>
-    `;
-
-    const cardsContainer = document.getElementById('kanban-cards-container');
-    const filters = document.getElementById('kanban-step-filters');
-
-    const filterProjects = (stepValue) => {
-      const latestProjects = DB.getProjects().filter(p => !p.isCompleted);
-      let filtered = latestProjects;
-      if (stepValue !== 'all') {
-        filtered = latestProjects.filter(p => p.step === parseInt(stepValue));
-      }
-
-      if (filtered.length === 0) {
-        cardsContainer.innerHTML = `
-          <div style="text-align:center; padding: 40px 20px; color:var(--text-muted); background-color:var(--bg-secondary); border-radius:20px; border:1px solid var(--border-color)">
-            <i class="fas fa-folder-open" style="font-size:2rem; margin-bottom:12px;"></i>
-            <p>Không có công trình nào ở giai đoạn này.</p>
-          </div>
-        `;
-        return;
-      }
-
-      cardsContainer.innerHTML = filtered.map(p => {
-        const stepInfo = STEPS.find(s => s.num === p.step) || STEPS[0];
-        const isOverdue = new Date(p.deadline) < new Date() && p.step < 4;
-        const pendingRework = p.subtasks.filter(st => st.type === 'rework' && st.status === 'pending');
-        const pendingScope = p.subtasks.filter(st => st.type === 'small_scope' && st.status === 'pending');
-
-        return `
-          <div class="report-card manager-project-card" data-id="${p.id}" style="cursor:pointer; position:relative; border-left: 1px solid var(--border-color);">
-            <div class="report-card-header">
-              <div>
-                <div class="report-project" style="font-size:1.05rem;">${p.name}</div>
-                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">
-                  Hạn: <span style="font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:6px; background-color:${isOverdue ? 'rgba(201, 91, 91, 0.15)' : 'rgba(197, 168, 128, 0.12)'}; border:1px solid ${isOverdue ? 'rgba(201, 91, 91, 0.3)' : 'rgba(197, 168, 128, 0.3)'}; color:${isOverdue ? 'var(--status-rejected)' : 'var(--primary)'};">${p.deadline}${isOverdue ? ' [TRỄ]' : ''}</span>
-                  ${p.isSmallScope ? ' <span class="status-badge" style="background-color:rgba(210, 144, 98, 0.12); color:var(--status-pending); font-size:0.65rem; padding: 1px 4px;">[PHÁT SINH NHỎ]</span>' : ''}
-                </div>
-              </div>
-              <div style="text-align:right;">
-                <span class="status-badge approved" style="font-weight:700;">
-                  GĐ ${p.step}/4
-                </span>
-                <div style="font-size:0.75rem; font-weight:600; color:var(--primary); margin-top:4px;">${stepInfo.title}</div>
-              </div>
-            </div>
-
-            <!-- Mini progress segments segmenting the 4 steps -->
-            <div style="display:flex; gap:3px; height:5px; margin-top:10px; background-color:rgba(255,255,255,0.02); border-radius:3px; overflow:hidden;">
-              ${Array.from({ length: 4 }).map((_, idx) => {
-          const isActive = (idx + 1) <= p.step;
-          const color = isActive ? 'var(--status-approved)' : 'rgba(255,255,255,0.06)';
-          return `<div style="flex:1; background-color:${color}; transition:all 0.3s; border-radius:1px;"></div>`;
-        }).join('')}
-            </div>
-
-            <!-- Tags section -->
-            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
-              ${p.isRework ? '<span class="status-badge rejected" style="font-size:0.7rem; font-weight:700;"><i class="fas fa-exclamation-triangle"></i> [SỬA HÀNG LỖI]</span>' : ''}
-              ${p.dailyLogs.length > 0 && p.dailyLogs[0].status === 'delayed' ? '<span class="status-badge rejected" style="font-size:0.7rem; background-color:rgba(201, 91, 91, 0.08);"><i class="fas fa-clock"></i> Báo chậm gần nhất</span>' : ''}
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.03); font-size:0.75rem; color:var(--text-muted);">
-              <span><i class="fas fa-history"></i> Logs: ${p.dailyLogs.length} | Tasks: ${p.subtasks.filter(s => s.status === 'completed').length}/${p.subtasks.length}</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                ${['manager', 'sales'].includes(user.role) ? `
-                  <button class="btn-card-edit-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--primary); cursor:pointer;" title="Sửa công trình"><i class="fas fa-edit"></i></button>
-                  <button class="btn-card-delete-project" data-id="${p.id}" style="background:none; border:none; padding:4px; color:var(--status-rejected); cursor:pointer;" title="Xóa công trình"><i class="fas fa-trash-alt"></i></button>
-                ` : ''}
-                <span style="font-weight:600; color:var(--primary); margin-left:4px;">Chi tiết &rarr;</span>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      // Card clicks to details drawer
-      cardsContainer.querySelectorAll('.manager-project-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const prjId = card.getAttribute('data-id');
-          this.openProjectDetailsDrawer(prjId, user, () => {
-            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
-            this.renderManagerKanban(user, activeFilter);
-          });
-        });
-      });
-
-      // Edit project click
-      cardsContainer.querySelectorAll('.btn-card-edit-project').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const prjId = btn.getAttribute('data-id');
-          this.openEditProjectModal(prjId, user, () => {
-            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
-            this.renderManagerKanban(user, activeFilter);
-          });
-        });
-      });
-
-      // Delete project click
-      cardsContainer.querySelectorAll('.btn-card-delete-project').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const prjId = btn.getAttribute('data-id');
-          const prj = DB.getProject(prjId);
-          if (prj && confirm(`Bạn có chắc chắn muốn XÓA HOÀN TOÀN công trình: "${prj.name}"?\nThao tác này sẽ xóa tất cả nhật ký, hình ảnh, lịch sử liên quan và không thể khôi phục!`)) {
-            DB.deleteProject(prjId, user.id);
-            Toast.success('Đã xóa công trình.');
-            const activeFilter = filters.querySelector('.tab-btn.active').getAttribute('data-step') || 'all';
-            this.renderManagerKanban(user, activeFilter);
-          }
-        });
-      });
-    };
-
-    // Filter bar tab switching
-    filters.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filters.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        filterProjects(btn.getAttribute('data-step'));
-      });
-    });
-
-    // Initial render
-    filterProjects(activeStep);
-  },
-
   // 8.1 RENDER COMPLETED PROJECTS ARCHIVE FOR MANAGER
   renderManagerCompleted(user) {
     const container = document.getElementById('manager-tab-content');
@@ -4598,11 +4496,11 @@ export const UI = {
         const project = DB.getProject(projectId);
         if (!project) return;
 
-        if (confirm(`Đưa công trình "${project.name}" trở lại bảng tiến độ tại Giai đoạn ${project.step}?`)) {
+        if (confirm(`Đưa công trình "${project.name}" trở lại bảng tiến độ?`)) {
           btn.disabled = true;
           try {
             await DB.restoreCompletedProject(projectId, user.id);
-            Toast.success(`Đã đưa công trình trở lại Giai đoạn ${project.step}.`);
+            Toast.success('Đã đưa công trình trở lại bảng tiến độ.');
             this.renderManagerCompleted(user);
           } catch (error) {
             btn.disabled = false;
@@ -4641,11 +4539,27 @@ export const UI = {
     this.bindImportBackupListener(user);
   },
 
+  // Ask which worker gets work on this project, then continue in the dispatch tab.
+  openDispatchWorkerPicker(projectId, onPick) {
+    const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const crew = ['usr_cuong', 'usr_ut', 'usr_minhnhat'].map(id => db.users.find(u => u.id === id)).filter(Boolean);
+    if (!project) return;
+    const name = u => this.escapeWorkerText(u.name.replace(/\s*\([^)]*\)/g, '').trim());
+    const modal = Modal.create('Giao việc', `
+      <div class="dsp-choice">
+        <p><b>${this.escapeWorkerText(project.name)}</b><br><span class="dsp-muted">Chọn thợ. Việc được giao trong tab Điều Phối Thợ, ngày hôm nay.</span></p>
+        ${crew.map(u => `<button type="button" class="dsp-choice-btn" data-worker="${u.id}"><b>${name(u)}</b><span>${u.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ'}</span></button>`).join('')}
+      </div>`);
+    modal.element.querySelectorAll('[data-worker]').forEach(btn => btn.addEventListener('click', () => {
+      modal.close();
+      onPick(crew.find(u => u.id === btn.dataset.worker));
+    }));
+  },
+
   // 9. OPEN PROJECT DETAILS DRAWER (MANAGER VIEW)
   openProjectDetailsDrawer(projectId, user, onUpdate) {
     const project = DB.getProject(projectId);
-    const stepInfo = STEPS.find(s => s.num === project.step);
-    const nextStepInfo = STEPS.find(s => s.num === project.step + 1);
     const isManagementRole = ['manager', 'kts', 'sales', 'marketing'].includes(user.role);
 
     // Build interactive Scope Manager HTML (always show, even if empty)
@@ -4947,43 +4861,6 @@ export const UI = {
         <div class="project-detail-summary" style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
           <h4 class="project-detail-project-name" style="font-family:var(--font-title); font-size:1.15rem; color:var(--text-primary);">${project.name}</h4>
           
-          <!-- Visual Stepper: completed steps are filled -->
-          <div class="project-detail-stepper" style="margin: 12px 0 16px 0;">
-            <label class="form-label project-detail-stepper-label" style="font-size:0.75rem; margin-bottom:8px; display:block;">Trình tự các giai đoạn (4 Giai đoạn):</label>
-            <div class="stepper-scroll-container" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory;">
-              ${STEPS.map((s, idx) => {
-      const isCompleted = s.num < project.step;
-      const isCurrent = s.num === project.step;
-
-      let bg = 'rgba(255,255,255,0.02)';
-      let border = '1px solid var(--border-color)';
-      let color = 'var(--text-muted)';
-      let icon = s.num;
-
-      if (isCompleted) {
-        bg = 'rgba(78, 141, 124, 0.15)'; // Sage fill
-        border = '1px solid var(--status-approved)';
-        color = 'var(--status-approved)';
-        icon = '<i class="fas fa-check-circle"></i>';
-      } else if (isCurrent) {
-        bg = 'var(--primary)'; // Gold active fill
-        border = '1px solid var(--primary)';
-        color = 'var(--bg-primary)';
-        icon = `<span style="font-weight:bold;">${s.num}</span>`;
-      }
-
-      return `
-                  <div class="stepper-item-card ${isCurrent ? 'stepper-item-active' : ''}" style="flex:0 0 110px; display:flex; flex-direction:column; align-items:center; text-align:center; background-color:${bg}; border:${border}; border-radius:12px; padding:10px 8px; transition:all 0.3s; scroll-snap-align:start;">
-                    <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:${isCurrent ? 'var(--bg-primary)' : color}; margin-bottom:6px;">
-                      ${icon}
-                    </div>
-                    <span style="font-size:0.65rem; font-weight:${isCurrent ? '700' : '500'}; color:${isCurrent ? 'var(--text-primary)' : color}; word-break:break-word; line-height:1.4; width:100%;" title="${s.title}">${s.title}</span>
-                  </div>
-                `;
-    }).join('')}
-            </div>
-          </div>
-
           <p class="project-detail-deadline" style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
             Hạn deadline: <span style="font-weight:700; font-size:0.78rem; padding:2px 8px; border-radius:6px; background-color:rgba(197, 168, 128, 0.12); border:1px solid rgba(197, 168, 128, 0.3); color:var(--primary);">${project.deadline}</span> 
             (Hạn gốc: ${project.originalDeadline})
@@ -4992,19 +4869,7 @@ export const UI = {
 
         <!-- System state & action buttons -->
         <div class="project-drawer-actions ${isManagementRole ? 'has-management-actions' : ''} ${project.isCompleted ? 'is-completed' : ''}">
-          ${isManagementRole && project.step < 4 && nextStepInfo
-        ? `
-              <button class="btn-primary project-drawer-action project-drawer-action--advance" id="drawer-btn-advance">
-                <i class="fas fa-step-forward project-drawer-action-icon"></i>
-                <span class="project-drawer-action-copy">
-                  <span class="project-drawer-action-label">Phê Duyệt Sang Giai Đoạn Tiếp Theo</span>
-                  <span class="project-drawer-action-note">Lên: GĐ ${nextStepInfo.num} - ${nextStepInfo.title}</span>
-                </span>
-              </button>
-            `
-        : ''
-      }
-          ${isManagementRole && project.step === 4 && !project.isCompleted
+          ${isManagementRole && !project.isCompleted
         ? `
               <button class="btn-primary project-drawer-action project-drawer-action--complete" id="drawer-btn-complete-project">
                 <i class="fas fa-check-double"></i> Hoàn Thành Công Trình
@@ -5118,16 +4983,6 @@ export const UI = {
         }
       }, 80);
     };
-
-    // Auto-scroll stepper container to current step card
-    setTimeout(() => {
-      const container = drawer.element.querySelector('.stepper-scroll-container');
-      const activeCard = drawer.element.querySelector('.stepper-item-active');
-      if (container && activeCard) {
-        const offset = activeCard.offsetLeft - (container.clientWidth / 2) + (activeCard.clientWidth / 2);
-        container.scrollTo({ left: offset, behavior: 'smooth' });
-      }
-    }, 120);
 
     // ── SCOPE MANAGER BINDINGS ──────────────────────────────────────────
     const bindScopeManager = () => {
@@ -5398,28 +5253,6 @@ export const UI = {
         this.openScopeModal(projectId, user, () => {
           refreshAndReopenProject();
         });
-      });
-    }
-
-    // Step progression click
-    const btnAdvance = document.getElementById('drawer-btn-advance');
-    if (btnAdvance) {
-      btnAdvance.addEventListener('click', async () => {
-        try {
-          btnAdvance.disabled = true;
-          const originalText = btnAdvance.innerHTML;
-          btnAdvance.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang duyệt...';
-
-          const prj = await DB.advanceProject(projectId, user.id);
-          if (prj) {
-            Toast.success('Đã duyệt chuyển giai đoạn thành công!');
-            refreshAndReopenProject();
-          }
-        } catch (err) {
-          Toast.error(err.message);
-        } finally {
-          btnAdvance.disabled = false;
-        }
       });
     }
 
@@ -6903,18 +6736,18 @@ export const UI = {
     // 9.1 If manager is logged in, refresh the active tab's specific render function
     const btnGeneral = document.getElementById('tab-general-btn');
     const btnProgress = document.getElementById('tab-progress-btn');
-    const btnKanban = document.getElementById('tab-kanban-btn');
     const btnCompleted = document.getElementById('tab-completed-btn');
     const btnLogs = document.getElementById('tab-logs-btn');
     const btnDashboard = document.getElementById('tab-dashboard-btn');
+    const btnDispatch = document.getElementById('tab-dispatch-btn');
 
-    if (btnGeneral || btnProgress || btnKanban || btnCompleted || btnLogs || btnDashboard) {
-      if (btnGeneral && btnGeneral.classList.contains('active')) {
+    if (btnGeneral || btnProgress || btnCompleted || btnLogs || btnDashboard || btnDispatch) {
+      if (btnDispatch && btnDispatch.classList.contains('active')) {
+        DispatchView.refresh();
+      } else if (btnGeneral && btnGeneral.classList.contains('active')) {
         this.renderGeneralManagement(user);
       } else if (btnProgress && btnProgress.classList.contains('active')) {
         this.renderProgressBoard(user);
-      } else if (btnKanban && btnKanban.classList.contains('active')) {
-        this.renderManagerKanban(user);
       } else if (btnCompleted && btnCompleted.classList.contains('active')) {
         this.renderManagerCompleted(user);
       } else if (btnLogs && btnLogs.classList.contains('active')) {
@@ -6924,6 +6757,10 @@ export const UI = {
       }
     } else {
       if (['lead_worker', 'assistant_worker'].includes(user.role) && this.refreshWorkerTaskBoard) this.refreshWorkerTaskBoard();
+      if (['lead_worker', 'assistant_worker'].includes(user.role)) {
+        if (this.refreshWorkerToday) this.refreshWorkerToday();
+        this.ensureWorkerDispatch(user);
+      }
       if (this.refreshCrewSummary) this.refreshCrewSummary();
       let relevantProjects = DB.getProjectsForUser(user);
 
