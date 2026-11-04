@@ -48,6 +48,8 @@
   .worker-view .welcome-user { font-size: 1rem; font-weight: 600; line-height: 1.45; }
   .worker-view .welcome-date { font-size: .72rem; margin-top: 4px; }
   .worker-view .worker-history-navigation .tab-btn { font-size: .8rem !important; font-weight: 600 !important; }
+  .worker-history-navigation { flex-direction: column; }
+  .worker-history-navigation .tab-btn:not([hidden]) ~ .tab-btn:not([hidden]) { border-top: 1px solid var(--border-color) !important; border-radius: 0 0 12px 12px; }
 }
 
 .manager-journal { display: grid; gap: 16px; padding-bottom: 20px; }
@@ -62,6 +64,8 @@
 .manager-journal button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary); font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
 .manager-journal button:disabled { opacity: .45; cursor: default; }
 .manager-journal button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.journal-pending-badge { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; color: var(--status-pending); background: rgba(217,119,6,.14); vertical-align: middle; }
+.worker-history-navigation .tab-btn[hidden] { display: none !important; }
 .journal-overview { font-size: .85rem; color: var(--primary); font-weight: 600; }
 .journal-project-list { display: grid; gap: 20px; }
 .journal-project { min-width: 0; overflow: hidden; border: 1px solid var(--primary); border-radius: 12px; background: var(--bg-secondary); }

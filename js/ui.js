@@ -36,6 +36,9 @@ export const DEFAULT_SCOPE_TEMPLATE = {
   'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
 };
 
+// Accounts that get the crew report summary tab in the worker view.
+const CREW_SUMMARY_USER_IDS = ['usr_minhnhat'];
+
 export const UI = {
   // Main container
   getAppContainer() {
@@ -667,7 +670,9 @@ export const UI = {
         <button class="tab-btn" id="tab-edit-reports" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
           Lịch Sử & Sửa Báo Cáo
         </button>
+        ${CREW_SUMMARY_USER_IDS.includes(user.id) ? `<button class="tab-btn" id="tab-crew-summary" type="button" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;"><i class="fas fa-clipboard-list"></i> Tổng Hợp Báo Cáo Thợ</button>` : ''}
       </div>
+      <div id="tab-content-crew-summary" hidden></div>
 
       ${isTaskWorker ? '<div id="worker-task-board"></div>' : ''}
       <!-- Tab Content: Create Report -->
@@ -1207,16 +1212,35 @@ export const UI = {
       };
       board.hidden = !!taskContext;
       contentCreate.hidden = !taskContext;
+      const tabSummary = document.getElementById('tab-crew-summary');
+      const contentSummary = document.getElementById('tab-content-crew-summary');
+      if (contentSummary) navigation.insertAdjacentElement('afterend', contentSummary);
       tabCreate.addEventListener('click', () => {
         board.hidden = !!taskContext;
         tabCreate.hidden = true;
         tabEdit.hidden = false;
+        if (tabSummary) { tabSummary.hidden = false; contentSummary.hidden = true; }
       });
       tabEdit.addEventListener('click', () => {
         board.hidden = true;
         tabCreate.hidden = false;
         tabEdit.hidden = true;
+        if (tabSummary) { tabSummary.hidden = false; contentSummary.hidden = true; }
       });
+      if (tabSummary) {
+        tabSummary.addEventListener('click', () => {
+          board.hidden = true;
+          tabCreate.classList.remove('active');
+          tabEdit.classList.remove('active');
+          contentCreate.style.display = 'none';
+          contentEdit.style.display = 'none';
+          tabCreate.hidden = false;
+          tabEdit.hidden = false;
+          tabSummary.hidden = true;
+          contentSummary.hidden = false;
+          this.renderManagerLogs(user, { container: contentSummary, workersOnly: true });
+        });
+      }
       const approvals = document.getElementById('lead-approval-container');
       if (approvals) {
         body.appendChild(approvals);
@@ -3841,8 +3865,11 @@ export const UI = {
   },
 
   // 7.1 Daily journal shared by manager, engineering, sales and marketing.
-  renderManagerLogs(user) {
-    const container = document.getElementById('manager-tab-content');
+  // options.container: render somewhere other than the manager tab.
+  // options.workersOnly: crew summary mode (only lead/assistant workers' reports, pending ones shown with a badge).
+  renderManagerLogs(user, options = {}) {
+    const container = options.container || document.getElementById('manager-tab-content');
+    const workersOnly = !!options.workersOnly;
     const prior = container.querySelector('.manager-journal');
     const retained = prior?.dataset.user === user.id ? {
       reporter: container.querySelector('#filter-log-reporter').value,
@@ -3853,20 +3880,27 @@ export const UI = {
     } : null;
     const today = this.getJournalDate();
     const projects = DB.getProjects();
-    const users = DB.load().users;
+    const workerRoles = ['lead_worker', 'assistant_worker'];
+    const users = DB.load().users.filter(u => !workersOnly || workerRoles.includes(u.role));
+    const workerIds = new Set(users.map(u => u.id));
     const escape = value => this.escapeWorkerText(value);
     let allLogs = projects.flatMap(project => (project.dailyLogs || [])
-      .filter(log => log.approved !== false).map(log => ({ log, project })));
+      .filter(log => workersOnly
+        ? (workerIds.has(log.reporterId) || workerRoles.includes(log.reporterRole))
+        : log.approved !== false)
+      .map(log => ({ log, project })));
     allLogs.sort((a, b) => String(b.log.date || '').localeCompare(String(a.log.date || '')) ||
       String(b.log.createdAt || b.log.timestamp || '').localeCompare(String(a.log.createdAt || a.log.timestamp || '')));
-    const canDelete = ['manager', 'kts', 'sales'].includes(user.role);
+    const canDelete = !workersOnly && ['manager', 'kts', 'sales'].includes(user.role);
     container.innerHTML = `
       <section class="manager-journal" data-user="${escape(user.id)}" data-follow-today="${retained?.followToday !== false}">
-        <div class="journal-heading"><div><h2>Nhật ký báo cáo</h2><p>Xem công việc đã làm và phần còn lại theo từng công trình.</p></div></div>
+        <div class="journal-heading"><div>${workersOnly
+          ? '<h2>Tổng hợp báo cáo thợ</h2><p>Báo cáo của tất cả thợ theo ngày, gom theo công trình. Báo cáo chưa được thợ chính duyệt có nhãn “Chờ duyệt”.</p>'
+          : '<h2>Nhật ký báo cáo</h2><p>Xem công việc đã làm và phần còn lại theo từng công trình.</p>'}</div></div>
         <div class="journal-filters">
           <div class="journal-date-filter"><label for="filter-log-date">Ngày báo cáo</label><div><input type="date" id="filter-log-date" class="form-input"><button type="button" id="journal-today">Hôm nay</button></div></div>
           <div><label for="filter-log-project">Công trình</label><select id="filter-log-project" class="form-select"><option value="all">Tất cả công trình</option>${projects.map(p => `<option value="${escape(p.id)}">${escape(p.name)}</option>`).join('')}</select></div>
-          <div><label for="filter-log-reporter">Nhân sự</label><select id="filter-log-reporter" class="form-select"><option value="all">Tất cả nhân sự</option>${users.map(w => `<option value="${escape(w.id)}">${escape(w.name)}</option>`).join('')}</select></div>
+          <div><label for="filter-log-reporter">${workersOnly ? 'Thợ' : 'Nhân sự'}</label><select id="filter-log-reporter" class="form-select"><option value="all">${workersOnly ? 'Tất cả thợ' : 'Tất cả nhân sự'}</option>${users.map(w => `<option value="${escape(w.id)}">${escape(w.name)}</option>`).join('')}</select></div>
           <div><label for="filter-log-status">Tiến độ báo cáo</label><select id="filter-log-status" class="form-select"><option value="all">Tất cả tiến độ</option><option value="on_track">Đúng tiến độ</option><option value="delayed">Bị chậm</option></select></div>
         </div>
         <div class="journal-overview" id="journal-overview" aria-live="polite"></div>
@@ -3895,7 +3929,7 @@ export const UI = {
         groups.get(entry.project.id).entries.push({ ...entry, index });
       });
       const dayLabel = dateInput.value ? dateInput.value.split('-').reverse().join('/') : 'Tất cả ngày';
-      container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} nhân sự`;
+      container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} ${workersOnly ? 'thợ' : 'nhân sự'}${workersOnly && filtered.some(e => e.log.approved === false) ? ` · ${filtered.filter(e => e.log.approved === false).length} chờ duyệt` : ''}`;
       const list = container.querySelector('#filtered-logs-list');
       list.innerHTML = Array.from(groups.values()).map(({ project, entries }) => `
         <section class="journal-project"><header><span>Công trình · ${entries.length} báo cáo</span><h3>${escape(project.name)}</h3></header>
@@ -3903,7 +3937,7 @@ export const UI = {
             const stamp = log.createdAt || log.timestamp;
             const time = stamp && !Number.isNaN(Date.parse(stamp)) ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '';
             return `<article class="manager-log-card journal-report" data-log-id="${escape(log.id)}">
-              <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong><p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
+              <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong>${log.approved === false ? ' <span class="journal-pending-badge">Chờ duyệt</span>' : ''}<p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
                 <div class="journal-report-actions"><button type="button" data-view-log="${index}">Chi tiết</button>${canDelete ? `<button type="button" class="btn-delete-log-from-tab" data-delete-log="${index}">Xóa</button>` : ''}</div></div>
               ${this.getJournalRows(log, project).map(row => `<div class="journal-item">
                 <div class="journal-current-task"><div class="journal-item-heading"><label>Nhiệm vụ</label><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div><h4>${escape(row.task)}</h4></div>
@@ -3913,7 +3947,7 @@ export const UI = {
               </div>`).join('')}
             </article>`;
           }).join('')}
-        </section>`).join('') || '<div class="worker-task-empty">Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.</div>';
+        </section>`).join('') || `<div class="worker-task-empty">${workersOnly ? 'Chưa có báo cáo nào của thợ khớp với bộ lọc. Có thể chọn ngày khác.' : 'Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.'}</div>`;
       list.querySelectorAll('[data-view-log]').forEach(btn => btn.addEventListener('click', () => {
         const entry = filtered[Number(btn.dataset.viewLog)];
         this.openLogDetailModal(entry.log, entry.project);
