@@ -1316,10 +1316,15 @@ export const DB = {
   },
 
   // Submit Daily Log (Báo cáo cuối ngày)
-  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '', items = [], approverId = '') {
+  // submittedById: set when someone files this report on behalf of userId (e.g. Minh Nhật
+  // reporting a lead's task from the crew summary). It is kept inside each item because the
+  // items JSON is the only free-form field stored in Supabase.
+  submitDailyLog(projectId, status, note, photos = [], userId, expectedCompletionDate = '', items = [], approverId = '', submittedById = '') {
     const db = this.load();
     const project = db.projects.find(p => p.id === projectId);
     const user = db.users.find(u => u.id === userId);
+    const submitter = submittedById && submittedById !== userId ? db.users.find(u => u.id === submittedById) : null;
+    if (submitter) items = items.map(it => ({ ...it, submittedById: submitter.id, submittedByName: submitter.name }));
 
     if (project) {
       if (photos.length < 1) {
@@ -1329,13 +1334,16 @@ export const DB = {
       const logId = 'log_' + Math.random().toString(36).substr(2, 9);
       const isAssistant = user && user.role === 'assistant_worker';
 
-      // Check if they are marked as working at workshop today in attendance sheet
-      const today = new Date().toISOString().split('T')[0];
+      // Report day follows Vietnam time (UTC+7), not UTC, so early-morning reports land on the right day.
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       const todayRecord = db.attendance ? db.attendance.find(a => a.userId === userId && a.date === today) : null;
       const isWorkshopToday = todayRecord && (todayRecord.isWorkingAtWorkshop === true || todayRecord.isWorkingAtWorkshop === 'true');
 
-      // Needs approval if: is assistant AND selected a specific lead worker (not empty or 'independent')
-      const needsApproval = isAssistant && approverId && approverId !== 'independent';
+      // Reports no longer wait for lead approval. For an assistant, approverId now only records
+      // the lead they worked with ("làm cùng"), which makes this a shared report.
+      const needsApproval = false;
+      const worksWithLead = isAssistant && approverId && approverId !== 'independent';
+      const companion = worksWithLead ? db.users.find(u => u.id === approverId) : null;
 
       const nowIso = new Date().toISOString();
       const newLog = {
@@ -1359,10 +1367,10 @@ export const DB = {
 
       const hist = {
         timestamp: new Date().toISOString(),
-        action: needsApproval 
-          ? `Gửi báo cáo thợ phụ (Chờ thợ chính duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
-          : `Gửi báo cáo thợ phụ (Làm độc lập - Tự duyệt): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
-        user: user ? user.name : 'Nhân viên'
+        action: worksWithLead
+          ? `Gửi báo cáo chung (làm cùng ${companion ? companion.name : 'thợ chính'}): Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`
+          : `Gửi báo cáo${isAssistant ? ' thợ phụ (làm độc lập)' : ''}${submitter ? ` (do ${submitter.name} báo cáo thay)` : ''}: Trạng thái [${status === 'on_track' ? 'Đúng tiến độ' : 'Bị chậm'}], Dự kiến xong: ${expectedCompletionDate || 'Chưa đặt'}`,
+        user: submitter ? submitter.name : (user ? user.name : 'Nhân viên')
       };
       project.history.push(hist);
 
@@ -1373,6 +1381,12 @@ export const DB = {
       return newLog;
     }
     return null;
+  },
+
+  // Who actually filed a report when it was made on someone else's behalf, else null.
+  getLogSubmitter(log) {
+    const item = (log && Array.isArray(log.items) ? log.items : []).find(it => it && it.submittedById);
+    return item && item.submittedById !== log.reporterId ? { id: item.submittedById, name: item.submittedByName || '' } : null;
   },
 
   // Phê duyệt báo cáo thợ phụ bởi thợ chính

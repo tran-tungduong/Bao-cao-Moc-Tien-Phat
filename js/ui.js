@@ -1,4 +1,4 @@
-import { DB } from './db.js?v=20260915-egress-phase2';
+import { DB } from './db.js?v=20261104-crew-summary7';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 
@@ -36,8 +36,10 @@ export const DEFAULT_SCOPE_TEMPLATE = {
   'Phòng tắm': ['Lavabo', 'Tủ gương', 'Khác...']
 };
 
-// Accounts that get the crew report summary tab in the worker view.
+// Accounts that see the "Tổng hợp báo cáo" tab at the top of the worker view.
 const CREW_SUMMARY_USER_IDS = ['usr_minhnhat'];
+// Workers shown as one box each in that tab, in this order.
+const CREW_SUMMARY_MEMBER_IDS = ['usr_cuong', 'usr_ut', 'usr_minhnhat'];
 
 export const UI = {
   // Main container
@@ -670,9 +672,7 @@ export const UI = {
         <button class="tab-btn" id="tab-edit-reports" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;">
           Lịch Sử & Sửa Báo Cáo
         </button>
-        ${CREW_SUMMARY_USER_IDS.includes(user.id) ? `<button class="tab-btn" id="tab-crew-summary" type="button" style="flex:1; padding:12px; font-weight:700; font-size:0.88rem; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; outline:none;"><i class="fas fa-clipboard-list"></i> Tổng Hợp Báo Cáo Thợ</button>` : ''}
       </div>
-      <div id="tab-content-crew-summary" hidden></div>
 
       ${isTaskWorker ? '<div id="worker-task-board"></div>' : ''}
       <!-- Tab Content: Create Report -->
@@ -701,7 +701,7 @@ export const UI = {
             <div id="report-form-fields-wrapper" style="display:${relevantProjects.length === 1 ? 'flex' : 'none'}; flex-direction:column; gap:16px;">
               ${user.role === 'assistant_worker' ? `
                 <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
-                  <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
+                  <label class="form-label">Làm cùng thợ chính</label>
                   <select id="log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
                     ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
                     ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
@@ -742,7 +742,7 @@ export const UI = {
               </div>
 
               <button type="submit" class="btn-primary" style="margin-top:8px;">
-                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' && selectedAssistantMode !== 'independent' ? 'Gửi Báo Cáo Chờ Duyệt' : 'Gửi Báo Cáo Cuối Ngày'}
+                <i class="fas fa-paper-plane"></i> Gửi Báo Cáo Cuối Ngày
               </button>
             </div>
           </form>
@@ -941,10 +941,11 @@ export const UI = {
           const selectedLeadId = DB.getSelectedLeadWorkerForAssistant ? DB.getSelectedLeadWorkerForAssistant(user.id) : '';
           const approverEl = document.getElementById('log-approver-id');
           const approverId = selectedLeadId || (approverEl ? approverEl.value : '');
-          const needsApproval = isAssistant && approverId && approverId !== 'independent';
+          // Assistant reports no longer wait for lead approval; the chosen lead is only recorded as "làm cùng".
+          const needsApproval = false;
 
           if (selectedTaskId) {
-            // Update existing subtask status ONLY if this report does NOT need lead worker approval
+            // Update the task straight away from this report
             const existingTask = loadedProj.subtasks.find(st => st.id === selectedTaskId);
             if (existingTask && !needsApproval) {
               existingTask.status = isCompleted ? 'completed' : 'pending';
@@ -1042,10 +1043,11 @@ export const UI = {
             actor_id: user.id
           });
         }
-        if (user.role === 'assistant_worker' && selectedLeadId && selectedLeadId !== 'independent') {
-          Toast.success('Đã gửi báo cáo — đang chờ thợ chính phê duyệt.');
+        if (user.role === 'assistant_worker' && approverId && approverId !== 'independent') {
+          const companion = DB.load().users.find(u => u.id === approverId);
+          Toast.success(`Đã gửi báo cáo chung với ${companion ? companion.name.replace(/\s*\([^)]*\)/g, '').trim() : 'thợ chính'}.`);
         } else if (user.role === 'assistant_worker') {
-          Toast.success('Đã gửi báo cáo! (Làm độc lập — tự duyệt ngay)');
+          Toast.success('Đã gửi báo cáo (làm độc lập).');
         } else {
           Toast.success('Gửi báo cáo cuối ngày thành công!');
         }
@@ -1095,7 +1097,7 @@ export const UI = {
               <div>
                 <h5 style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 2px;">${p.name}</h5>
                 <p style="font-size: 0.76rem; color: var(--text-secondary);">
-                  Ngày báo cáo: <strong>${/^\d{4}-\d{2}-\d{2}$/.test(String(l.date)) ? String(l.date).split('-').reverse().join('/') : l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved); white-space:nowrap;">Đã duyệt ✅</span>' : '<span style="color:var(--status-pending); white-space:nowrap;">Chờ duyệt ⏳</span>'}
+                  Ngày báo cáo: <strong>${/^\d{4}-\d{2}-\d{2}$/.test(String(l.date)) ? String(l.date).split('-').reverse().join('/') : l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved); white-space:nowrap;">Đã gửi ✅</span>' : '<span style="color:var(--status-pending); white-space:nowrap;">Chờ duyệt ⏳</span>'}
                 </p>
               </div>
 
@@ -1212,35 +1214,16 @@ export const UI = {
       };
       board.hidden = !!taskContext;
       contentCreate.hidden = !taskContext;
-      const tabSummary = document.getElementById('tab-crew-summary');
-      const contentSummary = document.getElementById('tab-content-crew-summary');
-      if (contentSummary) navigation.insertAdjacentElement('afterend', contentSummary);
       tabCreate.addEventListener('click', () => {
         board.hidden = !!taskContext;
         tabCreate.hidden = true;
         tabEdit.hidden = false;
-        if (tabSummary) { tabSummary.hidden = false; contentSummary.hidden = true; }
       });
       tabEdit.addEventListener('click', () => {
         board.hidden = true;
         tabCreate.hidden = false;
         tabEdit.hidden = true;
-        if (tabSummary) { tabSummary.hidden = false; contentSummary.hidden = true; }
       });
-      if (tabSummary) {
-        tabSummary.addEventListener('click', () => {
-          board.hidden = true;
-          tabCreate.classList.remove('active');
-          tabEdit.classList.remove('active');
-          contentCreate.style.display = 'none';
-          contentEdit.style.display = 'none';
-          tabCreate.hidden = false;
-          tabEdit.hidden = false;
-          tabSummary.hidden = true;
-          contentSummary.hidden = false;
-          this.renderManagerLogs(user, { container: contentSummary, workersOnly: true });
-        });
-      }
       const approvals = document.getElementById('lead-approval-container');
       if (approvals) {
         body.appendChild(approvals);
@@ -1328,6 +1311,233 @@ export const UI = {
         }
       }
     }
+
+    this.mountCrewSummaryTabs(user, body, taskContext);
+  },
+
+  // Two top-level tabs for crew summary accounts: own report work / daily crew summary.
+  mountCrewSummaryTabs(user, body, taskContext) {
+    this.refreshCrewSummary = null;
+    if (!CREW_SUMMARY_USER_IDS.includes(user.id)) return;
+    this.crewViewer = user;
+    const welcome = body.querySelector('.welcome-section');
+    if (!welcome) return;
+    const reportPane = document.createElement('div');
+    reportPane.id = 'worker-report-pane';
+    while (welcome.nextSibling) reportPane.appendChild(welcome.nextSibling);
+    const tabs = document.createElement('div');
+    tabs.className = 'crew-top-tabs';
+    tabs.setAttribute('role', 'tablist');
+    tabs.innerHTML = `
+      <button type="button" role="tab" data-crew-tab="report"><i class="fas fa-edit"></i> Báo cáo</button>
+      <button type="button" role="tab" data-crew-tab="summary"><i class="fas fa-users"></i> Tổng hợp báo cáo</button>`;
+    const summaryPane = document.createElement('div');
+    summaryPane.id = 'crew-summary-pane';
+    welcome.after(tabs, reportPane, summaryPane);
+    if (taskContext) this.workerTopTab = 'report';
+    const show = tab => {
+      this.workerTopTab = tab;
+      tabs.querySelectorAll('[data-crew-tab]').forEach(btn => btn.setAttribute('aria-selected', String(btn.dataset.crewTab === tab)));
+      reportPane.hidden = tab !== 'report';
+      summaryPane.hidden = tab !== 'summary';
+      if (tab === 'summary') this.renderCrewSummary(summaryPane);
+    };
+    tabs.querySelectorAll('[data-crew-tab]').forEach(btn => btn.addEventListener('click', () => show(btn.dataset.crewTab)));
+    this.refreshCrewSummary = () => {
+      if (document.getElementById('crew-summary-pane') === summaryPane && !summaryPane.hidden) this.renderCrewSummary(summaryPane);
+    };
+    show(this.workerTopTab === 'summary' ? 'summary' : 'report');
+  },
+
+  // One box per worker for the chosen day, built around their tasks. Tasks are not tied to a day:
+  // a task counts as reported for the day when any report that day covers it. A report an assistant
+  // files while working with a lead (log.approverId = that lead) lands on the lead's task and is
+  // also listed as one short line in the assistant's own box.
+  renderCrewSummary(pane) {
+    const escape = value => this.escapeWorkerText(value);
+    const shortName = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim() || 'Chưa rõ';
+    const today = this.getJournalDate();
+    const date = this.crewSummaryDate || today;
+    const db = DB.load();
+    const workerRoles = ['lead_worker', 'assistant_worker'];
+    const usersById = new Map(db.users.map(u => [u.id, u]));
+    const isLead = id => usersById.get(id)?.role === 'lead_worker';
+    const senderName = log => shortName(log.reporterName || usersById.get(log.reporterId)?.name);
+    const isItemDone = it => it && (it.isCompleted === true || it.isCompleted === 'true' || Number(it.progress) === 100);
+    const vnDay = iso => iso && !Number.isNaN(Date.parse(iso)) ? this.getJournalDate(new Date(iso)) : '';
+    const timeOf = log => {
+      const stamp = log.createdAt || log.timestamp;
+      return stamp && !Number.isNaN(Date.parse(stamp)) ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '';
+    };
+    const splitTitle = title => {
+      const m = String(title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
+      return m ? { name: m[2], room: m[1].split(' - ').filter(part => !this.isWholeRoomItem(part)).join(' · ') } : { name: title, room: '' };
+    };
+    const dayLogs = (db.projects || []).flatMap(project => (project.dailyLogs || [])
+      .filter(log => log.date === date && (workerRoles.includes(usersById.get(log.reporterId)?.role) || workerRoles.includes(log.reporterRole)))
+      .map(log => ({ log, project, companionId: log.approverId && log.approverId !== log.reporterId && isLead(log.approverId) ? log.approverId : '' })))
+      .sort((a, b) => String(a.log.createdAt || a.log.timestamp || '').localeCompare(String(b.log.createdAt || b.log.timestamp || '')));
+    const viewer = this.crewViewer || DB.getCurrentUser();
+    const canReport = date === today && viewer;
+    const entryRefs = [];
+    const refOf = entry => entryRefs.push(entry) - 1;
+    const photoBtn = entry => `<button type="button" class="crew-photo-btn" data-entry="${refOf(entry)}">Ảnh${(entry.log.photos || []).length ? ` (${entry.log.photos.length})` : ''}</button>`;
+
+    // Only the current crew gets boxes (edit CREW_SUMMARY_MEMBER_IDS when workers join or leave).
+    const boxes = CREW_SUMMARY_MEMBER_IDS.filter(id => usersById.has(id)).map(id => {
+      const member = usersById.get(id);
+      const taskIds = new Set();
+      const tasks = (db.projects || []).flatMap(project => (project.subtasks || [])
+        .filter(t => t.assignedTo === id)
+        .map(task => {
+          const lines = dayLogs.flatMap(entry => entry.project.id !== project.id ? [] :
+            (entry.log.items || []).filter(it => it.taskId === task.id).map(item => ({ entry, item })));
+          return { task, project, lines, done: lines.some(l => isItemDone(l.item)) };
+        })
+        // Open on the chosen day: still open, finished on/after that day, or reported that day.
+        .filter(({ task, lines }) => lines.length || (!project.isCompleted && (task.status !== 'completed' || (vnDay(task.completedAt) && vnDay(task.completedAt) >= date)))));
+      tasks.forEach(t => taskIds.add(t.task.id));
+      // The member's own report items that are not on one of their tasks (e.g. helping a lead).
+      const otherLines = dayLogs.filter(e => e.log.reporterId === id).flatMap(entry => {
+        const items = Array.isArray(entry.log.items) && entry.log.items.length ? entry.log.items : [null];
+        return items.filter(it => !it || !taskIds.has(it.taskId)).map(item => ({ entry, item }));
+      });
+      const reported = tasks.filter(t => t.lines.length).length;
+      const hasReport = reported > 0 || otherLines.length > 0;
+      const state = tasks.length ? (reported === tasks.length ? 'ok' : hasReport ? 'partial' : 'missing') : (hasReport ? 'ok' : 'idle');
+      const badge = tasks.length ? `${reported}/${tasks.length} đã báo cáo` : hasReport ? 'Đã báo cáo' : 'Không có nhiệm vụ';
+      return { member, tasks, otherLines, state, badge, hasReport };
+    });
+    const withReport = boxes.filter(b => b.hasReport).length;
+    const missingTasks = boxes.reduce((n, b) => n + b.tasks.filter(t => !t.lines.length).length, 0);
+    const dayText = date.split('-').reverse().join('/');
+
+    const lineHtml = ({ entry, item }, memberId) => {
+      const by = entry.log.reporterId === memberId ? '' : `<b class="crew-by">${escape(senderName(entry.log))}</b> `;
+      const submitter = DB.getLogSubmitter(entry.log);
+      const proxy = submitter ? `<span class="crew-proxy">✍ ${escape(shortName(submitter.name || usersById.get(submitter.id)?.name))} báo cáo thay</span> ` : '';
+      const work = item ? item.todayWork : this.formatReportNote(entry.log.note);
+      const remaining = item && !isItemDone(item) && item.pendingNotes ? ` <span class="crew-left">Còn: ${escape(item.pendingNotes)}</span>` : '';
+      return `<p class="crew-line">${proxy}${by}<span class="crew-time">${escape(timeOf(entry.log))}</span> ${escape(work || 'Chưa ghi nội dung')}${remaining} ${photoBtn(entry)}</p>`;
+    };
+
+    pane.innerHTML = `
+      <section class="crew-summary">
+        <div class="crew-summary-head">
+          <div class="crew-summary-date"><input type="date" id="crew-summary-date" class="form-input" aria-label="Chọn ngày xem" value="${escape(date)}" max="${escape(today)}"><button type="button" id="crew-summary-today" ${date === today ? 'disabled' : ''}>Hôm nay</button></div>
+          <p class="crew-summary-overview" aria-live="polite"><strong>${escape(dayText)}</strong> · ${withReport}/${boxes.length} thợ có báo cáo${missingTasks ? ` · <span class="crew-warn">${missingTasks} nhiệm vụ chưa báo cáo</span>` : ''}</p>
+        </div>
+        <div class="crew-summary-grid">
+          ${boxes.map(({ member, tasks, otherLines, state, badge }) => `<article class="crew-member-box is-${state}" data-member="${escape(member.id)}">
+            <header><h3>${escape(shortName(member.name))} <small>${member.role === 'lead_worker' ? 'Thợ chính' : 'Thợ phụ'}</small></h3><span class="crew-member-status">${badge}</span></header>
+            ${tasks.map(({ task, project, lines, done }) => {
+              const t = splitTitle(task.title);
+              const st = !lines.length ? ['missing', 'Chưa báo cáo'] : done ? ['done', 'Xong'] : ['reported', 'Đã báo cáo'];
+              return `<div class="crew-task is-${st[0]}">
+                <div class="crew-task-head"><h4>${escape(t.name || 'Nhiệm vụ')}</h4><span>${st[1]}</span></div>
+                <p class="crew-task-place">${escape(project.name)}${t.room ? ` · ${escape(t.room)}` : ''}</p>
+                ${lines.map(l => lineHtml(l, member.id)).join('')}
+                ${!lines.length && canReport ? `<button type="button" class="crew-report-btn" data-report-project="${escape(project.id)}" data-report-task="${escape(task.id)}" data-report-for="${escape(member.id)}">${member.id === viewer.id ? 'Báo cáo' : `Báo cáo thay ${escape(shortName(member.name))}`}</button>` : ''}
+              </div>`;
+            }).join('')}
+            ${otherLines.length ? `<div class="crew-task is-reported crew-other">
+              ${otherLines.map(({ entry, item }) => {
+                const lead = entry.companionId ? shortName(usersById.get(entry.companionId)?.name) : '';
+                const t = splitTitle(item ? (item.taskTitle || item.title || entry.project.subtasks?.find(s => s.id === item.taskId)?.title || '') : '');
+                return `<p class="crew-line"><span class="crew-time">${escape(timeOf(entry.log))}</span> ${lead ? `Làm cùng <b>${escape(lead)}</b>: ` : ''}${escape(t.name || (item ? item.todayWork : this.formatReportNote(entry.log.note)) || 'Báo cáo')} <span class="crew-task-place">· ${escape(entry.project.name)}</span> ${photoBtn(entry)}</p>`;
+              }).join('')}
+            </div>` : ''}
+            ${!tasks.length && !otherLines.length ? `<p class="crew-member-empty">${date === today ? 'Chưa báo cáo hôm nay' : 'Chưa báo cáo ngày này'}</p>` : ''}
+          </article>`).join('')}
+        </div>
+      </section>`;
+    const input = pane.querySelector('#crew-summary-date');
+    input.addEventListener('change', () => {
+      this.crewSummaryDate = input.value && input.value !== today ? input.value : null;
+      this.renderCrewSummary(pane);
+    });
+    pane.querySelector('#crew-summary-today').addEventListener('click', () => { this.crewSummaryDate = null; this.renderCrewSummary(pane); });
+    pane.querySelectorAll('[data-entry]').forEach(btn => btn.addEventListener('click', () => {
+      const entry = entryRefs[Number(btn.dataset.entry)];
+      this.openLogDetailModal(entry.log, entry.project);
+    }));
+    pane.querySelectorAll('[data-report-task]').forEach(btn => btn.addEventListener('click', () => {
+      this.openCrewReportModal(viewer, btn.dataset.reportProject, btn.dataset.reportTask, btn.dataset.reportFor, () => this.renderCrewSummary(pane));
+    }));
+  },
+
+  // Report one task from the crew summary. When the task belongs to someone else the report is
+  // filed as theirs (it counts for their task) and marked with who actually wrote it.
+  openCrewReportModal(viewer, projectId, taskId, assigneeId, onDone) {
+    const escape = value => this.escapeWorkerText(value);
+    const db = DB.load();
+    const project = db.projects.find(p => p.id === projectId);
+    const task = project?.subtasks?.find(t => t.id === taskId);
+    const assignee = db.users.find(u => u.id === assigneeId);
+    if (!project || !task || !assignee) { Toast.error('Không tìm thấy nhiệm vụ.'); return; }
+    const onBehalf = assignee.id !== viewer.id;
+    const short = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const prefix = String(task.title || '').match(/^\s*\[([^\]]+)\]:\s*(.*)$/s);
+    const [room = 'Công việc chung', ...rest] = prefix ? prefix[1].split(' - ') : [];
+    const item = rest.join(' - ') || 'Cả phòng';
+    const taskName = prefix ? prefix[2] : task.title;
+    const photos = [];
+    const modal = Modal.create(onBehalf ? `Báo cáo thay ${escape(short(assignee.name))}` : 'Báo cáo nhiệm vụ', `
+      <form id="crew-report-form" class="crew-report-form">
+        <div class="crew-report-form-task"><h4>${escape(taskName)}</h4><p>${escape(project.name)} · ${escape(this.isWholeRoomItem(item) ? room : `${room} · ${item}`)}</p></div>
+        ${onBehalf ? `<p class="crew-proxy-note">✍ Báo cáo này được tính cho <b>${escape(short(assignee.name))}</b> và ghi rõ <b>${escape(short(viewer.name))} báo cáo thay</b>.</p>` : ''}
+        <label class="form-label" for="crew-rf-work">Đã làm hôm nay</label>
+        <textarea id="crew-rf-work" class="form-textarea" rows="3" placeholder="Nhập công việc đã làm..." required></textarea>
+        <label class="crew-rf-done"><input type="checkbox" id="crew-rf-done"> Đã xong nhiệm vụ này</label>
+        <div id="crew-rf-left-wrap"><label class="form-label" for="crew-rf-left">Còn lại / cần làm tiếp</label>
+        <textarea id="crew-rf-left" class="form-textarea" rows="2" placeholder="Phần việc còn thiếu..."></textarea></div>
+        <label class="form-label">Ảnh thực tế (tối thiểu 1 ảnh)</label>
+        <label class="photo-uploader" for="crew-rf-photos"><i class="fas fa-camera"></i><p style="font-size:0.85rem; margin-top:4px; font-weight:500;">Bấm chụp ảnh hoặc tải tệp lên</p></label>
+        <input type="file" id="crew-rf-photos" accept="image/*" multiple hidden>
+        <div class="upload-preview-container" id="crew-rf-preview"></div>
+        <button type="submit" class="btn-primary">Gửi báo cáo</button>
+      </form>`);
+    const form = modal.element.querySelector('#crew-report-form');
+    const done = form.querySelector('#crew-rf-done');
+    const leftWrap = form.querySelector('#crew-rf-left-wrap');
+    done.addEventListener('change', () => { leftWrap.hidden = done.checked; });
+    const preview = form.querySelector('#crew-rf-preview');
+    const renderPhotos = () => {
+      preview.innerHTML = photos.map((src, i) => `<div class="upload-preview-item"><img src="${escape(src)}" alt="Ảnh ${i + 1}"><button type="button" class="upload-preview-remove" data-remove="${i}" aria-label="Bỏ ảnh">&times;</button></div>`).join('');
+      preview.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { photos.splice(Number(b.dataset.remove), 1); renderPhotos(); }));
+    };
+    this.bindPhotoUpload(form.querySelector('#crew-rf-photos'), photos, renderPhotos);
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const todayWork = form.querySelector('#crew-rf-work').value.trim();
+      const isCompleted = done.checked;
+      const pendingNotes = isCompleted ? '' : form.querySelector('#crew-rf-left').value.trim();
+      if (!todayWork || (!isCompleted && !pendingNotes)) { Toast.error('Vui lòng nhập công việc đã làm và phần việc còn lại nếu chưa xong.'); return; }
+      if (!photos.length) { Toast.error('Vui lòng đính kèm ít nhất 1 hình ảnh thực tế.'); return; }
+      const progress = isCompleted ? 100 : 50;
+      // Same task update the normal report form makes.
+      const fresh = DB.load();
+      const freshTask = fresh.projects.find(p => p.id === project.id)?.subtasks?.find(t => t.id === task.id);
+      if (freshTask) {
+        freshTask.status = isCompleted ? 'completed' : 'pending';
+        freshTask.completedAt = isCompleted ? new Date().toISOString() : null;
+        freshTask.items = [{ progress, pendingNotes, expectedCompletionDate: '' }];
+        DB.save(fresh);
+        DB.sbUpdateSubtask(task.id, { status: freshTask.status, completed_at: freshTask.completedAt, items: freshTask.items })
+          .catch(error => console.error('Task report sync failed:', error));
+      }
+      const items = [{ room, item, todayWork, progress, isCompleted, pendingNotes, expectedCompletionDate: '', taskId: task.id }];
+      const note = `${this.formatScopeTitle(room, item)}: ${todayWork}\n` + (isCompleted ? '  + Trạng thái: Đã hoàn thành xong ✅' : `  + Việc còn lại: ${pendingNotes}`);
+      try {
+        const log = DB.submitDailyLog(project.id, 'on_track', note, photos.slice(), assignee.id, '', items, '', viewer.id);
+        if (log) PushNotifications.emitEvent('report_created', { log_id: log.id, project_id: project.id, actor_id: viewer.id });
+        Toast.success(onBehalf ? `Đã báo cáo thay ${short(assignee.name)}.` : 'Đã gửi báo cáo.');
+        modal.close();
+        onDone();
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    });
   },
 
   // 3.1 OPEN LEAD WORKER REVIEW MODAL
@@ -3865,11 +4075,8 @@ export const UI = {
   },
 
   // 7.1 Daily journal shared by manager, engineering, sales and marketing.
-  // options.container: render somewhere other than the manager tab.
-  // options.workersOnly: crew summary mode (only lead/assistant workers' reports, pending ones shown with a badge).
-  renderManagerLogs(user, options = {}) {
-    const container = options.container || document.getElementById('manager-tab-content');
-    const workersOnly = !!options.workersOnly;
+  renderManagerLogs(user) {
+    const container = document.getElementById('manager-tab-content');
     const prior = container.querySelector('.manager-journal');
     const retained = prior?.dataset.user === user.id ? {
       reporter: container.querySelector('#filter-log-reporter').value,
@@ -3880,27 +4087,20 @@ export const UI = {
     } : null;
     const today = this.getJournalDate();
     const projects = DB.getProjects();
-    const workerRoles = ['lead_worker', 'assistant_worker'];
-    const users = DB.load().users.filter(u => !workersOnly || workerRoles.includes(u.role));
-    const workerIds = new Set(users.map(u => u.id));
+    const users = DB.load().users;
     const escape = value => this.escapeWorkerText(value);
     let allLogs = projects.flatMap(project => (project.dailyLogs || [])
-      .filter(log => workersOnly
-        ? (workerIds.has(log.reporterId) || workerRoles.includes(log.reporterRole))
-        : log.approved !== false)
-      .map(log => ({ log, project })));
+      .filter(log => log.approved !== false).map(log => ({ log, project })));
     allLogs.sort((a, b) => String(b.log.date || '').localeCompare(String(a.log.date || '')) ||
       String(b.log.createdAt || b.log.timestamp || '').localeCompare(String(a.log.createdAt || a.log.timestamp || '')));
-    const canDelete = !workersOnly && ['manager', 'kts', 'sales'].includes(user.role);
+    const canDelete = ['manager', 'kts', 'sales'].includes(user.role);
     container.innerHTML = `
       <section class="manager-journal" data-user="${escape(user.id)}" data-follow-today="${retained?.followToday !== false}">
-        <div class="journal-heading"><div>${workersOnly
-          ? '<h2>Tổng hợp báo cáo thợ</h2><p>Báo cáo của tất cả thợ theo ngày, gom theo công trình. Báo cáo chưa được thợ chính duyệt có nhãn “Chờ duyệt”.</p>'
-          : '<h2>Nhật ký báo cáo</h2><p>Xem công việc đã làm và phần còn lại theo từng công trình.</p>'}</div></div>
+        <div class="journal-heading"><div><h2>Nhật ký báo cáo</h2><p>Xem công việc đã làm và phần còn lại theo từng công trình.</p></div></div>
         <div class="journal-filters">
           <div class="journal-date-filter"><label for="filter-log-date">Ngày báo cáo</label><div><input type="date" id="filter-log-date" class="form-input"><button type="button" id="journal-today">Hôm nay</button></div></div>
           <div><label for="filter-log-project">Công trình</label><select id="filter-log-project" class="form-select"><option value="all">Tất cả công trình</option>${projects.map(p => `<option value="${escape(p.id)}">${escape(p.name)}</option>`).join('')}</select></div>
-          <div><label for="filter-log-reporter">${workersOnly ? 'Thợ' : 'Nhân sự'}</label><select id="filter-log-reporter" class="form-select"><option value="all">${workersOnly ? 'Tất cả thợ' : 'Tất cả nhân sự'}</option>${users.map(w => `<option value="${escape(w.id)}">${escape(w.name)}</option>`).join('')}</select></div>
+          <div><label for="filter-log-reporter">Nhân sự</label><select id="filter-log-reporter" class="form-select"><option value="all">Tất cả nhân sự</option>${users.map(w => `<option value="${escape(w.id)}">${escape(w.name)}</option>`).join('')}</select></div>
           <div><label for="filter-log-status">Tiến độ báo cáo</label><select id="filter-log-status" class="form-select"><option value="all">Tất cả tiến độ</option><option value="on_track">Đúng tiến độ</option><option value="delayed">Bị chậm</option></select></div>
         </div>
         <div class="journal-overview" id="journal-overview" aria-live="polite"></div>
@@ -3929,7 +4129,7 @@ export const UI = {
         groups.get(entry.project.id).entries.push({ ...entry, index });
       });
       const dayLabel = dateInput.value ? dateInput.value.split('-').reverse().join('/') : 'Tất cả ngày';
-      container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} ${workersOnly ? 'thợ' : 'nhân sự'}${workersOnly && filtered.some(e => e.log.approved === false) ? ` · ${filtered.filter(e => e.log.approved === false).length} chờ duyệt` : ''}`;
+      container.querySelector('#journal-overview').textContent = `${dayLabel} · ${filtered.length} báo cáo · ${groups.size} công trình · ${new Set(filtered.map(e => e.log.reporterId || e.log.reporterName)).size} nhân sự`;
       const list = container.querySelector('#filtered-logs-list');
       list.innerHTML = Array.from(groups.values()).map(({ project, entries }) => `
         <section class="journal-project"><header><span>Công trình · ${entries.length} báo cáo</span><h3>${escape(project.name)}</h3></header>
@@ -3937,7 +4137,7 @@ export const UI = {
             const stamp = log.createdAt || log.timestamp;
             const time = stamp && !Number.isNaN(Date.parse(stamp)) ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '';
             return `<article class="manager-log-card journal-report" data-log-id="${escape(log.id)}">
-              <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong>${log.approved === false ? ' <span class="journal-pending-badge">Chờ duyệt</span>' : ''}<p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
+              <div class="journal-report-heading"><div><strong>${escape(log.reporterName || 'Chưa rõ nhân sự')}</strong><p>${escape(log.date?.split('-').reverse().join('/') || '')}${time ? ` · ${time}` : ''} · ${(log.photos || []).length} ảnh</p></div>
                 <div class="journal-report-actions"><button type="button" data-view-log="${index}">Chi tiết</button>${canDelete ? `<button type="button" class="btn-delete-log-from-tab" data-delete-log="${index}">Xóa</button>` : ''}</div></div>
               ${this.getJournalRows(log, project).map(row => `<div class="journal-item">
                 <div class="journal-current-task"><div class="journal-item-heading"><label>Nhiệm vụ</label><span class="${row.status === 'Xong' ? 'is-done' : ''}">${escape(row.status)}</span></div><h4>${escape(row.task)}</h4></div>
@@ -3947,7 +4147,7 @@ export const UI = {
               </div>`).join('')}
             </article>`;
           }).join('')}
-        </section>`).join('') || `<div class="worker-task-empty">${workersOnly ? 'Chưa có báo cáo nào của thợ khớp với bộ lọc. Có thể chọn ngày khác.' : 'Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.'}</div>`;
+        </section>`).join('') || '<div class="worker-task-empty">Không có báo cáo đã duyệt khớp với bộ lọc. Có thể chọn ngày khác để xem nhật ký cũ.</div>';
       list.querySelectorAll('[data-view-log]').forEach(btn => btn.addEventListener('click', () => {
         const entry = filtered[Number(btn.dataset.viewLog)];
         this.openLogDetailModal(entry.log, entry.project);
@@ -5391,7 +5591,7 @@ export const UI = {
           <div>
             <h4 style="font-family:var(--font-title); font-size:1.1rem; color:var(--text-primary);">Chi Tiết Báo Cáo Ngày: ${log.date}</h4>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">
-              Người gửi: <strong>${log.reporterName}</strong> (${roleDisplay}) ${log.approvedBy ? ` | Duyệt bởi: <strong>${log.approvedBy}</strong>` : ''}
+              Người gửi: <strong>${log.reporterName}</strong> (${roleDisplay}) ${DB.getLogSubmitter(log) ? ` | <strong style="color:#C084FC;">✍ ${this.escapeWorkerText(DB.getLogSubmitter(log).name || '')} báo cáo thay</strong>` : ''} ${log.approvedBy ? ` | Duyệt bởi: <strong>${log.approvedBy}</strong>` : ''}
             </p>
           </div>
 
@@ -5508,7 +5708,7 @@ export const UI = {
 
         ${user.role === 'assistant_worker' ? `
           <div style="${DB.getSelectedLeadWorkerForAssistant(user.id) ? 'display:none;' : ''}">
-            <label class="form-label">Chọn Thợ chính duyệt báo cáo hôm nay</label>
+            <label class="form-label">Làm cùng thợ chính</label>
             <select id="edit-log-approver-id" class="form-select" ${DB.getSelectedLeadWorkerForAssistant(user.id) ? '' : 'required'}>
               ${leadWorkers.map(w => `<option value="${w.id}" ${log.approverId === w.id || DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
               ${leadWorkers.length === 0 ? '<option value="" disabled>Không có thợ chính nào</option>' : ''}
@@ -6724,6 +6924,7 @@ export const UI = {
       }
     } else {
       if (['lead_worker', 'assistant_worker'].includes(user.role) && this.refreshWorkerTaskBoard) this.refreshWorkerTaskBoard();
+      if (this.refreshCrewSummary) this.refreshCrewSummary();
       let relevantProjects = DB.getProjectsForUser(user);
 
       const statProjects = document.getElementById('stat-projects-btn');

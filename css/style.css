@@ -48,9 +48,56 @@
   .worker-view .welcome-user { font-size: 1rem; font-weight: 600; line-height: 1.45; }
   .worker-view .welcome-date { font-size: .72rem; margin-top: 4px; }
   .worker-view .worker-history-navigation .tab-btn { font-size: .8rem !important; font-weight: 600 !important; }
-  .worker-history-navigation { flex-direction: column; }
-  .worker-history-navigation .tab-btn:not([hidden]) ~ .tab-btn:not([hidden]) { border-top: 1px solid var(--border-color) !important; border-radius: 0 0 12px 12px; }
 }
+
+/* Crew summary: top tabs + one box per worker for the chosen day. */
+.crew-top-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; }
+.crew-top-tabs button { flex: 1; min-height: 46px; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.crew-top-tabs button[aria-selected="true"] { background: var(--primary); color: #17130b; }
+.crew-top-tabs button:focus-visible, .crew-summary button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.crew-summary { display: grid; gap: 12px; padding-bottom: 24px; }
+.crew-summary-head { display: grid; gap: 8px; }
+.crew-summary-date { display: flex; gap: 8px; }
+.crew-summary-date input { flex: 1; min-width: 0; height: 44px; font-size: 16px; }
+.crew-summary-date button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.crew-summary-date button:disabled { opacity: .45; cursor: default; }
+.crew-summary-overview { font-size: .84rem; color: var(--text-secondary); }
+.crew-summary-overview strong { color: var(--text-primary); }
+.crew-warn { color: var(--status-pending); font-weight: 600; }
+.crew-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; align-items: start; }
+.crew-member-box { min-width: 0; border: 1px solid var(--border-color); border-left: 4px solid var(--border-color); border-radius: 10px; background: var(--bg-secondary); }
+.crew-member-box.is-ok { border-left-color: var(--status-approved); }
+.crew-member-box.is-partial, .crew-member-box.is-missing { border-left-color: var(--status-pending); }
+.crew-member-box > header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; }
+.crew-member-box h3 { font-size: 1rem; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+.crew-member-box h3 small { font-size: .72rem; font-weight: 500; color: var(--text-secondary); }
+.crew-member-status { flex-shrink: 0; font-size: .76rem; font-weight: 700; color: var(--status-pending); }
+.crew-member-box.is-ok .crew-member-status { color: var(--status-approved); }
+.crew-member-box.is-idle .crew-member-status { color: var(--text-secondary); font-weight: 500; }
+.crew-member-empty { padding: 0 14px 12px; color: var(--text-secondary); font-size: .84rem; }
+.crew-task { padding: 10px 14px; border-top: 1px solid var(--border-color); }
+.crew-task-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.crew-task-head h4 { font-size: .9rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.crew-task-head span { flex-shrink: 0; font-size: .74rem; font-weight: 700; color: var(--status-pending); }
+.crew-task.is-reported .crew-task-head span, .crew-task.is-done .crew-task-head span { color: var(--status-approved); }
+.crew-task-place { margin-top: 1px; font-size: .74rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+.crew-line { margin-top: 6px; font-size: .84rem; line-height: 1.5; overflow-wrap: anywhere; }
+.crew-other .crew-line:first-child { margin-top: 0; }
+.crew-time { color: var(--text-secondary); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.crew-by { color: #60A5FA; }
+.crew-left { color: var(--status-pending); }
+.crew-photo-btn { margin-left: 2px; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-size: .76rem; font-weight: 600; text-decoration: underline; cursor: pointer; }
+[data-theme="light"] .crew-by { color: #1D4ED8; }
+.crew-proxy { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: .72rem; font-weight: 700; color: #C084FC; background: rgba(192,132,252,.14); }
+[data-theme="light"] .crew-proxy { color: #7E22CE; }
+.crew-report-btn { margin-top: 8px; min-height: 40px; width: 100%; padding: 8px 12px; border: 1px dashed var(--primary); border-radius: 8px; background: transparent; color: var(--primary); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; }
+.crew-report-btn:hover { background: rgba(197,168,128,.08); }
+.crew-report-form { display: grid; gap: 10px; }
+.crew-report-form-task h4 { font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.crew-report-form-task p { margin-top: 2px; font-size: .8rem; color: var(--text-secondary); }
+.crew-proxy-note { padding: 8px 10px; border-radius: 8px; font-size: .82rem; line-height: 1.5; color: var(--text-primary); background: rgba(192,132,252,.12); border: 1px solid rgba(192,132,252,.35); }
+.crew-rf-done { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: .88rem; font-weight: 600; }
+.crew-rf-done input { width: 20px; height: 20px; }
 
 .manager-journal { display: grid; gap: 16px; padding-bottom: 20px; }
 .journal-heading h2 { font-size: 1.3rem; }
@@ -64,8 +111,6 @@
 .manager-journal button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary); font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
 .manager-journal button:disabled { opacity: .45; cursor: default; }
 .manager-journal button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.journal-pending-badge { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; color: var(--status-pending); background: rgba(217,119,6,.14); vertical-align: middle; }
-.worker-history-navigation .tab-btn[hidden] { display: none !important; }
 .journal-overview { font-size: .85rem; color: var(--primary); font-weight: 600; }
 .journal-project-list { display: grid; gap: 20px; }
 .journal-project { min-width: 0; overflow: hidden; border: 1px solid var(--primary); border-radius: 12px; background: var(--bg-secondary); }
