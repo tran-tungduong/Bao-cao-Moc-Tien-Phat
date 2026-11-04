@@ -506,6 +506,7 @@ export const UI = {
       item: previous?.item || item,
       latest,
       pendingNotes: task.status === 'completed' ? '' : (previous?.pendingNotes || task.items?.[0]?.pendingNotes || ''),
+      reportedToday: !!ownToday,
       todayLabel: ownToday ? (ownToday.approved === false ? 'Đã báo cáo hôm nay · Chờ duyệt' : 'Đã báo cáo hôm nay') : 'Hôm nay chưa báo cáo'
     };
   },
@@ -522,7 +523,9 @@ export const UI = {
       const completedCount = groups.reduce((n, g) => n + g.tasks.filter(t => t.status === 'completed').length, 0);
       const shown = groups.map(g => ({ ...g, tasks: g.tasks.filter(t => (t.status === 'completed') === (filter === 'completed')) })).filter(g => g.tasks.length);
       board.innerHTML = `
-        <div class="worker-task-heading"><h2>Nhiệm vụ đang làm</h2><p>${pendingCount} nhiệm vụ đang làm · ${groups.filter(g => g.tasks.some(t => t.status !== 'completed')).length} công trình</p></div>
+        <div class="worker-task-heading">${filter === 'completed'
+          ? `<h2>Nhiệm vụ đã xong</h2><p>${completedCount} nhiệm vụ đã xong · ${groups.filter(g => g.tasks.some(t => t.status === 'completed')).length} công trình</p>`
+          : `<h2>Nhiệm vụ đang làm</h2><p>${pendingCount} nhiệm vụ đang làm · ${groups.filter(g => g.tasks.some(t => t.status !== 'completed')).length} công trình</p>`}</div>
         <div class="worker-task-filters" role="group" aria-label="Trạng thái nhiệm vụ">
           <button type="button" data-filter="pending" aria-pressed="${filter === 'pending'}">Đang làm (${pendingCount})</button>
           <button type="button" data-filter="completed" aria-pressed="${filter === 'completed'}">Đã xong (${completedCount})</button>
@@ -536,7 +539,7 @@ export const UI = {
                 <div class="worker-task-title"><h4>${escape(summary.title || 'Nhiệm vụ')}</h4><span class="worker-task-status ${done ? 'is-done' : ''}">${done ? 'Đã xong' : task.type === 'rework' ? 'Cần sửa' : summary.latest || task.items?.length ? 'Chưa xong' : 'Chưa có báo cáo'}</span></div>
                 <p class="worker-task-room">${escape(summary.room)}</p>
                 ${summary.pendingNotes ? `<div class="worker-task-remaining"><strong>Công việc còn lại</strong><p>${escape(summary.pendingNotes)}</p></div>` : ''}
-                <p class="worker-task-report-state">${escape(summary.todayLabel)}</p>
+                ${done && !summary.reportedToday ? '' : `<p class="worker-task-report-state">${escape(summary.todayLabel)}</p>`}
                 <button type="button" class="worker-task-report-btn" data-project="${escape(project.id)}" data-task="${escape(task.id)}">${done ? 'Xem báo cáo' : 'Báo cáo nhiệm vụ'}</button>
               </article>`;
             }).join('')}
@@ -606,10 +609,10 @@ export const UI = {
 
       ${user.role === 'assistant_worker' ? `
         <div class="material-stats-card fade-in" style="margin-bottom: 16px; background-color: var(--bg-secondary); padding: 14px 16px; border-radius:16px; border:1px solid var(--border-color);">
-          <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc cùng Thợ chính:</label>
+          <label class="form-label" style="margin-bottom:8px; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fas fa-people-arrows" style="color:var(--primary);"></i> Hôm nay tôi làm việc:</label>
           <select id="worker-lead-selector" class="form-select">
-            <option value="" ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chưa chọn / Chọn Thợ chính đồng hành --</option>
-            ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+            <option value="" ${!DB.getSelectedLeadWorkerForAssistant(user.id) ? 'selected' : ''}>-- Chọn thợ chính --</option>
+            ${leadWorkers.map(w => `<option value="${w.id}" ${DB.getSelectedLeadWorkerForAssistant(user.id) === w.id ? 'selected' : ''}>Cùng ${w.name}</option>`).join('')}
             <option value="independent" ${DB.getSelectedLeadWorkerForAssistant(user.id) === 'independent' ? 'selected' : ''}>🔧 Làm độc lập (tự báo cáo)</option>
           </select>
         </div>
@@ -734,7 +737,7 @@ export const UI = {
               </div>
 
               <button type="submit" class="btn-primary" style="margin-top:8px;">
-                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' && selectedAssistantMode !== 'independent' ? 'Gửi Báo Cáo Chờ Duyệt (Thợ phụ)' : 'Gửi Báo Cáo Cuối Ngày'}
+                <i class="fas fa-paper-plane"></i> ${user.role === 'assistant_worker' && selectedAssistantMode !== 'independent' ? 'Gửi Báo Cáo Chờ Duyệt' : 'Gửi Báo Cáo Cuối Ngày'}
               </button>
             </div>
           </form>
@@ -1087,7 +1090,7 @@ export const UI = {
               <div>
                 <h5 style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary); margin-bottom: 2px;">${p.name}</h5>
                 <p style="font-size: 0.76rem; color: var(--text-secondary);">
-                  Ngày báo cáo: <strong>${l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved);">Đã duyệt ✅</span>' : '<span style="color:var(--status-pending);">Chờ duyệt ⏳</span>'}
+                  Ngày báo cáo: <strong>${/^\d{4}-\d{2}-\d{2}$/.test(String(l.date)) ? String(l.date).split('-').reverse().join('/') : l.date}</strong> | Trạng thái: ${isApproved ? '<span style="color:var(--status-approved); white-space:nowrap;">Đã duyệt ✅</span>' : '<span style="color:var(--status-pending); white-space:nowrap;">Chờ duyệt ⏳</span>'}
                 </p>
               </div>
 
@@ -1195,6 +1198,8 @@ export const UI = {
       navigation.hidden = !!taskContext;
       tabCreate.hidden = true;
       tabCreate.textContent = '← Nhiệm vụ của tôi';
+      tabEdit.innerHTML = '<i class="fas fa-history"></i> Lịch Sử & Sửa Báo Cáo';
+      contentEdit.insertAdjacentHTML('afterbegin', '<div class="worker-task-heading"><h2>Lịch sử báo cáo</h2><p>Các báo cáo bạn đã gửi. Bấm Sửa để chỉnh lại.</p></div>');
       const openTask = context => this.renderWorkerView(user, context);
       this.renderWorkerTaskBoard(user, openTask);
       this.refreshWorkerTaskBoard = () => {

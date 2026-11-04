@@ -27,12 +27,14 @@
 .worker-task-report-state { margin: 10px 0 12px; font-size: .75rem; }
 .worker-task-report-btn { width: 100%; min-height: 44px; margin-top: auto; padding: 10px 14px; border: 0; border-radius: 8px; background: #E5C158; color: #17130b; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
 .worker-task-report-btn:hover { filter: brightness(1.07); }
+.worker-task-room + .worker-task-report-btn, .worker-task-remaining + .worker-task-report-btn { margin-top: 12px; }
 .worker-task-report-btn:focus-visible, .worker-task-filters button:focus-visible, .worker-back-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 .worker-task-empty { padding: 28px 18px; text-align: center; border: 1px dashed var(--border-color); border-radius: 12px; color: var(--text-secondary); }
 .worker-report-context { margin-bottom: 16px; }
 .worker-report-context h2 { font-size: 1.3rem; overflow-wrap: anywhere; }
 .worker-history-navigation { margin-top: 0 !important; border: 1px solid var(--border-color) !important; border-radius: 12px; background: var(--bg-secondary); }
-.worker-history-navigation .tab-btn { min-height: 48px; border-radius: 12px; }
+.worker-history-navigation .tab-btn { min-height: 48px; border-radius: 12px; color: var(--primary) !important; border-bottom: none !important; }
+.worker-history-navigation .tab-btn:hover { background: rgba(197,168,128,.08) !important; }
 .worker-back-btn { min-height: 44px; margin-bottom: 10px; padding: 8px 0; background: none; border: 0; color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; }
 @media (max-width: 600px) {
   .worker-task-cards { grid-template-columns: 1fr; }
@@ -1134,7 +1136,7 @@ body {
 /* Toast System styling */
 #toast-container {
   position: absolute;
-  top: 24px;
+  top: 76px;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100vw - 48px);
