@@ -7,7 +7,7 @@
 // Storage: one row per day in `crew_dispatch_days`, read on demand by date
 // (a few KB) instead of joining the full-table live sync. Until that table
 // exists the tab runs in "thử nghiệm" mode and keeps data in this browser only.
-import { DB } from './db.js?v=20261105-project1';
+import { DB } from './db.js?v=20261105-workshop1';
 import { Toast, Modal } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 
@@ -17,8 +17,11 @@ const LOCAL_KEY = 'mtp_crew_dispatch_local_v1';
 const CREW_IDS = ['usr_cuong', 'usr_ut', 'usr_minhnhat'];
 const ATTENDANCE = ['Chưa xác nhận', 'Có làm', 'Tạm vắng', 'Nghỉ'];
 // Pseudo-project for work that belongs to no project (dọn xưởng, chở ván…).
+// Old rows (before the workshop project existed) used this pseudo id with hand-written text.
 const WORKSHOP = '__workshop';
 const WORKSHOP_LABEL = 'Xưởng / việc chung';
+// The real "Xưởng / Việc chung" project: its jobs are normal tasks that workers report.
+const WORKSHOP_ID = 'prj_workshop';
 const RATINGS = ['Đúng tiến độ', 'Vượt tiến độ', 'Chậm tiến độ', 'Thay đổi kế hoạch'];
 const EDIT_ROLES = ['kts', 'manager'];
 const WORKER_ROLES = ['lead_worker', 'assistant_worker'];
@@ -259,7 +262,10 @@ function readAppData(date) {
   const users = db.users || [];
   const usersById = new Map(users.map(u => [u.id, u]));
   const crew = CREW_IDS.map(id => usersById.get(id)).filter(Boolean);
-  const projects = db.projects || [];
+  const projects = [...(db.projects || [])]; // copy: a stand-in workshop may be added below
+  if (!projects.some(p => p.id === WORKSHOP_ID)) {
+    projects.push({ id: WORKSHOP_ID, name: DB.WORKSHOP_NAME, virtual: true, isCompleted: false, subtasks: [], dailyLogs: [], scope: [{ room: 'Chung', item: 'Cả phòng' }] });
+  }
   const openProjects = projects.filter(p => !p.isCompleted).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   const projectByName = new Map(projects.map(p => [norm(p.name), p]));
   const attendanceByUser = new Map((db.attendance || []).filter(a => a.date === date).map(a => [a.userId, a]));
@@ -561,8 +567,9 @@ export const DispatchView = {
       const known = r.projectId === WORKSHOP || app.openProjects.some(p => p.id === r.projectId);
       return `<select class="dsp-in" data-f="project" aria-label="Công trình" ${dis}>
         <option value="">— Chọn công trình —</option>
-        <option value="${WORKSHOP}" ${r.projectId === WORKSHOP ? 'selected' : ''}>🏭 ${WORKSHOP_LABEL}</option>
-        <optgroup label="Công trình đang chạy">${app.openProjects.map(p => `<option value="${esc(p.id)}" ${p.id === r.projectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>
+        <option value="${WORKSHOP_ID}" ${r.projectId === WORKSHOP_ID ? 'selected' : ''}>🏭 ${WORKSHOP_LABEL}</option>
+        ${r.projectId === WORKSHOP ? `<option value="${WORKSHOP}" selected>🏭 ${WORKSHOP_LABEL} (ghi tay cũ)</option>` : ''}
+        <optgroup label="Công trình đang chạy">${app.openProjects.filter(p => p.id !== WORKSHOP_ID).map(p => `<option value="${esc(p.id)}" ${p.id === r.projectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>
         ${!known && (r.projectId || r.project) ? `<option value="${esc(r.projectId || '')}" selected>${esc(r.project || 'Công trình cũ')}</option>` : ''}
       </select>`;
     };
@@ -582,6 +589,7 @@ export const DispatchView = {
       return id;
     };
     const rowRoom = (r, project) => {
+      if (project.id === WORKSHOP_ID) return 'Chung';
       const linked = r.taskId ? app.taskById.get(r.taskId)?.task : null;
       if (linked) return taskRoom(linked.title);
       const rooms = roomsOf(project);
@@ -591,7 +599,7 @@ export const DispatchView = {
 
     const roomCell = (u, r, i) => {
       if (!r.projectId) return '<select class="dsp-in" disabled aria-label="Phòng"><option>—</option></select>';
-      if (r.projectId === WORKSHOP) return '<span class="dsp-muted dsp-na">Không cần</span>';
+      if (r.projectId === WORKSHOP || r.projectId === WORKSHOP_ID) return '<span class="dsp-muted dsp-na">Không cần</span>';
       const project = app.projects.find(p => p.id === r.projectId);
       if (!project) return '';
       if (this.newRoomFor === `${u.id}|${i}`) {
@@ -660,7 +668,7 @@ export const DispatchView = {
       const lockedView = (r, i) => {
         const linked = r.taskId ? app.taskById.get(r.taskId)?.task : null;
         const project = app.projects.find(p => p.id === r.projectId);
-        const room = r.projectId === WORKSHOP ? '—' : linked ? taskRoom(linked.title) : (r.room || '—');
+        const room = r.projectId === WORKSHOP || r.projectId === WORKSHOP_ID ? '—' : linked ? taskRoom(linked.title) : (r.room || '—');
         const name = linked ? parseTaskTitle(linked.title).name : (r.task || '');
         let note = '';
         if (linked && r.joint) {
@@ -871,12 +879,13 @@ export const DispatchView = {
     root.querySelectorAll('.dsp-coord [data-f="project"]').forEach(el => el.addEventListener('change', () => {
       const { id, i } = rowOf(el);
       const pid = el.value;
-      const name = pid === WORKSHOP ? WORKSHOP_LABEL : (app.projects.find(p => p.id === pid)?.name || '');
-      // Changing the project clears the task; the workshop only takes hand-written work.
+      const name = app.projects.find(p => p.id === pid)?.name || '';
+      // Changing the project clears the task.
       delete this.taskDrafts[`${id}|${i}`];
       const proj = app.projects.find(p => p.id === pid);
-      const room = proj ? (this.lastRoom[pid] && roomsOf(proj).includes(this.lastRoom[pid]) ? this.lastRoom[pid] : roomsOf(proj)[0]) : '';
-      setRow(id, i, { projectId: pid, project: name, room, kind: pid === WORKSHOP ? 'free' : '', taskId: '', task: '', joint: false });
+      const room = pid === WORKSHOP_ID ? 'Chung' : proj ? (this.lastRoom[pid] && roomsOf(proj).includes(this.lastRoom[pid]) ? this.lastRoom[pid] : roomsOf(proj)[0]) : '';
+      setRow(id, i, { projectId: pid, project: name, room, kind: '', taskId: '', task: '', joint: false });
+      this.focusTask(id, i);
     }));
 
     root.querySelectorAll('.dsp-coord [data-f="free"]').forEach(el => el.addEventListener('change', () => {
@@ -925,7 +934,7 @@ export const DispatchView = {
     });
 
     // Give the typed task: pick the existing one in that room, or create it.
-    const commitTask = (el, allowCreate) => {
+    const commitTask = async (el, allowCreate) => {
       const { id, i } = rowOf(el);
       const key = `${id}|${i}`;
       const row = this.day.workers[id]?.rows?.[i] || emptyRow();
@@ -937,7 +946,7 @@ export const DispatchView = {
       if (!project) return;
       if (!text) { delete this.taskDrafts[key]; setRow(id, i, { kind: '', taskId: '', task: '', joint: false }); return; }
       const roomSel = el.closest('.dsp-row')?.querySelector('[data-f="room"]');
-      const room = roomSel && roomSel.value !== '__other' ? roomSel.value : (row.room || roomsOf(project)[0]);
+      const room = project.id === WORKSHOP_ID ? 'Chung' : roomSel && roomSel.value !== '__other' ? roomSel.value : (row.room || roomsOf(project)[0]);
       const open = (project.subtasks || []).filter(t => t.status !== 'completed');
       const inRoom = open.filter(t => norm(taskRoom(t.title)) === norm(room));
       const match = inRoom.find(t => norm(parseTaskTitle(t.title).name) === norm(text));
@@ -951,6 +960,7 @@ export const DispatchView = {
         return;
       }
       try {
+        if (project.virtual) await DB.ensureWorkshopProject();
         const task = TaskOps.createTask(project.id, room, 'Cả phòng', text, id, this.user);
         delete this.taskDrafts[key];
         this.lastRoom[project.id] = room;
@@ -1255,7 +1265,7 @@ export const DispatchView = {
     });
     if (!rows.length) out.push('', 'Hôm nay chưa có báo cáo công việc.');
     [...byProject].forEach(([project, list], n) => {
-      out.push('', LINE, `🏠 ${n + 1}. ${project.toLocaleUpperCase('vi-VN')}`, LINE);
+      out.push('', LINE, `${project.startsWith('🏭') ? '' : '🏠 '}${n + 1}. ${project.toLocaleUpperCase('vi-VN')}`, LINE);
       list.forEach(r => {
         const extra = [r.line?.withWho ? `làm cùng ${r.line.withWho}` : '', r.line?.proxyBy ? `${r.line.proxyBy} báo thay` : ''].filter(Boolean).join(', ');
         const who = r.line?.who ? `${r.line.who}${extra ? ` (${extra})` : ''} — ` : '';

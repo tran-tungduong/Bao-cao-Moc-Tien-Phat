@@ -1,7 +1,7 @@
-import { DB } from './db.js?v=20261105-project1';
+import { DB } from './db.js?v=20261105-workshop1';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
-import { DispatchView, DispatchStore, loadTodayDispatch } from './dispatch.js?v=20261105-project1';
+import { DispatchView, DispatchStore, loadTodayDispatch } from './dispatch.js?v=20261105-workshop1';
 
 window.showPhotoLightbox = (url) => {
   const lightbox = document.createElement('div');
@@ -2606,7 +2606,7 @@ export const UI = {
     const db = DB.load();
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const projects = DB.getProjectsForUser(user).filter(p => !p.isCompleted);
+    const projects = DB.getProjectsForUser(user).filter(p => !p.isCompleted && !DB.isWorkshopProject(p));
     const workers = db.users.filter(u => ['lead_worker', 'assistant_worker'].includes(u.role));
     const attendance = DB.getAttendance(today);
     const workPeriodValues = ['Cả ngày', 'Buổi sáng', 'Buổi chiều'];
@@ -3396,9 +3396,10 @@ export const UI = {
     if (!container) return;
 
     const db = DB.load();
-    const allProjects = DB.getProjectsForUser(user);
+    const allProjects = DB.getProjectsForUser(user).filter(p => !DB.isWorkshopProject(p));
     const activeProjects = allProjects.filter(p => !p.isCompleted);
     const completedProjects = allProjects.filter(p => p.isCompleted);
+    const workshopBox = this.buildWorkshopBox(db);
 
     const getShortName = (userId) => {
       const u = db.users.find(x => x.id === userId);
@@ -3966,6 +3967,7 @@ export const UI = {
 
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:14px; padding-bottom:80px;">
+        ${workshopBox}
         ${activeProjects.length > 0
         ? activeProjects.map(p => buildProjectCard(p)).join('')
         : `<div style="text-align:center; padding:32px; color:var(--text-muted); background:var(--bg-secondary); border-radius:16px; border:1px solid var(--border-color);">
@@ -4548,6 +4550,45 @@ export const UI = {
 
     // Bind import triggers
     this.bindImportBackupListener(user);
+  },
+
+  // "🏭 Xưởng / Việc chung" pinned on top of Tiến Độ: a plain list of jobs (no rooms,
+  // no deadline). Open jobs first; finished ones folded below, grouped by the day
+  // they were finished. Jobs are given from the dispatch tab only.
+  buildWorkshopBox(db) {
+    const escape = value => this.escapeWorkerText(value);
+    const short = name => String(name || '').replace(/\s*\([^)]*\)/g, '').trim() || 'Chưa giao';
+    const project = (db.projects || []).find(p => DB.isWorkshopProject(p));
+    const tasks = project ? (project.subtasks || []) : [];
+    const nameOf = t => { const m = String(t.title || '').match(/^\s*\[[^\]]*\]:\s*(.*)$/s); return m ? m[1] : t.title; };
+    const userName = id => short(db.users.find(u => u.id === id)?.name);
+    const lastLog = t => (project?.dailyLogs || []).filter(l => (l.items || []).some(it => it.taskId === t.id))
+      .sort((a, b) => String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || '')))[0];
+    const open = tasks.filter(t => t.status !== 'completed');
+    const done = tasks.filter(t => t.status === 'completed');
+    const dayOf = t => t.completedAt && !Number.isNaN(Date.parse(t.completedAt)) ? this.getJournalDate(new Date(t.completedAt)) : '';
+    const byDay = new Map();
+    done.slice().sort((a, b) => String(b.completedAt || '').localeCompare(String(a.completedAt || ''))).forEach(t => {
+      const d = dayOf(t) || 'Không rõ ngày';
+      if (!byDay.has(d)) byDay.set(d, []);
+      byDay.get(d).push(t);
+    });
+    const openRow = t => {
+      const log = lastLog(t);
+      const item = log ? log.items.find(it => it.taskId === t.id) : null;
+      const state = !log ? '<span class="ws-state">⏳ Chưa báo cáo</span>'
+        : `<span class="ws-state is-part">🟡 Đang làm${item?.pendingNotes ? ` · Còn: ${escape(item.pendingNotes)}` : ''}</span>`;
+      return `<li class="ws-item"><div><b>${escape(nameOf(t))}</b><small>${escape(userName(t.assignedTo))}</small></div>${state}</li>`;
+    };
+    return `
+      <section class="ws-box" aria-label="Xưởng / Việc chung">
+        <header class="ws-head"><h3><i class="fas fa-thumbtack"></i> 🏭 Xưởng / Việc chung</h3><span>${open.length} việc đang làm</span></header>
+        ${open.length ? `<ul class="ws-list">${open.map(openRow).join('')}</ul>` : '<p class="ws-empty">Không có việc xưởng đang làm. Giao việc ở tab Điều Phối Thợ (chọn 🏭 Xưởng / việc chung).</p>'}
+        ${done.length ? `<details class="ws-done"><summary>Đã xong (${done.length})</summary>
+          ${[...byDay].map(([d, list]) => `<div class="ws-day"><h4>${escape(d.includes('-') ? d.split('-').reverse().join('/') : d)}</h4>
+            <ul class="ws-list">${list.map(t => `<li class="ws-item is-done"><div><b>${escape(nameOf(t))}</b><small>${escape(userName(t.assignedTo))}</small></div><span class="ws-state is-done">✅ Xong</span></li>`).join('')}</ul></div>`).join('')}
+        </details>` : ''}
+      </section>`;
   },
 
   // Ask which worker gets work on this project, then continue in the dispatch tab.

@@ -839,6 +839,41 @@ export const DB = {
   },
 
   // Get current user session
+  // ---- "Xưởng / Việc chung": one fixed, never-finished project that holds work
+  // belonging to no project (dọn xưởng, mua vật tư…). Created on first use from the
+  // dispatch tab; shown as a pinned list on Tiến Độ, hidden from project counts.
+  WORKSHOP_ID: 'prj_workshop',
+  WORKSHOP_NAME: '🏭 Xưởng / Việc chung',
+
+  isWorkshopProject(project) {
+    return !!project && (project.id || project) === this.WORKSHOP_ID;
+  },
+
+  async ensureWorkshopProject() {
+    const db = this.load();
+    const existing = db.projects.find(p => p.id === this.WORKSHOP_ID);
+    if (existing) return existing;
+    const project = {
+      id: this.WORKSHOP_ID, name: this.WORKSHOP_NAME, step: 3, deadline: '', originalDeadline: '',
+      isCompleted: false, isRework: false, isSmallScope: false, assignees: [],
+      scope: [{ room: 'Chung', item: 'Cả phòng' }], subtasks: [], dailyLogs: [], history: []
+    };
+    db.projects.push(project);
+    this.save(db);
+    try {
+      await this.sbInsertProject(project);
+    } catch (error) {
+      // Another device created it at the same moment: that is fine.
+      if (!/duplicate|already exists|23505/i.test(error.message || '')) {
+        const rollback = this.load();
+        rollback.projects = rollback.projects.filter(p => p.id !== this.WORKSHOP_ID || (p.subtasks || []).length);
+        this.save(rollback);
+        throw error;
+      }
+    }
+    return project;
+  },
+
   // Raw Supabase client for modules that read their own small tables on demand
   // (e.g. crew dispatch), outside the full-table live sync.
   getClient() {
