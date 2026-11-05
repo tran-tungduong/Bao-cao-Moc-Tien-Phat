@@ -7,7 +7,7 @@
 // Storage: one row per day in `crew_dispatch_days`, read on demand by date
 // (a few KB) instead of joining the full-table live sync. Until that table
 // exists the tab runs in "thử nghiệm" mode and keeps data in this browser only.
-import { DB } from './db.js?v=20261104-dispatch22';
+import { DB } from './db.js?v=20261105-project1';
 import { Toast, Modal } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
 

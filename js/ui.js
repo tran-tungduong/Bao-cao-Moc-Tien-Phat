@@ -1,7 +1,7 @@
-import { DB } from './db.js?v=20261104-dispatch22';
+import { DB } from './db.js?v=20261105-project1';
 import { Toast, Modal, MockImages } from './components.js?v=20260915-egress-phase2';
 import { PushNotifications } from './notifications.js';
-import { DispatchView, DispatchStore, loadTodayDispatch } from './dispatch.js?v=20261104-dispatch22';
+import { DispatchView, DispatchStore, loadTodayDispatch } from './dispatch.js?v=20261105-project1';
 
 window.showPhotoLightbox = (url) => {
   const lightbox = document.createElement('div');
@@ -2508,7 +2508,8 @@ export const UI = {
 
     // Recreate the FAB directly under the app shell so it stays fixed on scroll
     const shell = document.getElementById('app-shell-container');
-    if (shell && ['manager', 'sales'].includes(user.role)) {
+    // Sếp, Sale and Nhật Long (KTS) can add a new project.
+    if (shell && ['manager', 'sales', 'kts'].includes(user.role)) {
       const fabBtn = document.createElement('button');
       fabBtn.className = 'fab';
       fabBtn.id = 'manager-add-project-btn';
@@ -2526,6 +2527,8 @@ export const UI = {
             loadCompleted();
           } else if (btnLogs && btnLogs.classList.contains('active')) {
             loadLogs();
+          } else if (btnDispatch && btnDispatch.classList.contains('active')) {
+            DispatchView.refresh();
           }
         });
       });
